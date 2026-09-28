@@ -1,0 +1,41 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and operating system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Laravel / PHP
+web/vendor/
+web/node_modules/
+web/public/build/
+web/storage/*.key
+web/storage/framework/cache/data/*
+web/storage/framework/sessions/*
+web/storage/framework/views/*
+web/storage/logs/*
+web/bootstrap/cache/*.php
+!web/storage/framework/cache/data/.gitignore
+!web/storage/framework/sessions/.gitignore
+!web/storage/framework/views/.gitignore
+!web/storage/logs/.gitignore
+
+# Spring Boot / Java
+api/target/
+api/.gradle/
+api/build/
+*.class
+*.log
+
+# Test and coverage output
+coverage/
+.phpunit.cache/
+
+# Local containers and databases
+*.pid
+*.seed
+*.sqlite
