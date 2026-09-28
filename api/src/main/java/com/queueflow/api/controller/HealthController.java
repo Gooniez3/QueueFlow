@@ -1,8 +1,9 @@
 package com.queueflow.api.controller;
 
+import com.queueflow.api.response.HealthResponse;
+import com.queueflow.api.service.HealthService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.queueflow.api.service.HealthService;
 
 @RestController
 public class HealthController {
@@ -14,7 +15,7 @@ public class HealthController {
     }
 
     @GetMapping("/api/v1/health")
-    public String health() {
-        return healthService.gethealthStatus();
+    public HealthResponse health() {
+        return healthService.getHealthStatus();
     }
 }
