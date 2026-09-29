@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Contracts\QueuePresentationSource;
+use App\Presentation\MockQueuePresentationSource;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(QueuePresentationSource::class, MockQueuePresentationSource::class);
     }
 
     /**
