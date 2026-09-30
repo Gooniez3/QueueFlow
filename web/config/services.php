@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'queueflow' => [
+        'base_url' => env('QUEUEFLOW_API_URL', 'http://localhost:8080'),
+    ],
+
 ];
