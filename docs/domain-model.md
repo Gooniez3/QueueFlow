@@ -137,7 +137,10 @@ User
 #### Relationships
 
 - Each QueueEntry belongs to one Queue.
-- Each QueueEntry records the Service requested by the customer.
+- Each QueueEntry must record the Service requested by the customer.
+- `QueueEntry.service_id` remains required even when `Queue.service_id` is NULL.
+- For a shared branch Queue (`Queue.service_id = NULL`), each QueueEntry identifies which Service the customer selected.
+- For a service-specific Queue, the QueueEntry Service represents the same requested Service as the Queue.
 - A Queue can contain many QueueEntries.
 - `user_id` is nullable so customers can join as guests.
 - `counter_id` is nullable because counters are optional.

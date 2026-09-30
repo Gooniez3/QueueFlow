@@ -10,12 +10,14 @@ import com.queueflow.api.entity.UserAccount;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Transactional
@@ -126,83 +128,146 @@ class QueueEntryRepositoryTest {
         assertThat(foundEntry.getTicketSequence())
                 .isEqualTo(1);
     }
+
     @Test
     void shouldSaveQueueEntryForGuestUser() {
 
-    Business business = businessRepository.saveAndFlush(
-            new Business(
-                    "QueueFlow Guest Test Business",
-                    "Business for guest queue entry test"
-            )
-    );
+        Business business = businessRepository.saveAndFlush(
+                new Business(
+                        "QueueFlow Guest Test Business",
+                        "Business for guest queue entry test"
+                )
+        );
 
-    Branch branch = branchRepository.saveAndFlush(
-            new Branch(
-                    business,
-                    "Guest Test Branch",
-                    "456 Test Street",
-                    new BigDecimal("1.352100"),
-                    new BigDecimal("103.819800")
-            )
-    );
+        Branch branch = branchRepository.saveAndFlush(
+                new Branch(
+                        business,
+                        "Guest Test Branch",
+                        "456 Test Street",
+                        new BigDecimal("1.352100"),
+                        new BigDecimal("103.819800")
+                )
+        );
 
-    Service service = serviceRepository.saveAndFlush(
-            new Service(
-                    branch,
-                    "Guest Service",
-                    "Service for guest customers",
-                    20
-            )
-    );
+        Service service = serviceRepository.saveAndFlush(
+                new Service(
+                        branch,
+                        "Guest Service",
+                        "Service for guest customers",
+                        20
+                )
+        );
 
-    Queue queue = queueRepository.saveAndFlush(
-            new Queue(
-                    branch,
-                    service,
-                    "Guest Service Queue",
-                    LocalDate.of(2026, 10, 1),
-                    "G"
-            )
-    );
+        Queue queue = queueRepository.saveAndFlush(
+                new Queue(
+                        branch,
+                        service,
+                        "Guest Service Queue",
+                        LocalDate.of(2026, 10, 1),
+                        "G"
+                )
+        );
 
-    QueueEntry entry = new QueueEntry(
-            queue,
-            service,
-            null,
-            1,
-            "hashed-guest-token-example"
-    );
+        QueueEntry entry = new QueueEntry(
+                queue,
+                service,
+                null,
+                1,
+                "hashed-guest-token-example"
+        );
 
-    QueueEntry savedEntry = queueEntryRepository.saveAndFlush(entry);
+        QueueEntry savedEntry = queueEntryRepository.saveAndFlush(entry);
 
-    assertThat(savedEntry.getId()).isNotNull();
-    assertThat(savedEntry.getUser()).isNull();
-    assertThat(savedEntry.getCounter()).isNull();
+        assertThat(savedEntry.getId()).isNotNull();
+        assertThat(savedEntry.getUser()).isNull();
+        assertThat(savedEntry.getCounter()).isNull();
 
-    assertThat(savedEntry.getGuestTokenHash())
-            .isEqualTo("hashed-guest-token-example");
+        assertThat(savedEntry.getGuestTokenHash())
+                .isEqualTo("hashed-guest-token-example");
 
-    assertThat(savedEntry.getStatus())
-            .isEqualTo(QueueEntryStatus.WAITING);
+        assertThat(savedEntry.getStatus())
+                .isEqualTo(QueueEntryStatus.WAITING);
 
-    assertThat(savedEntry.getTicketSequence())
-            .isEqualTo(1);
+        assertThat(savedEntry.getTicketSequence())
+                .isEqualTo(1);
 
-    assertThat(savedEntry.getJoinedAt()).isNotNull();
+        assertThat(savedEntry.getJoinedAt()).isNotNull();
 
-    QueueEntry foundEntry = queueEntryRepository
-            .findById(savedEntry.getId())
-            .orElseThrow();
+        QueueEntry foundEntry = queueEntryRepository
+                .findById(savedEntry.getId())
+                .orElseThrow();
 
-    assertThat(foundEntry.getUser()).isNull();
+        assertThat(foundEntry.getUser()).isNull();
 
-    assertThat(foundEntry.getGuestTokenHash())
-            .isEqualTo("hashed-guest-token-example");
+        assertThat(foundEntry.getGuestTokenHash())
+                .isEqualTo("hashed-guest-token-example");
 
-    assertThat(foundEntry.getQueue().getId())
-            .isEqualTo(queue.getId());
+        assertThat(foundEntry.getQueue().getId())
+                .isEqualTo(queue.getId());
 
-    assertThat(foundEntry.getService().getId())
-            .isEqualTo(service.getId());
+        assertThat(foundEntry.getService().getId())
+                .isEqualTo(service.getId());
+    }
+
+    @Test
+    void shouldRejectDuplicateTicketSequenceWithinSameQueue() {
+
+        Business business = businessRepository.saveAndFlush(
+                new Business(
+                        "Duplicate Ticket Test Business",
+                        "Business for ticket uniqueness test"
+                )
+        );
+
+        Branch branch = branchRepository.saveAndFlush(
+                new Branch(
+                        business,
+                        "Duplicate Ticket Branch",
+                        "789 Test Street",
+                        new BigDecimal("1.352100"),
+                        new BigDecimal("103.819800")
+                )
+        );
+
+        Service service = serviceRepository.saveAndFlush(
+                new Service(
+                        branch,
+                        "Ticket Test Service",
+                        "Service for ticket uniqueness test",
+                        15
+                )
+        );
+
+        Queue queue = queueRepository.saveAndFlush(
+                new Queue(
+                        branch,
+                        service,
+                        "Ticket Test Queue",
+                        LocalDate.of(2026, 10, 4),
+                        "T"
+                )
+        );
+
+        QueueEntry firstEntry = new QueueEntry(
+                queue,
+                service,
+                null,
+                1,
+                "first-guest-token-hash"
+        );
+
+        queueEntryRepository.saveAndFlush(firstEntry);
+
+        QueueEntry duplicateEntry = new QueueEntry(
+                queue,
+                service,
+                null,
+                1,
+                "second-guest-token-hash"
+        );
+
+        assertThatThrownBy(() ->
+                queueEntryRepository.saveAndFlush(duplicateEntry)
+        ).isInstanceOf(DataIntegrityViolationException.class);
     }
 }
