@@ -130,4 +130,25 @@ class BusinessControllerTest {
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$").isEmpty());
     }
+
+    @Test 
+    void shouldRejectMalformedJson() throws Exception {
+        String malformedJson = """
+                {
+                    "name": "QueueFlow Clinic",
+                    "description": "Medical clinic
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/businesses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(malformedJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Malformed JSON request"))
+                .andExpect(jsonPath("$.path").value("/api/v1/businesses"))
+                .andExpect(jsonPath("$.validationErrors").isEmpty());
+    }
 }
