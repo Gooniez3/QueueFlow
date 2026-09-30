@@ -3,7 +3,9 @@
 namespace Tests\Unit;
 
 use App\Data\BusinessData;
+use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowApiClient;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -105,5 +107,102 @@ class QueueFlowApiClientTest extends TestCase
                 && $request['name'] === 'QueueFlow Clinic'
                 && $request['description'] === 'Medical clinic'
         );
+    }
+
+    public function test_it_preserves_validation_errors_from_spring(): void
+    {
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::response([
+                'timestamp' => '2026-09-30T22:00:00+08:00',
+                'status' => 400,
+                'error' => 'Bad Request',
+                'message' => 'Validation failed',
+                'path' => '/api/v1/businesses',
+                'validationErrors' => [
+                    'name' => 'Business name is required',
+                ],
+            ], 400),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->createBusiness('', null);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(400, $exception->status);
+            $this->assertSame('Validation failed', $exception->getMessage());
+            $this->assertSame(
+                'Business name is required',
+                $exception->validationErrors['name']
+            );
+        }
+    }
+
+    public function test_it_handles_business_not_found(): void
+    {
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/999' => Http::response([
+                'timestamp' => '2026-09-30T22:00:00+08:00',
+                'status' => 404,
+                'error' => 'Not Found',
+                'message' => 'Business not found with id: 999',
+                'path' => '/api/v1/businesses/999',
+                'validationErrors' => [],
+            ], 404),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->business(999);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(404, $exception->status);
+            $this->assertSame(
+                'Business not found with id: 999',
+                $exception->getMessage()
+            );
+        }
+    }
+
+    public function test_it_handles_server_errors(): void
+    {
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::response([
+                'message' => 'Internal server error',
+            ], 500),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->businesses();
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(500, $exception->status);
+            $this->assertSame(
+                'Internal server error',
+                $exception->getMessage()
+            );
+        }
+    }
+
+    public function test_it_handles_connection_failures(): void
+    {
+        Http::fake(function () {
+            throw new ConnectionException(
+                'Connection refused'
+            );
+        });
+
+        try {
+            app(QueueFlowApiClient::class)->businesses();
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertNull($exception->status);
+            $this->assertSame(
+                'Unable to connect to the QueueFlow API.',
+                $exception->getMessage()
+            );
+        }
     }
 }

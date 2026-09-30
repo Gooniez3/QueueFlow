@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Data\BusinessData;
+use App\Exceptions\QueueFlowApiException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class QueueFlowApiClient
@@ -12,7 +15,10 @@ class QueueFlowApiClient
     {
         return Http::baseUrl(
             config('services.queueflow.base_url')
-        )->acceptJson();
+        )
+            ->acceptJson()
+            ->asJson()
+            ->timeout(5);
     }
 
     /**
@@ -20,9 +26,14 @@ class QueueFlowApiClient
      */
     public function businesses(): array
     {
-        $response = $this->client()
-            ->get('/api/v1/businesses')
-            ->throw();
+        try {
+            $response = $this->client()
+                ->get('/api/v1/businesses');
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
 
         return collect($response->json())
             ->map(fn (array $business) => BusinessData::fromArray($business))
@@ -31,9 +42,14 @@ class QueueFlowApiClient
 
     public function business(int $id): BusinessData
     {
-        $response = $this->client()
-            ->get("/api/v1/businesses/{$id}")
-            ->throw();
+        try {
+            $response = $this->client()
+                ->get("/api/v1/businesses/{$id}");
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
 
         return BusinessData::fromArray($response->json());
     }
@@ -42,13 +58,52 @@ class QueueFlowApiClient
         string $name,
         ?string $description = null
     ): BusinessData {
-        $response = $this->client()
-            ->post('/api/v1/businesses', [
-                'name' => $name,
-                'description' => $description,
-            ])
-            ->throw();
+        try {
+            $response = $this->client()
+                ->post('/api/v1/businesses', [
+                    'name' => $name,
+                    'description' => $description,
+                ]);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
 
         return BusinessData::fromArray($response->json());
+    }
+
+    private function ensureSuccessful(Response $response): void
+    {
+        if ($response->successful()) {
+            return;
+        }
+
+        $body = $response->json();
+
+        $message = is_array($body)
+            ? ($body['message'] ?? 'QueueFlow API request failed.')
+            : 'QueueFlow API request failed.';
+
+        $validationErrors = is_array($body)
+            ? ($body['validationErrors'] ?? [])
+            : [];
+
+        throw new QueueFlowApiException(
+            message: $message,
+            status: $response->status(),
+            validationErrors: is_array($validationErrors)
+                ? $validationErrors
+                : [],
+        );
+    }
+
+    private function connectionException(
+        ConnectionException $exception
+    ): QueueFlowApiException {
+        return new QueueFlowApiException(
+            message: 'Unable to connect to the QueueFlow API.',
+            previous: $exception,
+        );
     }
 }
