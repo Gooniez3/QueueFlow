@@ -1,5 +1,6 @@
 package com.queueflow.api.controller;
 
+import java.util.List;
 import com.queueflow.api.request.CreateBusinessRequest;
 import com.queueflow.api.response.BusinessResponse;
 import com.queueflow.api.service.BusinessService;
@@ -36,5 +37,12 @@ public class BusinessController {
         BusinessResponse response = businessService.getBusinessById(id);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping 
+    public ResponseEntity<List<BusinessResponse>> getAllBusinesses() {
+        List<BusinessResponse> businesses = businessService.getAllBusinesses();
+
+        return ResponseEntity.ok(businesses);
     }
 }

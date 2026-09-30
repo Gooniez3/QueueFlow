@@ -1,5 +1,6 @@
 package com.queueflow.api.service;
 
+import java.util.List;
 import com.queueflow.api.entity.Business;
 import com.queueflow.api.exception.ResourceNotFoundException;
 import com.queueflow.api.repository.BusinessRepository;
@@ -41,6 +42,13 @@ public class BusinessService {
                 );
 
         return toResponse(business);
+    }
+
+    @Transactional (readOnly = true)
+    public List<BusinessResponse> getAllBusinesses() {
+        return businessRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     private BusinessResponse toResponse(Business business) {
