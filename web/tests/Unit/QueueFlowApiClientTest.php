@@ -3,9 +3,11 @@
 namespace Tests\Unit;
 
 use App\Data\AuthUserData;
+use App\Data\BranchData;
 use App\Data\BusinessData;
 use App\Data\LoginData;
 use App\Data\RegisteredUserData;
+use App\Data\ServiceData;
 use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowApiClient;
@@ -519,6 +521,331 @@ class QueueFlowApiClientTest extends TestCase
                 'Unable to connect to the QueueFlow API.',
                 $exception->getMessage()
             );
+        }
+    }
+
+    public function test_it_fetches_public_branches_without_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches' => Http::response([
+                [
+                    'id' => 21,
+                    'businessId' => 10,
+                    'name' => 'Riverside Clinic',
+                    'address' => '10 River Road, Singapore',
+                    'latitude' => 1.3521,
+                    'longitude' => 103.8198,
+                    'createdAt' => '2030-04-15T10:30:00+08:00',
+                ],
+                [
+                    'id' => 22,
+                    'businessId' => 10,
+                    'name' => 'Mobile Clinic',
+                    'address' => 'Service area assigned daily',
+                    'latitude' => null,
+                    'longitude' => null,
+                    'createdAt' => '2030-04-16T10:30:00+08:00',
+                ],
+            ]),
+        ]);
+
+        $branches = app(QueueFlowApiClient::class)->branches(10);
+
+        $this->assertCount(2, $branches);
+        $this->assertInstanceOf(BranchData::class, $branches[0]);
+        $this->assertSame(21, $branches[0]->id);
+        $this->assertSame(10, $branches[0]->businessId);
+        $this->assertSame(1.3521, $branches[0]->latitude);
+        $this->assertNull($branches[1]->latitude);
+        $this->assertNull($branches[1]->longitude);
+
+        Http::assertSent(
+            fn ($request) => $request->method() === 'GET'
+                && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches'
+                && ! $request->hasHeader('Authorization')
+        );
+    }
+
+    public function test_it_fetches_a_public_branch_without_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21' => Http::response([
+                'id' => 21,
+                'businessId' => 10,
+                'name' => 'Riverside Clinic',
+                'address' => '10 River Road, Singapore',
+                'latitude' => 1.3521,
+                'longitude' => 103.8198,
+                'createdAt' => '2030-04-15T10:30:00+08:00',
+            ]),
+        ]);
+
+        $branch = app(QueueFlowApiClient::class)->branch(10, 21);
+
+        $this->assertInstanceOf(BranchData::class, $branch);
+        $this->assertSame(21, $branch->id);
+        $this->assertSame('Riverside Clinic', $branch->name);
+        $this->assertSame('10 River Road, Singapore', $branch->address);
+
+        Http::assertSent(
+            fn ($request) => $request->method() === 'GET'
+                && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21'
+                && ! $request->hasHeader('Authorization')
+        );
+    }
+
+    public function test_it_creates_a_branch_with_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches' => Http::response([
+                'id' => 21,
+                'businessId' => 10,
+                'name' => 'Riverside Clinic',
+                'address' => '10 River Road, Singapore',
+                'latitude' => 1.3521,
+                'longitude' => 103.8198,
+                'createdAt' => '2030-04-15T10:30:00+08:00',
+            ], 201),
+        ]);
+
+        $branch = app(QueueFlowApiClient::class)->createBranch(
+            10,
+            'inert-branch-token',
+            'Riverside Clinic',
+            '10 River Road, Singapore',
+            1.3521,
+            103.8198,
+        );
+
+        $this->assertInstanceOf(BranchData::class, $branch);
+        $this->assertSame(21, $branch->id);
+
+        Http::assertSent(
+            fn ($request) => $request->method() === 'POST'
+                && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches'
+                && $request->hasHeader('Authorization', 'Bearer inert-branch-token')
+                && $request->data() === [
+                    'name' => 'Riverside Clinic',
+                    'address' => '10 River Road, Singapore',
+                    'latitude' => 1.3521,
+                    'longitude' => 103.8198,
+                ]
+        );
+    }
+
+    public function test_it_preserves_branch_validation_errors(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches' => Http::response([
+                'message' => 'Request validation failed',
+                'validationErrors' => [
+                    'name' => 'Branch name is required',
+                    'latitude' => 'Latitude must be between -90 and 90',
+                ],
+            ], 400),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->createBranch(
+                10,
+                'inert-branch-token',
+                '',
+                '10 River Road, Singapore',
+                91.0,
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(400, $exception->status);
+            $this->assertSame('Request validation failed', $exception->getMessage());
+            $this->assertSame('Branch name is required', $exception->validationErrors['name']);
+            $this->assertSame(
+                'Latitude must be between -90 and 90',
+                $exception->validationErrors['latitude'],
+            );
+        }
+    }
+
+    public function test_it_maps_branch_connection_failures(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches' => Http::failedConnection(
+                'Connection refused with internal detail',
+            ),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->branches(10);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertNull($exception->status);
+            $this->assertSame('Unable to connect to the QueueFlow API.', $exception->getMessage());
+            $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
+        }
+    }
+
+    public function test_it_fetches_public_services_without_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services' => Http::response([
+                [
+                    'id' => 31,
+                    'branchId' => 21,
+                    'name' => 'General Consultation',
+                    'description' => 'Standard medical consultation',
+                    'durationMinutes' => 20,
+                    'active' => true,
+                    'createdAt' => '2030-04-15T10:30:00+08:00',
+                ],
+                [
+                    'id' => 32,
+                    'branchId' => 21,
+                    'name' => 'Walk-in Support',
+                    'description' => null,
+                    'durationMinutes' => 10,
+                    'active' => false,
+                    'createdAt' => '2030-04-16T10:30:00+08:00',
+                ],
+            ]),
+        ]);
+
+        $services = app(QueueFlowApiClient::class)->services(10, 21);
+
+        $this->assertCount(2, $services);
+        $this->assertInstanceOf(ServiceData::class, $services[0]);
+        $this->assertSame(31, $services[0]->id);
+        $this->assertTrue($services[0]->active);
+        $this->assertNull($services[1]->description);
+        $this->assertFalse($services[1]->active);
+
+        Http::assertSent(
+            fn ($request) => $request->method() === 'GET'
+                && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/services'
+                && ! $request->hasHeader('Authorization')
+        );
+    }
+
+    public function test_it_fetches_a_public_service_without_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services/31' => Http::response([
+                'id' => 31,
+                'branchId' => 21,
+                'name' => 'General Consultation',
+                'description' => 'Standard medical consultation',
+                'durationMinutes' => 20,
+                'active' => true,
+                'createdAt' => '2030-04-15T10:30:00+08:00',
+            ]),
+        ]);
+
+        $service = app(QueueFlowApiClient::class)->service(10, 21, 31);
+
+        $this->assertInstanceOf(ServiceData::class, $service);
+        $this->assertSame(31, $service->id);
+        $this->assertSame(21, $service->branchId);
+        $this->assertSame(20, $service->durationMinutes);
+
+        Http::assertSent(
+            fn ($request) => $request->method() === 'GET'
+                && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/services/31'
+                && ! $request->hasHeader('Authorization')
+        );
+    }
+
+    public function test_it_creates_a_service_with_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services' => Http::response([
+                'id' => 31,
+                'branchId' => 21,
+                'name' => 'General Consultation',
+                'description' => null,
+                'durationMinutes' => 20,
+                'active' => true,
+                'createdAt' => '2030-04-15T10:30:00+08:00',
+            ], 201),
+        ]);
+
+        $service = app(QueueFlowApiClient::class)->createService(
+            10,
+            21,
+            'inert-service-token',
+            'General Consultation',
+            null,
+            20,
+        );
+
+        $this->assertInstanceOf(ServiceData::class, $service);
+        $this->assertSame(31, $service->id);
+        $this->assertNull($service->description);
+
+        Http::assertSent(
+            fn ($request) => $request->method() === 'POST'
+                && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/services'
+                && $request->hasHeader('Authorization', 'Bearer inert-service-token')
+                && $request->data() === [
+                    'name' => 'General Consultation',
+                    'description' => null,
+                    'durationMinutes' => 20,
+                ]
+        );
+    }
+
+    public function test_it_preserves_service_api_errors(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services/999' => Http::response([
+                'message' => 'Service not found',
+                'validationErrors' => [],
+            ], 404),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->service(10, 21, 999);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(404, $exception->status);
+            $this->assertSame('Service not found', $exception->getMessage());
+            $this->assertSame([], $exception->validationErrors);
+        }
+    }
+
+    public function test_it_maps_service_connection_failures(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services' => Http::failedConnection(
+                'Connection refused with internal detail',
+            ),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->createService(
+                10,
+                21,
+                'inert-service-token',
+                'General Consultation',
+                null,
+                20,
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertNull($exception->status);
+            $this->assertSame('Unable to connect to the QueueFlow API.', $exception->getMessage());
+            $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
         }
     }
 }
