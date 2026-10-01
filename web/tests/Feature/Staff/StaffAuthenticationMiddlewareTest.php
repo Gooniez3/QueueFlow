@@ -58,8 +58,16 @@ class StaffAuthenticationMiddlewareTest extends TestCase
 
         $response = $this->get('/staff');
 
-        $response->assertOk();
-        $response->assertSee('Signed in successfully.');
+        $response
+            ->assertOk()
+            ->assertSee('Signed in successfully.')
+            ->assertSee('Sign out')
+            ->assertSee(
+                'action="'.route('staff.logout').'"',
+                false,
+            )
+            ->assertSee('method="POST"', false)
+            ->assertSee('name="_token"', false);
     }
 
     public function test_staff_home_receives_verified_spring_auth_context(): void

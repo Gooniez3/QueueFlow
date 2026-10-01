@@ -130,6 +130,55 @@ class AuthenticatedSessionTest extends TestCase
             ->assertSessionMissing('_old_input.password');
     }
 
+    public function test_successful_logout_uses_auth_service_and_redirects_to_login(): void
+    {
+        $authService = Mockery::mock(QueueFlowAuthService::class);
+        $authService->shouldReceive('logout')
+            ->once();
+
+        $this->app->instance(
+            QueueFlowAuthService::class,
+            $authService,
+        );
+
+        $response = $this->post(route('staff.logout'));
+
+        $response
+            ->assertRedirectToRoute('staff.login')
+            ->assertSessionHas(
+                'status',
+                'Signed out successfully.',
+            );
+    }
+
+    public function test_spring_logout_failure_still_redirects_to_login_with_safe_message(): void
+    {
+        $authService = Mockery::mock(QueueFlowAuthService::class);
+        $authService->shouldReceive('logout')
+            ->once()
+            ->andThrow(
+                new QueueFlowApiException(
+                    'Internal Spring connection details',
+                    503,
+                ),
+            );
+
+        $this->app->instance(
+            QueueFlowAuthService::class,
+            $authService,
+        );
+
+        $response = $this->post(route('staff.logout'));
+
+        $response
+            ->assertRedirectToRoute('staff.login')
+            ->assertSessionHas(
+                'status',
+                'Signed out locally. QueueFlow could not confirm the server session was revoked.',
+            )
+            ->assertDontSee('Internal Spring connection details');
+    }
+
     /**
      * @return array<string, array{array{status: int|null, message: string}}>
      */

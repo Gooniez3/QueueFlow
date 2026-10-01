@@ -49,4 +49,22 @@ class AuthenticatedSessionController extends Controller
             ->route('staff.home')
             ->with('status', 'Signed in successfully.');
     }
+
+    public function destroy(): RedirectResponse
+    {
+        try {
+            $this->authService->logout();
+        } catch (QueueFlowApiException) {
+            return redirect()
+                ->route('staff.login')
+                ->with(
+                    'status',
+                    'Signed out locally. QueueFlow could not confirm the server session was revoked.',
+                );
+        }
+
+        return redirect()
+            ->route('staff.login')
+            ->with('status', 'Signed out successfully.');
+    }
 }

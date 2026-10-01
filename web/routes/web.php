@@ -24,7 +24,11 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
     Route::post('/register', [RegisteredStaffController::class, 'store'])
         ->middleware('throttle:10,1')
         ->name('register.store');
+
     Route::get('/', StaffHomeController::class)
         ->middleware('queueflow.staff.auth')
         ->name('home');
+
+    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
+        ->name('logout');
 });
