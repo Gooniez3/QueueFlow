@@ -61,11 +61,13 @@ class QueueFlowApiClient
     }
 
     public function createBusiness(
+        #[\SensitiveParameter] string $token,
         string $name,
-        ?string $description = null
+        ?string $description = null,
     ): BusinessData {
         try {
             $response = $this->client()
+                ->withToken($token)
                 ->post('/api/v1/businesses', [
                     'name' => $name,
                     'description' => $description,

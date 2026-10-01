@@ -19,6 +19,7 @@ class QueueFlowApiClientTest extends TestCase
 {
     public function test_it_fetches_businesses_from_queueflow_api(): void
     {
+        Http::preventStrayRequests();
         Http::fake([
             'http://localhost:8080/api/v1/businesses' => Http::response([
                 [
@@ -57,11 +58,13 @@ class QueueFlowApiClientTest extends TestCase
         Http::assertSent(
             fn ($request) => $request->method() === 'GET'
                 && $request->url() === 'http://localhost:8080/api/v1/businesses'
+                && ! $request->hasHeader('Authorization')
         );
     }
 
     public function test_it_fetches_a_business_by_id(): void
     {
+        Http::preventStrayRequests();
         Http::fake([
             'http://localhost:8080/api/v1/businesses/42' => Http::response([
                 'id' => 42,
@@ -82,11 +85,13 @@ class QueueFlowApiClientTest extends TestCase
         Http::assertSent(
             fn ($request) => $request->method() === 'GET'
                 && $request->url() === 'http://localhost:8080/api/v1/businesses/42'
+                && ! $request->hasHeader('Authorization')
         );
     }
 
-    public function test_it_creates_a_business_through_queueflow_api(): void
+    public function test_it_creates_a_business_with_bearer_authentication(): void
     {
+        Http::preventStrayRequests();
         Http::fake([
             'http://localhost:8080/api/v1/businesses' => Http::response([
                 'id' => 10,
@@ -97,8 +102,9 @@ class QueueFlowApiClientTest extends TestCase
         ]);
 
         $business = app(QueueFlowApiClient::class)->createBusiness(
+            'inert-business-token',
             'QueueFlow Clinic',
-            'Medical clinic'
+            'Medical clinic',
         );
 
         $this->assertInstanceOf(BusinessData::class, $business);
@@ -110,8 +116,11 @@ class QueueFlowApiClientTest extends TestCase
         Http::assertSent(
             fn ($request) => $request->method() === 'POST'
                 && $request->url() === 'http://localhost:8080/api/v1/businesses'
-                && $request['name'] === 'QueueFlow Clinic'
-                && $request['description'] === 'Medical clinic'
+                && $request->hasHeader('Authorization', 'Bearer inert-business-token')
+                && $request->data() === [
+                    'name' => 'QueueFlow Clinic',
+                    'description' => 'Medical clinic',
+                ]
         );
     }
 
@@ -429,6 +438,7 @@ class QueueFlowApiClientTest extends TestCase
 
     public function test_it_preserves_validation_errors_from_spring(): void
     {
+        Http::preventStrayRequests();
         Http::fake([
             'http://localhost:8080/api/v1/businesses' => Http::response([
                 'timestamp' => '2026-09-30T22:00:00+08:00',
@@ -443,7 +453,11 @@ class QueueFlowApiClientTest extends TestCase
         ]);
 
         try {
-            app(QueueFlowApiClient::class)->createBusiness('', null);
+            app(QueueFlowApiClient::class)->createBusiness(
+                'inert-business-token',
+                '',
+                null,
+            );
 
             $this->fail('Expected QueueFlowApiException was not thrown.');
         } catch (QueueFlowApiException $exception) {
@@ -453,6 +467,77 @@ class QueueFlowApiClientTest extends TestCase
                 'Business name is required',
                 $exception->validationErrors['name']
             );
+        }
+    }
+
+    public function test_it_preserves_unauthenticated_business_creation_401_error(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::response([
+                'message' => 'Authentication is required',
+                'validationErrors' => [],
+            ], 401),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->createBusiness(
+                'inert-expired-token',
+                'QueueFlow Clinic',
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(401, $exception->status);
+            $this->assertSame('Authentication is required', $exception->getMessage());
+            $this->assertSame([], $exception->validationErrors);
+        }
+    }
+
+    public function test_it_preserves_forbidden_business_creation_403_error(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::response([
+                'message' => 'Access is denied',
+                'validationErrors' => [],
+            ], 403),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->createBusiness(
+                'inert-forbidden-token',
+                'QueueFlow Clinic',
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(403, $exception->status);
+            $this->assertSame('Access is denied', $exception->getMessage());
+            $this->assertSame([], $exception->validationErrors);
+        }
+    }
+
+    public function test_it_maps_authenticated_business_creation_connection_failures(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::failedConnection(
+                'Connection refused with internal detail',
+            ),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->createBusiness(
+                'inert-business-token',
+                'QueueFlow Clinic',
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertNull($exception->status);
+            $this->assertSame('Unable to connect to the QueueFlow API.', $exception->getMessage());
+            $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
         }
     }
 
