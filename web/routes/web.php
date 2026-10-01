@@ -5,6 +5,7 @@ use App\Http\Controllers\CustomerTicketController;
 use App\Http\Controllers\QueueBoardController;
 use App\Http\Controllers\Staff\AuthenticatedSessionController;
 use App\Http\Controllers\Staff\RegisteredStaffController;
+use App\Http\Controllers\Staff\StaffHomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', CustomerHomeController::class)->name('home');
@@ -23,4 +24,7 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
     Route::post('/register', [RegisteredStaffController::class, 'store'])
         ->middleware('throttle:10,1')
         ->name('register.store');
+    Route::get('/', StaffHomeController::class)
+        ->middleware('queueflow.staff.auth')
+        ->name('home');
 });

@@ -46,7 +46,7 @@ class AuthenticatedSessionController extends Controller
         }
 
         return redirect()
-            ->route('home')
+            ->route('staff.home')
             ->with('status', 'Signed in successfully.');
     }
 }

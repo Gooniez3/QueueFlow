@@ -29,7 +29,7 @@ class AuthenticatedSessionTest extends TestCase
             ->assertDontSee('inert-spring-token');
     }
 
-    public function test_successful_login_uses_auth_service_and_redirects_home(): void
+    public function test_successful_login_uses_auth_service_and_redirects_staff_home(): void
     {
         $authService = Mockery::mock(QueueFlowAuthService::class);
         $authService->shouldReceive('login')
@@ -53,7 +53,7 @@ class AuthenticatedSessionTest extends TestCase
         ]);
 
         $response
-            ->assertRedirectToRoute('home')
+            ->assertRedirectToRoute('staff.home')
             ->assertSessionHas('status', 'Signed in successfully.')
             ->assertSessionMissing('_old_input.password');
     }
