@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Data\AuthUserData;
 use App\Data\BusinessData;
+use App\Data\LoginData;
+use App\Data\RegisteredUserData;
+use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -71,6 +75,94 @@ class QueueFlowApiClient
         $this->ensureSuccessful($response);
 
         return BusinessData::fromArray($response->json());
+    }
+
+    public function register(
+        string $email,
+        #[\SensitiveParameter] string $password,
+        string $firstName,
+        string $lastName,
+        ?string $phone = null,
+    ): RegisteredUserData {
+        try {
+            $response = $this->client()
+                ->post('/api/v1/auth/register', [
+                    'email' => $email,
+                    'password' => $password,
+                    'firstName' => $firstName,
+                    'lastName' => $lastName,
+                    'phone' => $phone,
+                ]);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return RegisteredUserData::fromArray($response->json());
+    }
+
+    public function login(
+        string $email,
+        #[\SensitiveParameter] string $password,
+    ): LoginData {
+        try {
+            $response = $this->client()
+                ->post('/api/v1/auth/login', [
+                    'email' => $email,
+                    'password' => $password,
+                ]);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return LoginData::fromArray($response->json());
+    }
+
+    /**
+     * @return array{
+     *     user: AuthUserData,
+     *     memberships: list<StaffMembershipData>
+     * }
+     */
+    public function currentUser(
+        #[\SensitiveParameter] string $token,
+    ): array {
+        try {
+            $response = $this->client()
+                ->withToken($token)
+                ->get('/api/v1/auth/me');
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        $data = $response->json();
+
+        return [
+            'user' => AuthUserData::fromArray($data['user']),
+            'memberships' => array_map(
+                static fn (array $membership): StaffMembershipData => StaffMembershipData::fromArray($membership),
+                $data['memberships'],
+            ),
+        ];
+    }
+
+    public function logout(
+        #[\SensitiveParameter] string $token,
+    ): void {
+        try {
+            $response = $this->client()
+                ->withToken($token)
+                ->post('/api/v1/auth/logout');
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
     }
 
     private function ensureSuccessful(Response $response): void
