@@ -1,12 +1,15 @@
 package com.queueflow.api.controller;
 
 import java.util.List;
+
 import com.queueflow.api.request.CreateBusinessRequest;
 import com.queueflow.api.response.BusinessResponse;
+import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.BusinessService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,9 +24,15 @@ public class BusinessController {
 
     @PostMapping
     public ResponseEntity<BusinessResponse> createBusiness(
+            @AuthenticationPrincipal AuthUserPrincipal principal,
             @Valid @RequestBody CreateBusinessRequest request
     ) {
-        BusinessResponse response = businessService.createBusiness(request);
+
+        BusinessResponse response =
+                businessService.createBusiness(
+                        principal.userId(),
+                        request
+                );
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -34,14 +43,18 @@ public class BusinessController {
     public ResponseEntity<BusinessResponse> getBusinessById(
             @PathVariable Long id
     ) {
-        BusinessResponse response = businessService.getBusinessById(id);
+
+        BusinessResponse response =
+                businessService.getBusinessById(id);
 
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping 
+    @GetMapping
     public ResponseEntity<List<BusinessResponse>> getAllBusinesses() {
-        List<BusinessResponse> businesses = businessService.getAllBusinesses();
+
+        List<BusinessResponse> businesses =
+                businessService.getAllBusinesses();
 
         return ResponseEntity.ok(businesses);
     }

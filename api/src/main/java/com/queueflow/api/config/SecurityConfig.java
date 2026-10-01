@@ -72,20 +72,15 @@ public class SecurityConfig {
                                 "/api/v1/auth/login"
                         ).permitAll()
 
-                        // Public business/branch read endpoints
+                        // Public business/branch/service discovery
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/businesses",
                                 "/api/v1/businesses/**"
                         ).permitAll()
 
-                        // Keep existing Phase 4/5 business creation public
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/businesses"
-                        ).permitAll()
-
-                        // Everything else requires authentication
+                        // Business creation and all mutations
+                        // require authentication.
                         .anyRequest().authenticated()
                 )
 
