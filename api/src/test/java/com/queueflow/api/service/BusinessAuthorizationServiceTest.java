@@ -5,7 +5,9 @@ import com.queueflow.api.entity.StaffMembership;
 import com.queueflow.api.entity.StaffRole;
 import com.queueflow.api.entity.UserAccount;
 import com.queueflow.api.repository.AuthSessionRepository;
+import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
+import com.queueflow.api.repository.ServiceRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
 import com.queueflow.api.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +32,14 @@ class BusinessAuthorizationServiceTest {
             staffMembershipRepository;
 
     @Autowired
+    private ServiceRepository
+            serviceRepository;
+
+    @Autowired
+    private BranchRepository
+            branchRepository;
+
+    @Autowired
     private BusinessRepository
             businessRepository;
 
@@ -48,6 +58,8 @@ class BusinessAuthorizationServiceTest {
     void setUp() {
         authSessionRepository.deleteAll();
         staffMembershipRepository.deleteAll();
+        serviceRepository.deleteAll();
+        branchRepository.deleteAll();
         businessRepository.deleteAll();
         userAccountRepository.deleteAll();
     }

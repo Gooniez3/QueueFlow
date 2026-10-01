@@ -5,6 +5,7 @@ import com.queueflow.api.security.RestAccessDeniedHandler;
 import com.queueflow.api.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -63,13 +64,28 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
+
+                        // Public health + authentication endpoints
                         .requestMatchers(
                                 "/api/v1/health",
-                                "/api/v1/businesses",
-                                "/api/v1/businesses/**",
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login"
                         ).permitAll()
+
+                        // Public business/branch read endpoints
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/businesses",
+                                "/api/v1/businesses/**"
+                        ).permitAll()
+
+                        // Keep existing Phase 4/5 business creation public
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/businesses"
+                        ).permitAll()
+
+                        // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
 
