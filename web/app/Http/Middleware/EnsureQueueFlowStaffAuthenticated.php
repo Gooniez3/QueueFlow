@@ -24,6 +24,16 @@ class EnsureQueueFlowStaffAuthenticated
 
         try {
             $context = $this->authService->currentUser();
+
+            if ($context === null) {
+                return redirect()
+                    ->route('staff.login')
+                    ->with('error', 'Please sign in to continue.');
+            }
+
+            $request->attributes->set('queueflow.auth', $context);
+
+            return $next($request);
         } catch (QueueFlowApiException $exception) {
             if ($exception->status === 401) {
                 return redirect()
@@ -31,17 +41,19 @@ class EnsureQueueFlowStaffAuthenticated
                     ->with('error', 'Your session has expired. Please sign in again.');
             }
 
-            throw $exception;
+            if ($exception->status === 403) {
+                return response(
+                    'You are not authorized to access this staff resource.',
+                    403,
+                );
+            }
+
+            report($exception);
+
+            return response(
+                'QueueFlow is temporarily unavailable. Please try again later.',
+                503,
+            );
         }
-
-        if ($context === null) {
-            return redirect()
-                ->route('staff.login')
-                ->with('error', 'Please sign in to continue.');
-        }
-
-        $request->attributes->set('queueflow.auth', $context);
-
-        return $next($request);
     }
 }
