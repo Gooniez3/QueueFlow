@@ -1,7 +1,9 @@
 package com.queueflow.api.controller;
 
 import com.queueflow.api.entity.Business;
+import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
+import com.queueflow.api.repository.ServiceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,10 +23,18 @@ class BusinessControllerTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private ServiceRepository serviceRepository;
+
+    @Autowired
+    private BranchRepository branchRepository;
+
+    @Autowired
     private BusinessRepository businessRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        serviceRepository.deleteAll();
+        branchRepository.deleteAll();
         businessRepository.deleteAll();
     }
 
@@ -41,10 +51,15 @@ class BusinessControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isCreated())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
                 .andExpect(jsonPath("$.id").isNumber())
-                .andExpect(jsonPath("$.name").value("QueueFlow Clinic"))
-                .andExpect(jsonPath("$.description").value("Medical clinic"))
+                .andExpect(jsonPath("$.name")
+                        .value("QueueFlow Clinic"))
+                .andExpect(jsonPath("$.description")
+                        .value("Medical clinic"))
                 .andExpect(jsonPath("$.createdAt").exists());
 
         org.assertj.core.api.Assertions
@@ -65,11 +80,18 @@ class BusinessControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message").value("Request validation failed"))
-                .andExpect(jsonPath("$.path").value("/api/v1/businesses"))
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
+                .andExpect(jsonPath("$.status")
+                        .value(400))
+                .andExpect(jsonPath("$.error")
+                        .value("Bad Request"))
+                .andExpect(jsonPath("$.message")
+                        .value("Request validation failed"))
+                .andExpect(jsonPath("$.path")
+                        .value("/api/v1/businesses"))
                 .andExpect(jsonPath("$.validationErrors.name")
                         .value("Business name is required"));
     }
@@ -77,61 +99,110 @@ class BusinessControllerTest {
     @Test
     void shouldGetBusinessById() throws Exception {
         Business business = businessRepository.save(
-                new Business("QueueFlow Clinic", "Medical clinic")
+                new Business(
+                        "QueueFlow Clinic",
+                        "Medical clinic"
+                )
         );
 
-        mockMvc.perform(get("/api/v1/businesses/{id}", business.getId()))
+        mockMvc.perform(
+                        get(
+                                "/api/v1/businesses/{id}",
+                                business.getId()
+                        )
+                )
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.id").value(business.getId()))
-                .andExpect(jsonPath("$.name").value("QueueFlow Clinic"))
-                .andExpect(jsonPath("$.description").value("Medical clinic"))
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
+                .andExpect(jsonPath("$.id")
+                        .value(business.getId()))
+                .andExpect(jsonPath("$.name")
+                        .value("QueueFlow Clinic"))
+                .andExpect(jsonPath("$.description")
+                        .value("Medical clinic"))
                 .andExpect(jsonPath("$.createdAt").exists());
     }
 
     @Test
-    void shouldReturnNotFoundWhenBusinessDoesNotExist() throws Exception {
-        mockMvc.perform(get("/api/v1/businesses/{id}", 999999L))
+    void shouldReturnNotFoundWhenBusinessDoesNotExist()
+            throws Exception {
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/businesses/{id}",
+                                999999L
+                        )
+                )
                 .andExpect(status().isNotFound())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
+                .andExpect(jsonPath("$.status")
+                        .value(404))
+                .andExpect(jsonPath("$.error")
+                        .value("Not Found"))
                 .andExpect(jsonPath("$.message")
-                        .value("Business not found with id: 999999"))
+                        .value(
+                                "Business not found with id: 999999"
+                        ))
                 .andExpect(jsonPath("$.path")
-                        .value("/api/v1/businesses/999999"));
+                        .value(
+                                "/api/v1/businesses/999999"
+                        ));
     }
 
     @Test
     void shouldGetAllBusinesses() throws Exception {
         businessRepository.save(
-                new Business("QueueFlow Clinic", "Medical clinic")
+                new Business(
+                        "QueueFlow Clinic",
+                        "Medical clinic"
+                )
         );
 
         businessRepository.save(
-                new Business("QueueFlow Bank", "Banking services")
+                new Business(
+                        "QueueFlow Bank",
+                        "Banking services"
+                )
         );
 
         mockMvc.perform(get("/api/v1/businesses"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].id").isNumber())
-                .andExpect(jsonPath("$[0].name").value("QueueFlow Clinic"))
-                .andExpect(jsonPath("$[1].id").isNumber())
-                .andExpect(jsonPath("$[1].name").value("QueueFlow Bank"));
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
+                .andExpect(jsonPath("$.length()")
+                        .value(2))
+                .andExpect(jsonPath("$[0].id")
+                        .isNumber())
+                .andExpect(jsonPath("$[0].name")
+                        .value("QueueFlow Clinic"))
+                .andExpect(jsonPath("$[1].id")
+                        .isNumber())
+                .andExpect(jsonPath("$[1].name")
+                        .value("QueueFlow Bank"));
     }
 
     @Test
-    void shouldReturnEmptyListWhenNoBusinessesExist() throws Exception {
+    void shouldReturnEmptyListWhenNoBusinessesExist()
+            throws Exception {
+
         mockMvc.perform(get("/api/v1/businesses"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$").isEmpty());
     }
 
-    @Test 
+    @Test
     void shouldRejectMalformedJson() throws Exception {
         String malformedJson = """
                 {
@@ -144,11 +215,19 @@ class BusinessControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(malformedJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message").value("Malformed JSON request"))
-                .andExpect(jsonPath("$.path").value("/api/v1/businesses"))
-                .andExpect(jsonPath("$.validationErrors").isEmpty());
+                .andExpect(content()
+                        .contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        ))
+                .andExpect(jsonPath("$.status")
+                        .value(400))
+                .andExpect(jsonPath("$.error")
+                        .value("Bad Request"))
+                .andExpect(jsonPath("$.message")
+                        .value("Malformed JSON request"))
+                .andExpect(jsonPath("$.path")
+                        .value("/api/v1/businesses"))
+                .andExpect(jsonPath("$.validationErrors")
+                        .isEmpty());
     }
 }

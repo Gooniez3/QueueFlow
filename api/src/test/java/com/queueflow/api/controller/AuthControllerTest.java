@@ -9,6 +9,7 @@ import com.queueflow.api.entity.UserAccount;
 import com.queueflow.api.repository.AuthSessionRepository;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
+import com.queueflow.api.repository.ServiceRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
 import com.queueflow.api.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +52,9 @@ class AuthControllerTest {
     private StaffMembershipRepository staffMembershipRepository;
 
     @Autowired
+    private ServiceRepository serviceRepository;
+
+    @Autowired
     private BranchRepository branchRepository;
 
     @Autowired
@@ -63,6 +67,7 @@ class AuthControllerTest {
     void setUp() {
         authSessionRepository.deleteAll();
         staffMembershipRepository.deleteAll();
+        serviceRepository.deleteAll();
         branchRepository.deleteAll();
         businessRepository.deleteAll();
         userAccountRepository.deleteAll();
@@ -75,11 +80,11 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "email": "staff@example.com",
-                                  "password": "password123",
-                                  "firstName": "Queue",
-                                  "lastName": "Staff",
-                                  "phone": "12345678"
+                                    "email": "staff@example.com",
+                                    "password": "password123",
+                                    "firstName": "Queue",
+                                    "lastName": "Staff",
+                                    "phone": "12345678"
                                 }
                                 """))
                 .andExpect(status().isCreated())
@@ -103,10 +108,10 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "email": "secure@example.com",
-                                  "password": "password123",
-                                  "firstName": "Secure",
-                                  "lastName": "User"
+                                    "email": "secure@example.com",
+                                    "password": "password123",
+                                    "firstName": "Secure",
+                                    "lastName": "User"
                                 }
                                 """))
                 .andExpect(status().isCreated());
@@ -135,10 +140,10 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "email": "not-an-email",
-                                  "password": "short",
-                                  "firstName": "",
-                                  "lastName": ""
+                                    "email": "not-an-email",
+                                    "password": "short",
+                                    "firstName": "",
+                                    "lastName": ""
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -152,10 +157,10 @@ class AuthControllerTest {
 
         String requestBody = """
                 {
-                  "email": "duplicate@example.com",
-                  "password": "password123",
-                  "firstName": "Queue",
-                  "lastName": "User"
+                    "email": "duplicate@example.com",
+                    "password": "password123",
+                    "firstName": "Queue",
+                    "lastName": "User"
                 }
                 """;
 
@@ -191,8 +196,8 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "email": "login@example.com",
-                                  "password": "password123"
+                                    "email": "login@example.com",
+                                    "password": "password123"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -226,8 +231,8 @@ class AuthControllerTest {
                                 .contentType("application/json")
                                 .content("""
                                         {
-                                          "email": "token@example.com",
-                                          "password": "password123"
+                                            "email": "token@example.com",
+                                            "password": "password123"
                                         }
                                         """))
                 .andExpect(status().isOk())
@@ -269,8 +274,8 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "email": "wrong@example.com",
-                                  "password": "wrong-password"
+                                    "email": "wrong@example.com",
+                                    "password": "wrong-password"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
@@ -292,8 +297,8 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "email": "missing@example.com",
-                                  "password": "password123"
+                                    "email": "missing@example.com",
+                                    "password": "password123"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
@@ -318,8 +323,8 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "email": "safe@example.com",
-                                  "password": "password123"
+                                    "email": "safe@example.com",
+                                    "password": "password123"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -599,8 +604,8 @@ class AuthControllerTest {
                                         )
                                         .content("""
                                                 {
-                                                  "email": "%s",
-                                                  "password": "%s"
+                                                    "email": "%s",
+                                                    "password": "%s"
                                                 }
                                                 """.formatted(
                                                 email,
