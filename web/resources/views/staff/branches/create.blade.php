@@ -3,38 +3,74 @@
 @section('title', 'Add branch')
 
 @section('staff-content')
-    <div class="mx-auto max-w-2xl">
-        <a class="text-sm font-semibold text-brand" href="{{ route('staff.businesses.show', $business->id) }}">&larr; {{ $business->name }}</a>
-        <p class="mt-8 text-xs font-semibold tracking-[0.18em] text-brand">NEW BRANCH</p>
-        <h1 class="mt-3 font-editorial text-4xl tracking-[-0.035em]">Add a branch</h1>
+    <div class="staff-form-wrap">
+        <x-staff.breadcrumbs
+            :back-url="route('staff.businesses.show', $business->id)"
+            :back-label="'Back to '.$business->name"
+            :items="[
+                ['label' => 'Businesses', 'url' => route('staff.businesses.index')],
+                ['label' => $business->name, 'url' => route('staff.businesses.show', $business->id)],
+                ['label' => 'Add branch'],
+            ]"
+        />
 
-        <form class="mt-8 grid gap-6 rounded-2xl border border-line bg-surface p-6 sm:p-8" method="POST" action="{{ route('staff.branches.store', $business->id) }}">
+        <header class="mt-6">
+            <p class="staff-eyebrow">NEW BRANCH</p>
+            <h1 class="staff-page-title">Add a branch</h1>
+            <p class="staff-page-copy">Create a location for {{ $business->name }}. Coordinates are optional and can be added when they are useful.</p>
+        </header>
+
+        <form class="staff-form-card" method="POST" action="{{ route('staff.branches.store', $business->id) }}">
             @csrf
 
-            @error('branch') <p class="border-l-3 border-red-700 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert">{{ $message }}</p> @enderror
+            @error('branch')
+                <p class="staff-alert-error" role="alert">{{ $message }}</p>
+            @enderror
 
-            <label class="grid gap-2 text-sm font-semibold" for="name">Branch name
-                <input class="rounded-xl border border-line px-4 py-3 font-normal outline-none focus:border-brand focus:ring-3 focus:ring-brand/10" id="name" name="name" type="text" maxlength="150" required value="{{ old('name') }}">
-                @error('name') <span class="font-normal text-red-800">{{ $message }}</span> @enderror
-            </label>
+            <p class="staff-field-help">All fields are required unless marked optional.</p>
 
-            <label class="grid gap-2 text-sm font-semibold" for="address">Address
-                <textarea class="min-h-24 rounded-xl border border-line px-4 py-3 font-normal outline-none focus:border-brand focus:ring-3 focus:ring-brand/10" id="address" name="address" required>{{ old('address') }}</textarea>
-                @error('address') <span class="font-normal text-red-800">{{ $message }}</span> @enderror
-            </label>
-
-            <div class="grid gap-5 sm:grid-cols-2">
-                <label class="grid gap-2 text-sm font-semibold" for="latitude">Latitude <span class="font-normal text-muted">(optional)</span>
-                    <input class="rounded-xl border border-line px-4 py-3 font-normal outline-none focus:border-brand focus:ring-3 focus:ring-brand/10" id="latitude" name="latitude" type="number" min="-90" max="90" step="any" value="{{ old('latitude') }}">
-                    @error('latitude') <span class="font-normal text-red-800">{{ $message }}</span> @enderror
-                </label>
-                <label class="grid gap-2 text-sm font-semibold" for="longitude">Longitude <span class="font-normal text-muted">(optional)</span>
-                    <input class="rounded-xl border border-line px-4 py-3 font-normal outline-none focus:border-brand focus:ring-3 focus:ring-brand/10" id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="{{ old('longitude') }}">
-                    @error('longitude') <span class="font-normal text-red-800">{{ $message }}</span> @enderror
-                </label>
+            <div class="staff-field">
+                <label class="staff-field-label" for="name">Branch name</label>
+                <input class="staff-field-control @error('name') staff-field-control-error @enderror" id="name" name="name" type="text" maxlength="150" autocomplete="organization" required autofocus value="{{ old('name') }}" @error('name') aria-invalid="true" aria-describedby="name-error" @enderror>
+                @error('name')
+                    <p class="staff-field-error" id="name-error">{{ $message }}</p>
+                @enderror
             </div>
 
-            <button class="justify-self-start rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink" type="submit">Create branch</button>
+            <div class="staff-field">
+                <label class="staff-field-label" for="address">Address</label>
+                <textarea class="staff-field-control min-h-24 resize-y @error('address') staff-field-control-error @enderror" id="address" name="address" autocomplete="street-address" required @error('address') aria-invalid="true" aria-describedby="address-error" @enderror>{{ old('address') }}</textarea>
+                @error('address')
+                    <p class="staff-field-error" id="address-error">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <fieldset class="border-t border-line pt-6">
+                <legend class="staff-field-label">Coordinates <span class="staff-field-optional">(optional)</span></legend>
+                <p class="staff-field-help mt-2">Use decimal latitude and longitude only when the precise branch location is known.</p>
+
+                <div class="mt-4 grid gap-5 sm:grid-cols-2">
+                    <div class="staff-field">
+                        <label class="staff-field-label" for="latitude">Latitude</label>
+                        <input class="staff-field-control @error('latitude') staff-field-control-error @enderror" id="latitude" name="latitude" type="number" min="-90" max="90" step="any" inputmode="decimal" value="{{ old('latitude') }}" @error('latitude') aria-invalid="true" aria-describedby="latitude-error" @enderror>
+                        @error('latitude')
+                            <p class="staff-field-error" id="latitude-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div class="staff-field">
+                        <label class="staff-field-label" for="longitude">Longitude</label>
+                        <input class="staff-field-control @error('longitude') staff-field-control-error @enderror" id="longitude" name="longitude" type="number" min="-180" max="180" step="any" inputmode="decimal" value="{{ old('longitude') }}" @error('longitude') aria-invalid="true" aria-describedby="longitude-error" @enderror>
+                        @error('longitude')
+                            <p class="staff-field-error" id="longitude-error">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center">
+                <a class="staff-secondary-button" href="{{ route('staff.businesses.show', $business->id) }}">Cancel</a>
+                <button class="staff-primary-button" type="submit">Create branch</button>
+            </div>
         </form>
     </div>
 @endsection

@@ -24,6 +24,10 @@ class BranchManagementTest extends TestCase
             ->assertSee('Riverside Clinic')
             ->assertSee('Central Clinic')
             ->assertSee('Add branch')
+            ->assertSee('Back to businesses')
+            ->assertSee('2 branches')
+            ->assertDontSee('2 total')
+            ->assertSee('aria-label="Breadcrumb"', false)
             ->assertDontSee('inert-spring-token');
 
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/api/v1/businesses/10')

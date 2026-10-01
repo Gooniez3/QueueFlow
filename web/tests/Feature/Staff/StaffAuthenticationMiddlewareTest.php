@@ -58,11 +58,14 @@ class StaffAuthenticationMiddlewareTest extends TestCase
                 ->andReturn($context);
         });
 
-        $response = $this->get('/staff');
+        $response = $this
+            ->withSession(['status' => 'Signed in successfully.'])
+            ->get('/staff');
 
         $response
             ->assertOk()
-            ->assertSee('Signed in successfully.')
+            ->assertSee('Staff workspace')
+            ->assertDontSee('Signed in successfully.')
             ->assertSee('Sign out')
             ->assertSee(
                 'action="'.route('staff.logout').'"',

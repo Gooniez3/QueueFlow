@@ -3,34 +3,49 @@
 @section('title', $business->name)
 
 @section('staff-content')
-    <a class="text-sm font-semibold text-brand" href="{{ route('staff.businesses.index') }}">&larr; Your businesses</a>
+    <x-staff.breadcrumbs
+        :back-url="route('staff.businesses.index')"
+        back-label="Back to businesses"
+        :items="[
+            ['label' => 'Businesses', 'url' => route('staff.businesses.index')],
+            ['label' => $business->name],
+        ]"
+    />
 
-    <div class="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+    <header class="mt-3 flex flex-col gap-3 border-b border-line/60 pb-5 sm:mt-5 sm:gap-5 sm:pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="text-xs font-semibold tracking-[0.18em] text-brand">BUSINESS</p>
-            <h1 class="mt-3 font-editorial text-4xl tracking-[-0.035em]">{{ $business->name }}</h1>
-            <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">{{ $business->description ?: 'No description provided.' }}</p>
+            <p class="staff-eyebrow">BUSINESS</p>
+            <h1 class="staff-page-title">{{ $business->name }}</h1>
+            <p class="staff-page-copy {{ $business->description ? '' : 'italic' }}">{{ $business->description ?: 'A description has not been added for this business.' }}</p>
         </div>
-        <a class="inline-flex items-center justify-center rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink" href="{{ route('staff.branches.create', $business->id) }}">Add branch</a>
-    </div>
+        <a class="staff-primary-button w-fit shrink-0" href="{{ route('staff.branches.create', $business->id) }}" aria-label="Add branch">
+            <span class="text-xl leading-none" aria-hidden="true">+</span>
+            <span>Add branch</span>
+        </a>
+    </header>
 
-    <section class="mt-10 border-t border-line pt-8">
-        <div class="flex items-center justify-between gap-4">
-            <h2 class="font-editorial text-3xl">Branches</h2>
-            <span class="text-sm text-muted">{{ count($branches) }} total</span>
+    <section class="mt-6 sm:mt-8" aria-labelledby="branches-heading">
+        <div class="flex items-baseline gap-3">
+            <h2 id="branches-heading" class="staff-section-title">Branches</h2>
+            <p class="text-sm text-muted">{{ count($branches) }} {{ count($branches) === 1 ? 'branch' : 'branches' }}</p>
         </div>
 
         @if ($branches === [])
-            <div class="mt-5 rounded-2xl border border-dashed border-line bg-surface p-7 text-sm leading-6 text-muted">No branches yet. Add a branch to organize services by location.</div>
+            <div class="staff-empty-state">
+                <h3 class="text-base font-semibold text-ink">No branches yet</h3>
+                <p class="mt-2 max-w-xl text-sm leading-6 text-muted">Add a branch to organize the services offered at each business location.</p>
+            </div>
         @else
-            <div class="mt-5 divide-y divide-line border-y border-line">
+            <div class="staff-resource-list">
                 @foreach ($branches as $branch)
-                    <a class="flex flex-col gap-2 py-5 transition hover:text-brand sm:flex-row sm:items-center sm:justify-between" href="{{ route('staff.branches.show', [$business->id, $branch->id]) }}">
-                        <div>
-                            <h3 class="font-semibold">{{ $branch->name }}</h3>
-                            <p class="mt-1 text-sm text-muted">{{ $branch->address }}</p>
+                    <a class="staff-resource-row" href="{{ route('staff.branches.show', [$business->id, $branch->id]) }}">
+                        <div class="min-w-0">
+                            <h3 class="break-words font-editorial text-lg font-semibold tracking-[-0.015em] text-ink sm:text-xl sm:tracking-[-0.02em]">{{ $branch->name }}</h3>
+                            <p class="mt-0.5 text-sm leading-5 text-muted sm:mt-1 sm:leading-6">{{ $branch->address }}</p>
                         </div>
-                        <span class="text-sm font-semibold text-brand">Manage branch &rarr;</span>
+                        <span class="grid size-10 shrink-0 place-items-center text-muted" aria-hidden="true">
+                            <svg class="size-4" viewBox="0 0 16 16" fill="none"><path d="m6 3 5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                        </span>
                     </a>
                 @endforeach
             </div>

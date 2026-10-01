@@ -28,6 +28,10 @@ class ServiceManagementTest extends TestCase
             ->assertSee('Active')
             ->assertSee('Inactive')
             ->assertSee('Add service')
+            ->assertSee('Back to Northstar Health')
+            ->assertSee('2 services')
+            ->assertDontSee('2 total')
+            ->assertSee('aria-label="Breadcrumb"', false)
             ->assertDontSee('inert-spring-token');
 
         Http::assertSent(fn (Request $request): bool => $request->url() !== 'http://localhost:8080/api/v1/auth/me'
@@ -123,6 +127,8 @@ class ServiceManagementTest extends TestCase
             ->assertSee('General Consultation')
             ->assertSee('Inactive')
             ->assertSee('20 minutes')
+            ->assertSee('Back to Riverside Clinic')
+            ->assertSee('aria-label="Breadcrumb"', false)
             ->assertDontSee('inert-spring-token');
     }
 

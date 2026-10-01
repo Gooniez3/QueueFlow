@@ -25,7 +25,7 @@ class BusinessManagementTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Create your first business')
-            ->assertSee('Create Business')
+            ->assertSee('Create business')
             ->assertDontSee('inert-spring-token');
 
         Http::assertSentCount(1);

@@ -26,6 +26,11 @@ class AuthenticatedSessionTest extends TestCase
             ->assertSee('type="password"', false)
             ->assertSee('name="_token"', false)
             ->assertSee('href="'.route('staff.register').'"', false)
+            ->assertSeeInOrder([
+                'Welcome back.',
+                'Sign in',
+                'secure staff experience',
+            ])
             ->assertDontSee('inert-spring-token');
     }
 
