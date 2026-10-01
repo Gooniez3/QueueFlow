@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Data\AuthUserData;
 use App\Data\LoginData;
+use App\Data\RegisteredUserData;
 use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowApiClient;
@@ -15,6 +16,43 @@ use Tests\TestCase;
 
 class QueueFlowAuthServiceTest extends TestCase
 {
+    public function test_registration_delegates_without_creating_authentication_state(): void
+    {
+        $registeredUser = new RegisteredUserData(
+            id: 42,
+            email: 'alex@example.com',
+            firstName: 'Alex',
+            lastName: 'Rivera',
+            phone: null,
+        );
+        $apiClient = Mockery::mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('register')
+            ->once()
+            ->with(
+                'alex@example.com',
+                'inert-password',
+                'Alex',
+                'Rivera',
+                null,
+            )
+            ->andReturn($registeredUser);
+        $service = new QueueFlowAuthService(
+            $apiClient,
+            $session = $this->sessionStore(),
+        );
+
+        $result = $service->register(
+            'alex@example.com',
+            'inert-password',
+            'Alex',
+            'Rivera',
+        );
+
+        $this->assertSame($registeredUser, $result);
+        $this->assertFalse($service->hasAuthSession());
+        $this->assertNull($session->get('queueflow.auth'));
+    }
+
     public function test_successful_login_stores_authentication_state_without_password(): void
     {
         $apiClient = Mockery::mock(QueueFlowApiClient::class);

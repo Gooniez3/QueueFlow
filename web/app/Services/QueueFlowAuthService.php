@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Data\AuthUserData;
 use App\Data\LoginData;
+use App\Data\RegisteredUserData;
 use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
 use Illuminate\Contracts\Session\Session;
@@ -33,6 +34,22 @@ class QueueFlowAuthService
         $this->storeAuthentication($login);
 
         return $this->contextFromLogin($login);
+    }
+
+    public function register(
+        string $email,
+        #[\SensitiveParameter] string $password,
+        string $firstName,
+        string $lastName,
+        ?string $phone = null,
+    ): RegisteredUserData {
+        return $this->apiClient->register(
+            $email,
+            $password,
+            $firstName,
+            $lastName,
+            $phone,
+        );
     }
 
     public function hasAuthSession(): bool
