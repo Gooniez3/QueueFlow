@@ -30,4 +30,52 @@ class StaffMembershipDataTest extends TestCase
 
         $this->assertNull($membership->branchId);
     }
+
+    public function test_identifies_business_membership(): void
+    {
+        $membership = new StaffMembershipData(
+            businessId: 12,
+            branchId: 34,
+            role: 'MANAGER',
+        );
+
+        $this->assertTrue(
+            $membership->belongsToBusiness(12),
+        );
+        $this->assertFalse(
+            $membership->belongsToBusiness(99),
+        );
+    }
+
+    public function test_identifies_branch_membership(): void
+    {
+        $membership = new StaffMembershipData(
+            businessId: 12,
+            branchId: 34,
+            role: 'STAFF',
+        );
+
+        $this->assertTrue(
+            $membership->belongsToBranch(34),
+        );
+        $this->assertFalse(
+            $membership->belongsToBranch(99),
+        );
+    }
+
+    public function test_business_wide_membership_does_not_match_specific_branch(): void
+    {
+        $membership = new StaffMembershipData(
+            businessId: 12,
+            branchId: null,
+            role: 'OWNER',
+        );
+
+        $this->assertTrue(
+            $membership->belongsToBusiness(12),
+        );
+        $this->assertFalse(
+            $membership->belongsToBranch(34),
+        );
+    }
 }

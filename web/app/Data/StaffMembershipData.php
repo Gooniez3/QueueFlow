@@ -23,4 +23,14 @@ final readonly class StaffMembershipData
             role: (string) $data['role'],
         );
     }
+
+    public function belongsToBusiness(int $businessId): bool
+    {
+        return $this->businessId === $businessId;
+    }
+
+    public function belongsToBranch(int $branchId): bool
+    {
+        return $this->branchId === $branchId;
+    }
 }

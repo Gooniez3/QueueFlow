@@ -82,6 +82,40 @@ class QueueFlowAuthService
         ];
     }
 
+    public function membershipForBusiness(int $businessId): ?StaffMembershipData
+    {
+        $context = $this->cachedContext();
+
+        if ($context === null) {
+            return null;
+        }
+
+        foreach ($context['memberships'] as $membership) {
+            if ($membership->belongsToBusiness($businessId)) {
+                return $membership;
+            }
+        }
+
+        return null;
+    }
+
+    public function membershipForBranch(int $branchId): ?StaffMembershipData
+    {
+        $context = $this->cachedContext();
+
+        if ($context === null) {
+            return null;
+        }
+
+        foreach ($context['memberships'] as $membership) {
+            if ($membership->belongsToBranch($branchId)) {
+                return $membership;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return array{
      *     user: AuthUserData,
@@ -106,7 +140,11 @@ class QueueFlowAuthService
             throw $exception;
         }
 
-        $this->storeContext($token, $context['user'], $context['memberships']);
+        $this->storeContext(
+            $token,
+            $context['user'],
+            $context['memberships'],
+        );
 
         return $context;
     }
@@ -127,7 +165,11 @@ class QueueFlowAuthService
 
     private function storeAuthentication(LoginData $login): void
     {
-        $this->storeContext($login->token, $login->user, $login->memberships);
+        $this->storeContext(
+            $login->token,
+            $login->user,
+            $login->memberships,
+        );
     }
 
     /**
@@ -186,7 +228,9 @@ class QueueFlowAuthService
     {
         $token = $this->authenticationState()['token'] ?? null;
 
-        return is_string($token) && $token !== '' ? $token : null;
+        return is_string($token) && $token !== ''
+            ? $token
+            : null;
     }
 
     private function clearAuthenticationState(): void

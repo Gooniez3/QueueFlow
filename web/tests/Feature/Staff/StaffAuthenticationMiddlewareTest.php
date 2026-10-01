@@ -62,6 +62,54 @@ class StaffAuthenticationMiddlewareTest extends TestCase
         $response->assertSee('Signed in successfully.');
     }
 
+    public function test_staff_home_receives_verified_spring_auth_context(): void
+    {
+        $context = [
+            'user' => new AuthUserData(
+                id: 42,
+                email: 'manager@example.com',
+                firstName: 'Alex',
+                lastName: 'Manager',
+                phone: null,
+            ),
+            'memberships' => [
+                new StaffMembershipData(
+                    businessId: 10,
+                    branchId: null,
+                    role: 'OWNER',
+                ),
+                new StaffMembershipData(
+                    businessId: 20,
+                    branchId: 201,
+                    role: 'MANAGER',
+                ),
+            ],
+        ];
+
+        $this->mock(
+            QueueFlowAuthService::class,
+            function (MockInterface $mock) use ($context): void {
+                $mock->shouldReceive('hasAuthSession')
+                    ->once()
+                    ->andReturnTrue();
+
+                $mock->shouldReceive('currentUser')
+                    ->once()
+                    ->andReturn($context);
+            },
+        );
+
+        $response = $this->get('/staff');
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'authContext',
+            function (array $authContext) use ($context): bool {
+                return $authContext === $context;
+            },
+        );
+    }
+
     public function test_expired_spring_session_redirects_staff_to_login(): void
     {
         $this->mock(QueueFlowAuthService::class, function (MockInterface $mock): void {
