@@ -121,4 +121,23 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(response);
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgumentException(
+        IllegalArgumentException exception,
+        HttpServletRequest request
+    )  {
+    ApiErrorResponse response = new ApiErrorResponse(
+            OffsetDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            exception.getMessage(),
+            request.getRequestURI(),
+            Map.of()
+    );
+
+    return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(response);
+    }
 }

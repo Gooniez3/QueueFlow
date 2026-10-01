@@ -37,7 +37,14 @@ public record CreateBranchRequest(
                 value = "180.0",
                 message = "Longitude must not exceed 180"
         )
-        BigDecimal longitude
+        BigDecimal longitude,
+
+        @NotBlank(message = "Timezone is required")
+        @Size(
+                max = 100,
+                message = "Timezone must not exceed 100 characters"
+        )
+        String timezone
 
 ) {
 }

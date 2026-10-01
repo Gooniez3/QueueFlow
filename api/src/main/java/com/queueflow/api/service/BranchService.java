@@ -10,6 +10,8 @@ import com.queueflow.api.response.BranchResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -41,6 +43,10 @@ public class BranchService {
                         )
                 );
 
+        String timezone = validateTimezone(
+                request.timezone().trim()
+        );
+
         Branch branch = new Branch(
                 business,
                 request.name().trim(),
@@ -48,6 +54,8 @@ public class BranchService {
                 request.latitude(),
                 request.longitude()
         );
+
+        branch.setTimezone(timezone);
 
         Branch savedBranch =
                 branchRepository.save(branch);
@@ -102,6 +110,20 @@ public class BranchService {
         return toResponse(branch);
     }
 
+    private String validateTimezone(
+            String timezone
+    ) {
+
+        try {
+            ZoneId.of(timezone);
+            return timezone;
+        } catch (DateTimeException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid timezone: " + timezone
+            );
+        }
+    }
+
     private BranchResponse toResponse(
             Branch branch
     ) {
@@ -113,6 +135,7 @@ public class BranchService {
                 branch.getAddress(),
                 branch.getLatitude(),
                 branch.getLongitude(),
+                branch.getTimezone(),
                 branch.getCreatedAt()
         );
     }

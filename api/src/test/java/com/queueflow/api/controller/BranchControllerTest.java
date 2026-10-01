@@ -339,6 +339,8 @@ class BranchControllerTest {
                         .value(1.3521))
                 .andExpect(jsonPath("$.longitude")
                         .value(103.8198))
+                .andExpect(jsonPath("$.timezone")
+                        .value("Asia/Singapore"))
                 .andExpect(jsonPath("$.createdAt")
                         .exists());
 
@@ -385,6 +387,69 @@ class BranchControllerTest {
 
         assertThat(branchRepository.count())
                 .isZero();
+    }
+
+    @Test
+    void shouldRejectInvalidTimezone() throws Exception {
+
+        Business business = businessRepository.save(
+                new Business(
+                        "QueueFlow Clinic",
+                        "Medical clinic"
+                )
+        );
+
+        UserAccount user = createUser(
+                "timezone@example.com",
+                "password123"
+        );
+
+        StaffMembership membership =
+                new StaffMembership(
+                        user,
+                        business,
+                        null,
+                        StaffRole.STAFF
+                );
+
+        staffMembershipRepository.save(membership);
+
+        String token = loginAndGetToken(
+                "timezone@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/businesses/{businessId}/branches",
+                                business.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                            "name": "Downtown Branch",
+                                            "address": "123 Main Street",
+                                            "latitude": 1.3521,
+                                            "longitude": 103.8198,
+                                            "timezone": "Not/A_Real_Timezone"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Invalid timezone: Not/A_Real_Timezone"
+                                )
+                );
+
+        assertThat(branchRepository.count()).isZero();
     }
 
     private UserAccount createUser(
@@ -471,7 +536,8 @@ class BranchControllerTest {
                     "name": "Downtown Branch",
                     "address": "123 Main Street",
                     "latitude": 1.3521,
-                    "longitude": 103.8198
+                    "longitude": 103.8198,
+                    "timezone": "Asia/Singapore"
                 }
                 """;
     }
