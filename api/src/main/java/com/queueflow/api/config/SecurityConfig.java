@@ -79,8 +79,16 @@ public class SecurityConfig {
                                 "/api/v1/businesses/**"
                         ).permitAll()
 
-                        // Public queue joining.
-                        // Guests can join without authentication.
+                        // Public queue position lookup.
+                        // QueueService verifies ownership using either
+                        // the authenticated user or X-Guest-Token.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/queues/*/entries/*/position"
+                        ).permitAll()
+
+                        // Public queue joining and cancellation.
+                        // Guests can use these without authentication.
                         // If a valid bearer token is supplied,
                         // the bearer filter still identifies the user.
                         .requestMatchers(

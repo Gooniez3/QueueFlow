@@ -2,6 +2,7 @@ package com.queueflow.api.controller;
 
 import com.queueflow.api.request.JoinQueueRequest;
 import com.queueflow.api.response.QueueEntryResponse;
+import com.queueflow.api.response.QueuePositionResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.QueueService;
 import org.springframework.http.HttpStatus;
@@ -44,30 +45,58 @@ public class QueueEntryController {
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
-    @PostMapping("/{entryId}/cancel")
-    public ResponseEntity<QueueEntryResponse> cancelQueueEntry(
-        @PathVariable Long queueId,
-        @PathVariable Long entryId,
-        @AuthenticationPrincipal AuthUserPrincipal principal,
-        @RequestHeader(
-                value = "X-Guest-Token",
-                required = false
-        ) String guestToken
+
+    @GetMapping("/{entryId}/position")
+    public ResponseEntity<QueuePositionResponse> getQueuePosition(
+            @PathVariable Long queueId,
+            @PathVariable Long entryId,
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "X-Guest-Token",
+                    required = false
+            ) String guestToken
     ) {
 
-    Long userId =
-            principal == null
-                    ? null
-                    : principal.userId();
+        Long userId =
+                principal == null
+                        ? null
+                        : principal.userId();
 
-    QueueEntryResponse response =
-            queueService.cancelQueueEntry(
-                    queueId,
-                    entryId,
-                    userId,
-                    guestToken
-            );
+        QueuePositionResponse response =
+                queueService.getQueuePosition(
+                        queueId,
+                        entryId,
+                        userId,
+                        guestToken
+                );
 
-    return ResponseEntity.ok(response);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{entryId}/cancel")
+    public ResponseEntity<QueueEntryResponse> cancelQueueEntry(
+            @PathVariable Long queueId,
+            @PathVariable Long entryId,
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "X-Guest-Token",
+                    required = false
+            ) String guestToken
+    ) {
+
+        Long userId =
+                principal == null
+                        ? null
+                        : principal.userId();
+
+        QueueEntryResponse response =
+                queueService.cancelQueueEntry(
+                        queueId,
+                        entryId,
+                        userId,
+                        guestToken
+                );
+
+        return ResponseEntity.ok(response);
     }
 }

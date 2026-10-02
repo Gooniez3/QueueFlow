@@ -31,6 +31,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -811,6 +812,328 @@ class QueueEntryControllerTest {
     assertThat(cancelledEntry.getCancelledAt())
             .isNotNull();
   }
+    @Test
+    void shouldAllowRegisteredUserToViewOwnQueuePosition()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    UserAccount user = createUser(
+            "position@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "position@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/position",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.entryId")
+                    .value(entry.getId()))
+            .andExpect(jsonPath("$.queueId")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.serviceId")
+                    .value(service.getId()))
+            .andExpect(jsonPath("$.ticketSequence")
+                    .value(1))
+            .andExpect(jsonPath("$.ticketNumber")
+                    .value("A001"))
+            .andExpect(jsonPath("$.status")
+                    .value("WAITING"))
+            .andExpect(jsonPath("$.peopleAhead")
+                    .value(0))
+            .andExpect(jsonPath("$.estimatedWaitMinutes")
+                    .value(0));
+   }
+   @Test
+   void shouldAllowGuestToViewOwnQueuePositionWithGuestToken()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    MvcResult joinResult =
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/entries",
+                                    queue.getId()
+                            )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content("{}")
+                    )
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.guestToken")
+                            .isString())
+                    .andReturn();
+
+    String guestToken =
+            extractJsonString(
+                    joinResult.getResponse()
+                            .getContentAsString(),
+                    "guestToken"
+            );
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/position",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "X-Guest-Token",
+                                    guestToken
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.entryId")
+                    .value(entry.getId()))
+            .andExpect(jsonPath("$.queueId")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.serviceId")
+                    .value(service.getId()))
+            .andExpect(jsonPath("$.ticketSequence")
+                    .value(1))
+            .andExpect(jsonPath("$.ticketNumber")
+                    .value("A001"))
+            .andExpect(jsonPath("$.status")
+                    .value("WAITING"))
+            .andExpect(jsonPath("$.peopleAhead")
+                    .value(0))
+            .andExpect(jsonPath("$.estimatedWaitMinutes")
+                    .value(0));
+  }
+
+    @Test
+    void shouldRejectGuestPositionWithWrongToken()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/position",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "X-Guest-Token",
+                                    "this-is-the-wrong-token"
+                            )
+            )
+            .andExpect(status().isForbidden());
+ }
+
+    @Test
+    void shouldRejectGuestPositionWithoutToken()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/position",
+                            queue.getId(),
+                            entry.getId()
+                    )
+            )
+            .andExpect(status().isForbidden());
+  }
+
+     @Test
+     void shouldRejectRegisteredUserViewingAnotherUsersPosition()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    createUser(
+            "position-owner@example.com",
+            "password123"
+    );
+
+    String ownerToken = loginAndGetToken(
+            "position-owner@example.com",
+            "password123"
+    );
+
+    createUser(
+            "position-other@example.com",
+            "password123"
+    );
+
+    String otherToken = loginAndGetToken(
+            "position-other@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + ownerToken
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/position",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + otherToken
+                            )
+            )
+            .andExpect(status().isForbidden());
+  }
+
+
 
 
     private Business createBusiness() {

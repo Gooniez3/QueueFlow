@@ -38,9 +38,10 @@ public class QueueController {
             @Valid @RequestBody CreateQueueRequest request
     ) {
 
-        businessAuthorizationService.requireMembership(
+        businessAuthorizationService.requireBranchAccess(
                 principal.userId(),
-                businessId
+                businessId,
+                branchId
         );
 
         QueueResponse response =

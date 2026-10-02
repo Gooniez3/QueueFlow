@@ -2076,6 +2076,49 @@ class QueueStaffControllerTest {
     assertThat(unchanged.getClosedAt())
             .isNull();
   }
+    @Test
+    void shouldRejectCallNextFromStaffAssignedToDifferentBranch() throws Exception {
+
+    Business business = createBusiness();
+
+    Branch firstBranch = createBranch(business);
+    Branch secondBranch = createBranch(business);
+
+    Service secondService = createService(
+            secondBranch,
+            "Second Branch Service"
+    );
+
+    Queue secondQueue = createQueue(
+            secondBranch,
+            secondService,
+            QueueStatus.OPEN
+    );
+
+    createEntry(
+            secondQueue,
+            secondService,
+            1
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            firstBranch,
+            "different-branch-staff@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/call-next",
+                            secondQueue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isForbidden());
+  }
     // =========================================================
     // HELPERS
     // =========================================================

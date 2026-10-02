@@ -337,7 +337,9 @@ public class QueueService {
     @Transactional(readOnly = true)
     public QueuePositionResponse getQueuePosition(
             Long queueId,
-            Long entryId
+            Long entryId,
+            Long userId,
+            String guestToken
     ) {
 
         QueueEntry entry = queueEntryRepository
@@ -358,6 +360,31 @@ public class QueueService {
                             + entryId
             );
         }
+
+        boolean registeredOwner =
+        entry.getUser() != null
+                && userId != null
+                && entry.getUser()
+                        .getId()
+                        .equals(userId);
+
+  boolean guestOwner =
+        entry.getUser() == null
+                && guestToken != null
+                && !guestToken.isBlank()
+                && entry.getGuestTokenHash() != null
+                && entry.getGuestTokenHash()
+                        .equals(
+                                authTokenService.hashToken(
+                                        guestToken
+                                )
+                        );
+
+ if (!registeredOwner && !guestOwner) {
+    throw new org.springframework.security.access.AccessDeniedException(
+            "You cannot view this queue entry"
+    );
+ }
 
         List<QueueEntry> entriesAhead =
                 queueEntryRepository
@@ -417,11 +444,15 @@ public class QueueService {
                 queue.getBranch()
                         .getBusiness()
                         .getId();
+        Long branchId =
+                queue.getBranch()
+                        .getId();
 
         businessAuthorizationService
-                .requireMembership(
+                .requireBranchAccess(
                         staffUserId,
-                        businessId
+                        businessId,
+                        branchId
                 );
 
         if (queue.getStatus() != QueueStatus.OPEN) {
@@ -479,10 +510,15 @@ public class QueueService {
                         .getBusiness()
                         .getId();
 
+        Long branchId =
+                queue.getBranch()
+                        .getId();
+
         businessAuthorizationService
-                .requireMembership(
+                .requireBranchAccess(
                         staffUserId,
-                        businessId
+                        businessId,
+                        branchId
                 );
 
         QueueEntry entry = queueEntryRepository
@@ -545,11 +581,15 @@ public class QueueService {
                 queue.getBranch()
                         .getBusiness()
                         .getId();
+        Long branchId =
+                queue.getBranch()
+                        .getId();
 
         businessAuthorizationService
-                .requireMembership(
+                .requireBranchAccess(
                         staffUserId,
-                        businessId
+                        businessId,
+                        branchId
                 );
 
         QueueEntry entry = queueEntryRepository
@@ -613,10 +653,15 @@ public class QueueService {
                         .getBusiness()
                         .getId();
 
+        Long branchId =
+                queue.getBranch()
+                        .getId();
+
         businessAuthorizationService
-                .requireMembership(
+                .requireBranchAccess(
                         staffUserId,
-                        businessId
+                        businessId,
+                        branchId
                 );
 
         QueueEntry entry = queueEntryRepository
@@ -675,10 +720,15 @@ public class QueueService {
                         .getBusiness()
                         .getId();
 
+        Long branchId =
+                queue.getBranch()
+                        .getId();
+
         businessAuthorizationService
-                .requireMembership(
+                .requireBranchAccess(
                         staffUserId,
-                        businessId
+                        businessId,
+                        branchId
                 );
 
         if (queue.getStatus() != QueueStatus.OPEN) {
@@ -717,10 +767,15 @@ public class QueueService {
                     .getBusiness()
                     .getId();
 
+    Long branchId =
+            queue.getBranch()
+                    .getId();
+
     businessAuthorizationService
-            .requireMembership(
+            .requireBranchAccess(
                     staffUserId,
-                    businessId
+                    businessId,
+                    branchId
             );
 
     if (queue.getStatus() != QueueStatus.PAUSED) {
@@ -757,11 +812,15 @@ public class QueueService {
             queue.getBranch()
                     .getBusiness()
                     .getId();
+    Long branchId =
+            queue.getBranch()
+                    .getId();
 
     businessAuthorizationService
-            .requireMembership(
+            .requireBranchAccess(
                     staffUserId,
-                    businessId
+                    businessId,
+                    branchId
             );
 
     if (queue.getStatus() == QueueStatus.CLOSED) {

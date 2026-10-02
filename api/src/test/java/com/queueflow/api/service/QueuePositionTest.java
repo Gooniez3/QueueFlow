@@ -11,6 +11,8 @@ import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
 import com.queueflow.api.response.QueuePositionResponse;
+import com.queueflow.api.repository.StaffMembershipRepository;
+import com.queueflow.api.security.AuthTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,9 @@ class QueuePositionTest {
     private QueueService queueService;
 
     @Autowired
+    private AuthTokenService authTokenService;
+
+    @Autowired
     private QueueEntryRepository queueEntryRepository;
 
     @Autowired
@@ -41,11 +46,15 @@ class QueuePositionTest {
     @Autowired
     private BusinessRepository businessRepository;
 
+    @Autowired
+    private StaffMembershipRepository staffMembershipRepository;
+
     @BeforeEach
     void cleanDatabase() {
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();
         serviceRepository.deleteAll();
+        staffMembershipRepository.deleteAll();
         branchRepository.deleteAll();
         businessRepository.deleteAll();
     }
@@ -141,7 +150,7 @@ class QueuePositionTest {
                 longService,
                 null,
                 4,
-                "guest-hash-4"
+                authTokenService.hashToken("target-token")
         );
 
         target.setStatus(QueueEntryStatus.WAITING);
@@ -151,7 +160,9 @@ class QueuePositionTest {
         QueuePositionResponse response =
                 queueService.getQueuePosition(
                         queue.getId(),
-                        target.getId()
+                        target.getId(),
+                        null,
+                        "target-token"
                 );
 
         assertThat(response.entryId())
@@ -280,7 +291,7 @@ class QueuePositionTest {
                 service,
                 null,
                 5,
-                "guest-hash-5"
+                authTokenService.hashToken("target-token-2")
         );
 
         target.setStatus(
@@ -292,7 +303,9 @@ class QueuePositionTest {
         QueuePositionResponse response =
                 queueService.getQueuePosition(
                         queue.getId(),
-                        target.getId()
+                        target.getId(),
+                        null,
+                        "target-token-2"
                 );
 
         assertThat(response.peopleAhead())
@@ -350,7 +363,7 @@ class QueuePositionTest {
                 service,
                 null,
                 1,
-                "guest-hash-1"
+                authTokenService.hashToken("target-token-3")
         );
 
         target.setStatus(
@@ -362,7 +375,9 @@ class QueuePositionTest {
         QueuePositionResponse response =
                 queueService.getQueuePosition(
                         queue.getId(),
-                        target.getId()
+                        target.getId(),
+                        null,
+                        "target-token-3"
                 );
 
         assertThat(response.peopleAhead())

@@ -388,6 +388,45 @@ class QueueControllerTest {
     }
 
     @Test
+    void shouldRejectQueueCreationForDifferentBranch() throws Exception {
+
+    Business business = createBusiness();
+
+    Branch assignedBranch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    Branch otherBranch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    String token = createBranchMemberAndLogin(
+            business,
+            assignedBranch,
+            "branch-staff@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/businesses/{businessId}/branches/{branchId}/queues",
+                            business.getId(),
+                            otherBranch.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(sharedQueueRequest())
+            )
+            .andExpect(status().isForbidden());
+  }
+
+    @Test
     void shouldReturnNotFoundWhenBranchDoesNotBelongToBusiness()
             throws Exception {
 
@@ -613,6 +652,31 @@ class QueueControllerTest {
                 "password123"
         );
     }
+    private String createMemberAndLogin(
+            Business business,
+            String email,
+            String rawPassword
+    ) throws Exception {
+
+        UserAccount user = createUser(
+                email,
+                rawPassword
+        );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user,
+                        business,
+                        null,
+                        StaffRole.STAFF
+                )
+        );
+
+        return loginAndGetToken(
+                email,
+                rawPassword
+        );
+    }
 
     private UserAccount createUser(
             String email,
@@ -632,6 +696,31 @@ class QueueControllerTest {
 
         return userAccountRepository.save(user);
     }
+     private String createBranchMemberAndLogin(
+        Business business,
+        Branch branch,
+        String email
+     ) throws Exception {
+
+    UserAccount user = createUser(
+            email,
+            "password123"
+    );
+
+    staffMembershipRepository.save(
+            new StaffMembership(
+                    user,
+                    business,
+                    branch,
+                    StaffRole.STAFF
+            )
+    );
+
+    return loginAndGetToken(
+            email,
+            "password123"
+    );
+  }
 
     private String loginAndGetToken(
             String email,
