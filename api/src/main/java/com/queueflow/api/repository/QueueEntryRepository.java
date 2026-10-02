@@ -31,6 +31,12 @@ public interface QueueEntryRepository
             Integer ticketSequence
     );
 
+    List<QueueEntry> findByQueueIdAndStatusInAndTicketSequenceLessThanOrderByTicketSequenceAsc(
+            Long queueId,
+            Collection<QueueEntryStatus> statuses,
+            Integer ticketSequence
+    );
+
     boolean existsByQueueIdAndUserIdAndStatusIn(
             Long queueId,
             Long userId,

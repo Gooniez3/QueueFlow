@@ -15,6 +15,7 @@ import com.queueflow.api.repository.UserAccountRepository;
 import com.queueflow.api.request.CreateQueueRequest;
 import com.queueflow.api.request.JoinQueueRequest;
 import com.queueflow.api.response.QueueEntryResponse;
+import com.queueflow.api.response.QueuePositionResponse;
 import com.queueflow.api.response.QueueResponse;
 import com.queueflow.api.security.AuthTokenService;
 import org.springframework.stereotype.Service;
@@ -236,6 +237,70 @@ public class QueueService {
                 savedEntry,
                 ticketNumber,
                 rawGuestToken
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public QueuePositionResponse getQueuePosition(
+            Long queueId,
+            Long entryId
+    ) {
+
+        QueueEntry entry = queueEntryRepository
+                .findById(entryId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue entry not found with id: "
+                                        + entryId
+                        )
+                );
+
+        if (!entry.getQueue()
+                .getId()
+                .equals(queueId)) {
+
+            throw new ResourceNotFoundException(
+                    "Queue entry not found with id: "
+                            + entryId
+            );
+        }
+
+        List<QueueEntry> entriesAhead =
+                queueEntryRepository
+                        .findByQueueIdAndStatusInAndTicketSequenceLessThanOrderByTicketSequenceAsc(
+                                queueId,
+                                ACTIVE_ENTRY_STATUSES,
+                                entry.getTicketSequence()
+                        );
+
+        int peopleAhead =
+                entriesAhead.size();
+
+        int estimatedWaitMinutes =
+                entriesAhead
+                        .stream()
+                        .mapToInt(queueEntry ->
+                                queueEntry
+                                        .getService()
+                                        .getDurationMinutes()
+                        )
+                        .sum();
+
+        String ticketNumber =
+                formatTicketNumber(
+                        entry.getQueue().getTicketPrefix(),
+                        entry.getTicketSequence()
+                );
+
+        return new QueuePositionResponse(
+                entry.getId(),
+                entry.getQueue().getId(),
+                entry.getService().getId(),
+                entry.getTicketSequence(),
+                ticketNumber,
+                entry.getStatus(),
+                peopleAhead,
+                estimatedWaitMinutes
         );
     }
 
