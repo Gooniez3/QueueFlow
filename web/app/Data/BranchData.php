@@ -13,6 +13,7 @@ final readonly class BranchData
         public string $address,
         public ?float $latitude,
         public ?float $longitude,
+        public string $timezone,
         public CarbonImmutable $createdAt,
     ) {}
 
@@ -32,6 +33,7 @@ final readonly class BranchData
             longitude: isset($data['longitude'])
                 ? (float) $data['longitude']
                 : null,
+            timezone: (string) $data['timezone'],
             createdAt: CarbonImmutable::parse((string) $data['createdAt']),
         );
     }

@@ -17,6 +17,7 @@ class BranchDataTest extends TestCase
             'address' => '10 River Road, Singapore',
             'latitude' => 1.3521,
             'longitude' => 103.8198,
+            'timezone' => 'Asia/Singapore',
             'createdAt' => '2030-04-15T10:30:00+08:00',
         ]);
 
@@ -26,6 +27,7 @@ class BranchDataTest extends TestCase
         $this->assertSame('10 River Road, Singapore', $branch->address);
         $this->assertSame(1.3521, $branch->latitude);
         $this->assertSame(103.8198, $branch->longitude);
+        $this->assertSame('Asia/Singapore', $branch->timezone);
         $this->assertInstanceOf(CarbonImmutable::class, $branch->createdAt);
         $this->assertSame('2030-04-15T10:30:00+08:00', $branch->createdAt->format('Y-m-d\TH:i:sP'));
     }
@@ -39,10 +41,12 @@ class BranchDataTest extends TestCase
             'address' => 'Service area assigned daily',
             'latitude' => null,
             'longitude' => null,
+            'timezone' => 'Australia/Perth',
             'createdAt' => '2030-04-15T10:30:00Z',
         ]);
 
         $this->assertNull($branch->latitude);
         $this->assertNull($branch->longitude);
+        $this->assertSame('Australia/Perth', $branch->timezone);
     }
 }
