@@ -15,7 +15,7 @@ use Tests\TestCase;
 
 class CustomerServiceDiscoveryTest extends TestCase
 {
-    public function test_open_queue_uses_customer_service_and_shows_non_actionable_availability(): void
+    public function test_open_active_service_renders_secure_join_form(): void
     {
         $this->mockDiscoveryResources();
         $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
@@ -31,11 +31,18 @@ class CustomerServiceDiscoveryTest extends TestCase
             ->assertSee('General Consultation')
             ->assertSee('Accepting customers')
             ->assertSee('QUEUE OPEN')
-            ->assertSee('Joining will be available soon.')
-            ->assertSee('data-join-placeholder', false)
-            ->assertDontSee('<form', false)
+            ->assertSee('Join queue')
+            ->assertSee('data-customer-join-form', false)
+            ->assertSee('action="'.route('queue-entries.store', 91).'"', false)
+            ->assertSee('name="_token"', false)
+            ->assertSee('name="businessId" value="10"', false)
+            ->assertSee('name="branchId" value="21"', false)
+            ->assertSee('name="serviceId" value="31"', false)
             ->assertDontSee('guestToken')
-            ->assertDontSee('inert-guest-token')
+            ->assertDontSee('idempotencyKey')
+            ->assertDontSee('Idempotency-Key')
+            ->assertDontSee('?guestToken=', false)
+            ->assertDontSee('?idempotencyKey=', false)
             ->assertDontSee('Authorization')
             ->assertDontSee('Bearer');
     }
@@ -60,6 +67,36 @@ class CustomerServiceDiscoveryTest extends TestCase
             ->assertDontSee('<form', false);
     }
 
+    public function test_inactive_service_has_no_actionable_join_form(): void
+    {
+        $apiClient = $this->mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('business')->once()->with(10)->andReturn($this->business());
+        $apiClient->shouldReceive('branch')->once()->with(10, 21)->andReturn($this->branch());
+        $apiClient->shouldReceive('service')->once()->with(10, 21, 31)->andReturn(
+            new ServiceData(
+                id: 31,
+                branchId: 21,
+                name: 'General Consultation',
+                description: 'Primary care consultation.',
+                durationMinutes: 20,
+                active: false,
+                createdAt: CarbonImmutable::parse('2026-09-30T10:15:30+08:00'),
+            ),
+        );
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')
+            ->once()
+            ->with(10, 21, 31)
+            ->andReturn($this->queue('OPEN'));
+
+        $response = $this->get(route('services.show', [10, 21, 31]));
+
+        $response->assertOk()
+            ->assertSee('Service unavailable')
+            ->assertDontSee('data-customer-join-form', false)
+            ->assertDontSee('<form', false);
+    }
+
     public function test_valid_service_without_queue_renders_normal_unavailable_state(): void
     {
         $this->mockDiscoveryResources();
@@ -74,6 +111,8 @@ class CustomerServiceDiscoveryTest extends TestCase
         $response->assertOk()
             ->assertSee('General Consultation')
             ->assertSee('No queue available today')
+            ->assertDontSee('data-customer-join-form', false)
+            ->assertDontSee('<form', false)
             ->assertDontSee('The requested QueueFlow resource was not found.');
     }
 

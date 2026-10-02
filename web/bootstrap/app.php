@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\GuestQueueOwnershipException;
 use App\Exceptions\QueueFlowApiException;
 use App\Http\Middleware\EnsureQueueFlowBusinessMembership;
 use App\Http\Middleware\EnsureQueueFlowStaffAuthenticated;
@@ -22,16 +23,21 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReportWhen(
-            fn (QueueFlowApiException $exception): bool => (
-                request()->is('staff', 'staff/*')
-                && in_array(
-                    $exception->status,
-                    [401, 403, 404],
-                    true,
+            fn (Throwable $exception): bool => $exception instanceof QueueFlowApiException && (
+                (
+                    request()->is('staff', 'staff/*')
+                    && in_array(
+                        $exception->status,
+                        [401, 403, 404],
+                        true,
+                    )
+                ) || (
+                    request()->routeIs('home', 'businesses.show', 'branches.show', 'services.show')
+                    && $exception->status === 404
+                ) || (
+                    request()->routeIs('queue-entries.store')
+                    && in_array($exception->status, [400, 403, 404, 409], true)
                 )
-            ) || (
-                request()->routeIs('home', 'businesses.show', 'branches.show', 'services.show')
-                && $exception->status === 404
             ),
         );
 
@@ -59,6 +65,17 @@ return Application::configure(basePath: dirname(__DIR__))
             };
         });
 
+        $exceptions->render(function (GuestQueueOwnershipException $exception, Request $request) {
+            if (! $request->routeIs('queue-entries.store')) {
+                return null;
+            }
+
+            return response(
+                'QueueFlow is temporarily unavailable. Please try again later.',
+                503,
+            );
+        });
+
         $exceptions->render(function (QueueFlowApiException $exception, Request $request) {
             if (! $request->routeIs('home', 'businesses.show', 'branches.show', 'services.show')) {
                 return null;
@@ -68,6 +85,35 @@ return Application::configure(basePath: dirname(__DIR__))
                 404 => response(
                     'The requested QueueFlow resource was not found.',
                     404,
+                ),
+                default => response(
+                    'QueueFlow is temporarily unavailable. Please try again later.',
+                    503,
+                ),
+            };
+        });
+
+        $exceptions->render(function (QueueFlowApiException $exception, Request $request) {
+            if (! $request->routeIs('queue-entries.store')) {
+                return null;
+            }
+
+            return match ($exception->status) {
+                400 => response(
+                    'We could not join this queue. Please refresh and try again.',
+                    400,
+                ),
+                403 => response(
+                    'This queue request is not permitted.',
+                    403,
+                ),
+                404 => response(
+                    'The requested QueueFlow resource was not found.',
+                    404,
+                ),
+                409 => response(
+                    'The queue is no longer accepting joins. Please refresh and try again.',
+                    409,
                 ),
                 default => response(
                     'QueueFlow is temporarily unavailable. Please try again later.',

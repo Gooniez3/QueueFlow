@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomerBranchController;
 use App\Http\Controllers\CustomerBusinessController;
 use App\Http\Controllers\CustomerHomeController;
+use App\Http\Controllers\CustomerQueueEntryController;
 use App\Http\Controllers\CustomerServiceController;
 use App\Http\Controllers\CustomerTicketController;
 use App\Http\Controllers\QueueBoardController;
@@ -24,6 +25,9 @@ Route::get('/businesses/{businessId}/branches/{branchId}', [CustomerBranchContro
 Route::get('/businesses/{businessId}/branches/{branchId}/services/{serviceId}', [CustomerServiceController::class, 'show'])
     ->whereNumber(['businessId', 'branchId', 'serviceId'])
     ->name('services.show');
+Route::post('/queues/{queueId}/entries', [CustomerQueueEntryController::class, 'store'])
+    ->whereNumber('queueId')
+    ->name('queue-entries.store');
 Route::get('/queue-board', QueueBoardController::class)->name('queue-board.show');
 Route::get('/ticket', CustomerTicketController::class)->name('tickets.show');
 

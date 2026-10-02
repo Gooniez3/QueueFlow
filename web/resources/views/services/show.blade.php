@@ -35,9 +35,15 @@
                     <p class="text-xs font-semibold tracking-[0.16em] text-brand">QUEUE OPEN</p>
                     <p class="mt-3 font-editorial text-2xl font-semibold">Accepting customers</p>
                     <p class="mt-2 text-sm leading-6 text-muted">{{ $queue->name }} is open for {{ $service->name }}.</p>
-                    <div class="mt-5 rounded-xl bg-cream px-4 py-3 text-sm font-medium text-muted" aria-disabled="true" data-join-placeholder>
-                        Joining will be available soon.
-                    </div>
+                    <form class="mt-5" method="POST" action="{{ route('queue-entries.store', $queue->id) }}" data-customer-join-form>
+                        @csrf
+                        <input type="hidden" name="businessId" value="{{ $business->id }}">
+                        <input type="hidden" name="branchId" value="{{ $branch->id }}">
+                        <input type="hidden" name="serviceId" value="{{ $service->id }}">
+                        <button class="flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" type="submit">
+                            Join queue
+                        </button>
+                    </form>
                 </div>
             @elseif ($queue->status === 'PAUSED')
                 <div class="mt-4 rounded-2xl border border-amber/35 bg-white px-5 py-6">
