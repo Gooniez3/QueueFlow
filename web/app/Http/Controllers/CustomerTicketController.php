@@ -45,7 +45,7 @@ class CustomerTicketController extends Controller
     }
 
     /**
-     * @return array{label: string, heading: string, message: string, showWaitingPosition: bool}
+     * @return array{label: string, heading: string, message: string, showWaitingPosition: bool, canCancel: bool}
      */
     private function statusPresentation(string $status): array
     {
@@ -55,42 +55,49 @@ class CustomerTicketController extends Controller
                 'heading' => "You're in the queue",
                 'message' => 'Stay nearby and refresh this page for the latest position.',
                 'showWaitingPosition' => true,
+                'canCancel' => true,
             ],
             'CALLED' => [
                 'label' => 'CALLED',
                 'heading' => "It's your turn",
                 'message' => 'Please make your way to the service area.',
                 'showWaitingPosition' => false,
+                'canCancel' => false,
             ],
             'SERVING' => [
                 'label' => 'SERVING',
                 'heading' => 'Now serving',
                 'message' => 'Your service is now in progress.',
                 'showWaitingPosition' => false,
+                'canCancel' => false,
             ],
             'COMPLETED' => [
                 'label' => 'COMPLETED',
                 'heading' => 'Completed',
                 'message' => 'Your service has been completed.',
                 'showWaitingPosition' => false,
+                'canCancel' => false,
             ],
             'CANCELLED' => [
                 'label' => 'CANCELLED',
                 'heading' => 'Cancelled',
                 'message' => 'This ticket is no longer active.',
                 'showWaitingPosition' => false,
+                'canCancel' => false,
             ],
             'SKIPPED' => [
                 'label' => 'SKIPPED',
                 'heading' => 'Skipped',
                 'message' => 'Please speak with staff if you still need assistance.',
                 'showWaitingPosition' => false,
+                'canCancel' => false,
             ],
             default => [
                 'label' => 'STATUS UPDATE',
                 'heading' => 'Status unavailable',
                 'message' => 'Refresh this page or speak with staff for the latest update.',
                 'showWaitingPosition' => false,
+                'canCancel' => false,
             ],
         };
     }

@@ -12,6 +12,10 @@
             <p class="mt-6 text-xs font-semibold tracking-[0.18em] text-brand">MY TICKET</p>
         </header>
 
+        @if (session('status'))
+            <p class="mt-4 rounded-xl border border-brand/20 bg-white px-4 py-3 text-sm font-medium text-brand">{{ session('status') }}</p>
+        @endif
+
         <article class="mt-4 rounded-2xl bg-brand p-5 text-white sm:p-6">
             <div class="flex items-center justify-between gap-4">
                 <p class="text-xs font-medium text-white/70">Current status</p>
@@ -44,6 +48,15 @@
             <a class="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-brand/25 bg-white px-5 py-3 text-sm font-semibold text-brand transition hover:bg-brand-soft/45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" href="{{ route('queue-entries.show', [$ownership->queueId, $ownership->entryId]) }}">
                 Refresh status
             </a>
+
+            @if ($status['canCancel'])
+                <form class="mt-6 border-t border-line pt-6" method="POST" action="{{ route('queue-entries.cancel', [$ownership->queueId, $ownership->entryId]) }}">
+                    @csrf
+                    <button class="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-red-700/25 bg-white px-5 py-3 text-sm font-semibold text-red-800 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" type="submit">
+                        Cancel my ticket
+                    </button>
+                </form>
+            @endif
         </section>
 
         <footer class="mt-auto border-t border-line pt-6 pb-3">

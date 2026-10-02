@@ -93,6 +93,15 @@ class CustomerQueueEntryController extends Controller
             ->with('status', 'You have joined the queue.');
     }
 
+    public function cancel(int $queueId, int $entryId): RedirectResponse
+    {
+        $this->customerQueueService->cancel($queueId, $entryId);
+
+        return redirect()
+            ->route('queue-entries.show', [$queueId, $entryId])
+            ->with('status', 'Your ticket has been cancelled.');
+    }
+
     private function ensureNestedResourcesMatch(
         BusinessData $business,
         BranchData $branch,

@@ -30,6 +30,30 @@ class CustomerQueueEntryTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_cancel_route_is_public_numeric_and_uses_web_middleware(): void
+    {
+        $route = Route::getRoutes()->getByName('queue-entries.cancel');
+
+        $this->assertNotNull($route);
+        $this->assertSame('queues/{queueId}/entries/{entryId}/cancel', $route->uri());
+        $this->assertSame(['POST'], $route->methods());
+        $this->assertSame('[0-9]+', $route->wheres['queueId']);
+        $this->assertSame('[0-9]+', $route->wheres['entryId']);
+        $this->assertContains('web', $route->gatherMiddleware());
+        $this->assertNotContains('queueflow.staff.auth', $route->gatherMiddleware());
+        $this->assertNotContains('queueflow.business.member', $route->gatherMiddleware());
+    }
+
+    public function test_non_numeric_cancel_route_does_not_match(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->post('/queues/not-a-number/entries/301/cancel')->assertNotFound();
+        $this->post('/queues/91/entries/not-a-number/cancel')->assertNotFound();
+
+        Http::assertNothingSent();
+    }
+
     public function test_invalid_structural_input_redirects_without_api_requests(): void
     {
         Http::preventStrayRequests();
@@ -242,6 +266,107 @@ class CustomerQueueEntryTest extends TestCase
             ->assertSessionMissing('queueflow.customer.entries.91:301');
     }
 
+    public function test_missing_cancel_ownership_is_safe_without_spring_request(): void
+    {
+        Http::preventStrayRequests();
+
+        $response = $this->post(route('queue-entries.cancel', [91, 301]));
+
+        $response->assertNotFound()
+            ->assertSee('This ticket is not available in this browser/session.')
+            ->assertDontSee('This browser session does not own this queue entry.')
+            ->assertDontSee('guest token');
+        Http::assertNothingSent();
+    }
+
+    public function test_owned_cancel_uses_original_guest_token_retains_ownership_and_redirects_to_cancelled_detail(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/entries/301/cancel' => Http::response(
+                $this->cancelledQueueEntry(),
+            ),
+            'http://localhost:8080/api/v1/queues/91/entries/301/position' => Http::response(
+                $this->queuePosition(status: 'CANCELLED'),
+            ),
+        ]);
+        $detailUrl = route('queue-entries.show', [91, 301]);
+
+        $response = $this->withSession($this->ownershipSession())
+            ->post(route('queue-entries.cancel', [91, 301]));
+
+        $response->assertRedirect($detailUrl)
+            ->assertSessionHas('status', 'Your ticket has been cancelled.')
+            ->assertSessionHas('queueflow.customer.entries.91:301.guestToken', 'raw-guest-token');
+        $this->assertSame($detailUrl, $response->headers->get('Location'));
+        $this->assertStringNotContainsString('?', $detailUrl);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->url() === 'http://localhost:8080/api/v1/queues/91/entries/301/cancel'
+            && $request->hasHeader('X-Guest-Token', 'raw-guest-token')
+            && ! $request->hasHeader('Authorization')
+            && ! $request->hasHeader('Idempotency-Key')
+            && $request->data() === []);
+
+        $detailResponse = $this->get($detailUrl);
+        $detailResponse->assertOk()
+            ->assertSee('CANCELLED')
+            ->assertSee('Cancelled')
+            ->assertSee('Your ticket has been cancelled.')
+            ->assertDontSee('People ahead')
+            ->assertDontSee('Estimated wait')
+            ->assertDontSee('Cancel my ticket')
+            ->assertDontSee('raw-guest-token');
+
+        $this->get(route('tickets.show'))
+            ->assertOk()
+            ->assertSee('A023')
+            ->assertSee('href="'.$detailUrl.'"', false)
+            ->assertDontSee('raw-guest-token');
+    }
+
+    #[DataProvider('cancelApiFailures')]
+    public function test_cancel_api_failure_is_safe_and_retains_original_ownership(
+        int $apiStatus,
+        int $responseStatus,
+        string $safeMessage,
+    ): void {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/entries/301/cancel' => Http::response([
+                'message' => 'Internal Spring cancellation detail',
+            ], $apiStatus),
+        ]);
+
+        $response = $this->withSession($this->ownershipSession())
+            ->post(route('queue-entries.cancel', [91, 301]));
+
+        $response->assertStatus($responseStatus)
+            ->assertSee($safeMessage)
+            ->assertDontSee('Internal Spring cancellation detail')
+            ->assertDontSee('raw-guest-token')
+            ->assertSessionHas('queueflow.customer.entries.91:301.guestToken', 'raw-guest-token');
+    }
+
+    public function test_cancel_connection_failure_is_safe_and_retains_original_ownership(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/entries/301/cancel' => function () {
+                throw new ConnectionException('Internal cancellation connection detail');
+            },
+        ]);
+
+        $response = $this->withSession($this->ownershipSession())
+            ->post(route('queue-entries.cancel', [91, 301]));
+
+        $response->assertServiceUnavailable()
+            ->assertSee('QueueFlow is temporarily unavailable. Please try again later.')
+            ->assertDontSee('Internal cancellation connection detail')
+            ->assertDontSee('raw-guest-token')
+            ->assertSessionHas('queueflow.customer.entries.91:301.guestToken', 'raw-guest-token');
+    }
+
     /** @return array<string, array{int, int, int}> */
     public static function nestedResourceMismatches(): array
     {
@@ -270,6 +395,17 @@ class CustomerQueueEntryTest extends TestCase
             'forbidden' => [403, 'This queue request is not permitted.'],
             'not found' => [404, 'The requested QueueFlow resource was not found.'],
             'conflict' => [409, 'The queue is no longer accepting joins. Please refresh and try again.'],
+        ];
+    }
+
+    /** @return array<string, array{int, int, string}> */
+    public static function cancelApiFailures(): array
+    {
+        return [
+            'forbidden' => [403, 403, 'We could not verify this ticket for this browser/session.'],
+            'not found' => [404, 404, 'This ticket is no longer available.'],
+            'state conflict' => [409, 409, 'This ticket can no longer be cancelled. Refresh its status.'],
+            'server failure' => [500, 503, 'QueueFlow is temporarily unavailable. Please try again later.'],
         ];
     }
 
@@ -410,6 +546,49 @@ class CustomerQueueEntryTest extends TestCase
             'status' => 'WAITING',
             'joinedAt' => '2026-10-03T10:30:00+08:00',
             'guestToken' => 'raw-guest-secret',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function cancelledQueueEntry(): array
+    {
+        return [
+            ...$this->queueEntry(),
+            'status' => 'CANCELLED',
+            'guestToken' => null,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function queuePosition(string $status): array
+    {
+        return [
+            'entryId' => 301,
+            'queueId' => 91,
+            'serviceId' => 31,
+            'ticketSequence' => 23,
+            'ticketNumber' => 'A023',
+            'status' => $status,
+            'peopleAhead' => 0,
+            'estimatedWaitMinutes' => 0,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function ownershipSession(): array
+    {
+        return [
+            'queueflow.customer.entries' => [
+                '91:301' => [
+                    'businessId' => 10,
+                    'branchId' => 21,
+                    'serviceId' => 31,
+                    'queueId' => 91,
+                    'entryId' => 301,
+                    'ticketNumber' => 'A023',
+                    'guestToken' => 'raw-guest-token',
+                ],
+            ],
         ];
     }
 }

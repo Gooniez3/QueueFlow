@@ -31,6 +31,9 @@ Route::post('/queues/{queueId}/entries', [CustomerQueueEntryController::class, '
 Route::get('/queues/{queueId}/entries/{entryId}', [CustomerTicketController::class, 'show'])
     ->whereNumber(['queueId', 'entryId'])
     ->name('queue-entries.show');
+Route::post('/queues/{queueId}/entries/{entryId}/cancel', [CustomerQueueEntryController::class, 'cancel'])
+    ->whereNumber(['queueId', 'entryId'])
+    ->name('queue-entries.cancel');
 Route::get('/queue-board', QueueBoardController::class)->name('queue-board.show');
 Route::get('/ticket', [CustomerTicketController::class, 'index'])->name('tickets.show');
 

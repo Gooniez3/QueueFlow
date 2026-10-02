@@ -175,6 +175,49 @@ class CustomerTicketStatusTest extends TestCase
         $this->assertStringNotContainsString('?', $detailUrl);
     }
 
+    public function test_waiting_ticket_renders_csrf_protected_credential_free_cancel_form(): void
+    {
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('position')
+            ->once()
+            ->with(91, 301)
+            ->andReturn($this->position(status: 'WAITING'));
+        $cancelUrl = route('queue-entries.cancel', [91, 301]);
+
+        $response = $this->withSession($this->ownershipSession())
+            ->get(route('queue-entries.show', [91, 301]));
+
+        $response->assertOk()
+            ->assertSee('Cancel my ticket')
+            ->assertSee('method="POST"', false)
+            ->assertSee('action="'.$cancelUrl.'"', false)
+            ->assertSee('name="_token"', false)
+            ->assertDontSee('raw-guest-token')
+            ->assertDontSee('guestToken')
+            ->assertDontSee('X-Guest-Token')
+            ->assertDontSee('Idempotency-Key')
+            ->assertDontSee('Authorization')
+            ->assertDontSee('Bearer')
+            ->assertDontSee('queueflow.customer.join_attempts');
+        $this->assertStringNotContainsString('?', $cancelUrl);
+    }
+
+    #[DataProvider('nonCancellableStatuses')]
+    public function test_non_waiting_ticket_does_not_render_cancel_form(string $status): void
+    {
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('position')
+            ->once()
+            ->andReturn($this->position(status: $status));
+
+        $response = $this->withSession($this->ownershipSession())
+            ->get(route('queue-entries.show', [91, 301]));
+
+        $response->assertOk()
+            ->assertDontSee('Cancel my ticket')
+            ->assertDontSee(route('queue-entries.cancel', [91, 301]));
+    }
+
     #[DataProvider('safeApiFailures')]
     public function test_ticket_api_failure_is_customer_safe(
         ?int $apiStatus,
@@ -237,6 +280,19 @@ class CustomerTicketStatusTest extends TestCase
             'not found' => [404, 404, 'This ticket is no longer available.'],
             'server failure' => [500, 503, 'QueueFlow is temporarily unavailable. Please try again later.'],
             'connection failure' => [null, 503, 'QueueFlow is temporarily unavailable. Please try again later.'],
+        ];
+    }
+
+    /** @return array<string, array{string}> */
+    public static function nonCancellableStatuses(): array
+    {
+        return [
+            'called' => ['CALLED'],
+            'serving' => ['SERVING'],
+            'completed' => ['COMPLETED'],
+            'cancelled' => ['CANCELLED'],
+            'skipped' => ['SKIPPED'],
+            'unknown' => ['FUTURE_INTERNAL_STATE'],
         ];
     }
 
