@@ -79,8 +79,16 @@ public class SecurityConfig {
                                 "/api/v1/businesses/**"
                         ).permitAll()
 
-                        // Business creation and all mutations
-                        // require authentication.
+                        // Public queue joining.
+                        // Guests can join without authentication.
+                        // If a valid bearer token is supplied,
+                        // the bearer filter still identifies the user.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/queues/*/entries"
+                        ).permitAll()
+
+                        // Everything else requires authentication.
                         .anyRequest().authenticated()
                 )
 

@@ -2,33 +2,59 @@ package com.queueflow.api.service;
 
 import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Queue;
+import com.queueflow.api.entity.QueueEntry;
+import com.queueflow.api.entity.QueueEntryStatus;
+import com.queueflow.api.entity.QueueStatus;
+import com.queueflow.api.entity.UserAccount;
 import com.queueflow.api.exception.ResourceNotFoundException;
 import com.queueflow.api.repository.BranchRepository;
+import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
+import com.queueflow.api.repository.UserAccountRepository;
 import com.queueflow.api.request.CreateQueueRequest;
+import com.queueflow.api.request.JoinQueueRequest;
+import com.queueflow.api.response.QueueEntryResponse;
 import com.queueflow.api.response.QueueResponse;
+import com.queueflow.api.security.AuthTokenService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 
 @Service
 public class QueueService {
 
+    private static final List<QueueEntryStatus> ACTIVE_ENTRY_STATUSES =
+            List.of(
+                    QueueEntryStatus.WAITING,
+                    QueueEntryStatus.CALLED,
+                    QueueEntryStatus.SERVING
+            );
+
     private final QueueRepository queueRepository;
+    private final QueueEntryRepository queueEntryRepository;
     private final BranchRepository branchRepository;
     private final ServiceRepository serviceRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final AuthTokenService authTokenService;
 
     public QueueService(
             QueueRepository queueRepository,
+            QueueEntryRepository queueEntryRepository,
             BranchRepository branchRepository,
-            ServiceRepository serviceRepository
+            ServiceRepository serviceRepository,
+            UserAccountRepository userAccountRepository,
+            AuthTokenService authTokenService
     ) {
         this.queueRepository = queueRepository;
+        this.queueEntryRepository = queueEntryRepository;
         this.branchRepository = branchRepository;
         this.serviceRepository = serviceRepository;
+        this.userAccountRepository = userAccountRepository;
+        this.authTokenService = authTokenService;
     }
 
     @Transactional
@@ -114,6 +140,170 @@ public class QueueService {
         return toResponse(savedQueue);
     }
 
+    @Transactional
+    public QueueEntryResponse joinQueue(
+            Long queueId,
+            Long userId,
+            JoinQueueRequest request
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        if (queue.getStatus() != QueueStatus.OPEN) {
+            throw new IllegalStateException(
+                    "Queue is not open for joining"
+            );
+        }
+
+        com.queueflow.api.entity.Service service =
+                resolveJoinService(
+                        queue,
+                        request.serviceId()
+                );
+
+        UserAccount user = null;
+        String rawGuestToken = null;
+        String guestTokenHash = null;
+
+        if (userId != null) {
+
+            user = userAccountRepository
+                    .findById(userId)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "User not found with id: "
+                                            + userId
+                            )
+                    );
+
+            boolean alreadyInQueue =
+                    queueEntryRepository
+                            .existsByQueueIdAndUserIdAndStatusIn(
+                                    queueId,
+                                    userId,
+                                    ACTIVE_ENTRY_STATUSES
+                            );
+
+            if (alreadyInQueue) {
+                throw new IllegalStateException(
+                        "User already has an active ticket in this queue"
+                );
+            }
+
+        } else {
+
+            rawGuestToken =
+                    authTokenService.generateToken();
+
+            guestTokenHash =
+                    authTokenService.hashToken(
+                            rawGuestToken
+                    );
+        }
+
+        Integer ticketSequence =
+                queue.getNextTicketSequence();
+
+        queue.setNextTicketSequence(
+                ticketSequence + 1
+        );
+
+        QueueEntry queueEntry = new QueueEntry(
+                queue,
+                service,
+                user,
+                ticketSequence,
+                guestTokenHash
+        );
+
+        QueueEntry savedEntry =
+                queueEntryRepository.save(queueEntry);
+
+        String ticketNumber =
+                formatTicketNumber(
+                        queue.getTicketPrefix(),
+                        ticketSequence
+                );
+
+        return toEntryResponse(
+                savedEntry,
+                ticketNumber,
+                rawGuestToken
+        );
+    }
+
+    private com.queueflow.api.entity.Service resolveJoinService(
+            Queue queue,
+            Long requestedServiceId
+    ) {
+
+        if (queue.getService() != null) {
+
+            if (requestedServiceId != null
+                    && !queue.getService()
+                    .getId()
+                    .equals(requestedServiceId)) {
+
+                throw new IllegalStateException(
+                        "Requested service does not match this queue"
+                );
+            }
+
+            return queue.getService();
+        }
+
+        if (requestedServiceId == null) {
+            throw new IllegalArgumentException(
+                    "Service is required when joining a shared queue"
+            );
+        }
+
+        com.queueflow.api.entity.Service service =
+                serviceRepository
+                        .findById(requestedServiceId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Service not found with id: "
+                                                + requestedServiceId
+                                )
+                        );
+
+        if (!service.getBranch()
+                .getId()
+                .equals(
+                        queue.getBranch().getId()
+                )) {
+
+            throw new ResourceNotFoundException(
+                    "Service not found with id: "
+                            + requestedServiceId
+            );
+        }
+
+        if (!service.isActive()) {
+            throw new IllegalStateException(
+                    "Service is not active"
+            );
+        }
+
+        return service;
+    }
+
+    private String formatTicketNumber(
+            String prefix,
+            Integer sequence
+    ) {
+        return prefix
+                + String.format("%03d", sequence);
+    }
+
     private Branch requireBranch(
             Long businessId,
             Long branchId
@@ -163,6 +353,30 @@ public class QueueService {
                 queue.getClosedAt(),
                 queue.getCreatedAt(),
                 queue.getUpdatedAt()
+        );
+    }
+
+    private QueueEntryResponse toEntryResponse(
+            QueueEntry entry,
+            String ticketNumber,
+            String guestToken
+    ) {
+
+        Long userId =
+                entry.getUser() == null
+                        ? null
+                        : entry.getUser().getId();
+
+        return new QueueEntryResponse(
+                entry.getId(),
+                entry.getQueue().getId(),
+                entry.getService().getId(),
+                userId,
+                entry.getTicketSequence(),
+                ticketNumber,
+                entry.getStatus(),
+                entry.getJoinedAt(),
+                guestToken
         );
     }
 }

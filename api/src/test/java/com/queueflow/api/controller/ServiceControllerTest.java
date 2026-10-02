@@ -8,6 +8,8 @@ import com.queueflow.api.entity.UserAccount;
 import com.queueflow.api.repository.AuthSessionRepository;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
+import com.queueflow.api.repository.QueueEntryRepository;
+import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
 import com.queueflow.api.repository.UserAccountRepository;
@@ -33,6 +35,12 @@ class ServiceControllerTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private QueueEntryRepository queueEntryRepository;
+
+    @Autowired
+    private QueueRepository queueRepository;
+
+    @Autowired
     private ServiceRepository serviceRepository;
 
     @Autowired
@@ -56,6 +64,8 @@ class ServiceControllerTest {
     @BeforeEach
     void cleanDatabase() {
         authSessionRepository.deleteAll();
+        queueEntryRepository.deleteAll();
+        queueRepository.deleteAll();
         staffMembershipRepository.deleteAll();
         serviceRepository.deleteAll();
         branchRepository.deleteAll();
