@@ -26,6 +26,10 @@ public class QueueEntryController {
     public ResponseEntity<QueueEntryResponse> joinQueue(
             @PathVariable Long queueId,
             @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "Idempotency-Key",
+                    required = false
+            ) String idempotencyKey,
             @RequestBody JoinQueueRequest request
     ) {
 
@@ -38,6 +42,7 @@ public class QueueEntryController {
                 queueService.joinQueue(
                         queueId,
                         userId,
+                        idempotencyKey,
                         request
                 );
 
