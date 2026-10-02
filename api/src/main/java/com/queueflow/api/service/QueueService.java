@@ -1,5 +1,6 @@
 package com.queueflow.api.service;
 
+import com.queueflow.api.response.PublicQueueResponse;
 import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Queue;
 import com.queueflow.api.entity.QueueEntry;
@@ -22,11 +23,15 @@ import com.queueflow.api.security.AuthTokenService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.queueflow.api.repository.GuestJoinIdempotencyRepository;
+import com.queueflow.api.security.GuestTokenEncryptionService;
+import com.queueflow.api.entity.GuestJoinIdempotency;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class QueueService {
@@ -45,6 +50,8 @@ public class QueueService {
     private final UserAccountRepository userAccountRepository;
     private final AuthTokenService authTokenService;
     private final BusinessAuthorizationService businessAuthorizationService;
+    private final GuestJoinIdempotencyRepository guestJoinIdempotencyRepository;
+    private final GuestTokenEncryptionService guestTokenEncryptionService;
 
     public QueueService(
             QueueRepository queueRepository,
@@ -53,7 +60,9 @@ public class QueueService {
             ServiceRepository serviceRepository,
             UserAccountRepository userAccountRepository,
             AuthTokenService authTokenService,
-            BusinessAuthorizationService businessAuthorizationService
+            BusinessAuthorizationService businessAuthorizationService,
+            GuestJoinIdempotencyRepository guestJoinIdempotencyRepository,
+            GuestTokenEncryptionService guestTokenEncryptionService
     ) {
         this.queueRepository = queueRepository;
         this.queueEntryRepository = queueEntryRepository;
@@ -62,6 +71,8 @@ public class QueueService {
         this.userAccountRepository = userAccountRepository;
         this.authTokenService = authTokenService;
         this.businessAuthorizationService = businessAuthorizationService;
+        this.guestJoinIdempotencyRepository = guestJoinIdempotencyRepository;
+        this.guestTokenEncryptionService = guestTokenEncryptionService;
     }
 
     @Transactional
@@ -162,13 +173,97 @@ public class QueueService {
          );
      }
  }
+    @Transactional(readOnly = true)
+    public PublicQueueResponse getTodayQueue(
+        Long businessId,
+        Long branchId,
+        Long serviceId
+   ) {
+
+    Branch branch = requireBranch(
+            businessId,
+            branchId
+    );
+
+    LocalDate businessDate = LocalDate.now(
+            ZoneId.of(branch.getTimezone())
+    );
+
+    Queue queue;
+
+    if (serviceId != null) {
+
+        com.queueflow.api.entity.Service service =
+                serviceRepository
+                        .findById(serviceId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Service not found with id: "
+                                                + serviceId
+                                )
+                        );
+
+        if (!service.getBranch()
+                .getId()
+                .equals(branchId)) {
+
+            throw new ResourceNotFoundException(
+                    "Service not found with id: "
+                            + serviceId
+            );
+        }
+
+        queue = queueRepository
+                .findByBranchIdAndServiceIdAndBusinessDate(
+                        branchId,
+                        serviceId,
+                        businessDate
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found for today"
+                        )
+                );
+
+    } else {
+
+        queue = queueRepository
+                .findByBranchIdAndServiceIsNullAndBusinessDate(
+                        branchId,
+                        businessDate
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found for today"
+                        )
+                );
+    }
+
+    Long responseServiceId =
+            queue.getService() == null
+                    ? null
+                    : queue.getService().getId();
+
+    return new PublicQueueResponse(
+            queue.getId(),
+            queue.getBranch().getId(),
+            responseServiceId,
+            queue.getName(),
+            queue.getBusinessDate(),
+            queue.getTicketPrefix(),
+            queue.getStatus()
+    );
+  }
 
     @Transactional
     public QueueEntryResponse joinQueue(
             Long queueId,
             Long userId,
+            String idempotencyKey,
             JoinQueueRequest request
     ) {
+        String normalizedIdempotencyKey =
+        normalizeIdempotencyKey(idempotencyKey);
 
         Queue queue = queueRepository
                 .findByIdForUpdate(queueId)
@@ -190,6 +285,51 @@ public class QueueService {
                         queue,
                         request.serviceId()
                 );
+         if (userId == null
+        && normalizedIdempotencyKey != null) {
+
+    GuestJoinIdempotency existing =
+            guestJoinIdempotencyRepository
+                    .findByQueueIdAndIdempotencyKey(
+                            queueId,
+                            normalizedIdempotencyKey
+                    )
+                    .orElse(null);
+
+    if (existing != null
+            && existing.getExpiresAt()
+                    .isAfter(OffsetDateTime.now())) {
+
+        if (!existing.getService()
+                .getId()
+                .equals(service.getId())) {
+
+            throw new IllegalStateException(
+                    "Idempotency-Key was already used with a different request"
+            );
+        }
+
+        QueueEntry existingEntry =
+                existing.getQueueEntry();
+
+        String guestToken =
+                guestTokenEncryptionService.decrypt(
+                        existing.getEncryptedGuestToken()
+                );
+
+        String ticketNumber =
+                formatTicketNumber(
+                        queue.getTicketPrefix(),
+                        existingEntry.getTicketSequence()
+                );
+
+        return toEntryResponse(
+                existingEntry,
+                ticketNumber,
+                guestToken
+        );
+    }
+   }
 
         UserAccount user = null;
         String rawGuestToken = null;
@@ -248,6 +388,29 @@ public class QueueService {
 
         QueueEntry savedEntry =
                 queueEntryRepository.save(queueEntry);
+
+        if (userId == null
+        && normalizedIdempotencyKey != null) {
+
+    String encryptedGuestToken =
+            guestTokenEncryptionService.encrypt(
+                    rawGuestToken
+            );
+
+    GuestJoinIdempotency idempotencyRecord =
+            new GuestJoinIdempotency(
+                    queue,
+                    savedEntry,
+                    service,
+                    normalizedIdempotencyKey,
+                    encryptedGuestToken,
+                    OffsetDateTime.now().plusHours(24)
+            );
+
+    guestJoinIdempotencyRepository.save(
+            idempotencyRecord
+    );
+ }
 
         String ticketNumber =
                 formatTicketNumber(
@@ -1043,4 +1206,30 @@ public class QueueService {
                 entry.getCancelledAt()
         );
     }
+    private String normalizeIdempotencyKey(
+        String idempotencyKey
+    ) {
+    if (idempotencyKey == null
+            || idempotencyKey.isBlank()) {
+        return null;
+    }
+
+    String normalized =
+            idempotencyKey.trim().toLowerCase();
+
+    try {
+        UUID uuid = UUID.fromString(normalized);
+
+        if (!uuid.toString().equals(normalized)) {
+            throw new IllegalArgumentException();
+        }
+
+        return normalized;
+
+    } catch (IllegalArgumentException exception) {
+        throw new IllegalArgumentException(
+                "Idempotency-Key must be a valid UUID"
+        );
+    }
+  }
 }

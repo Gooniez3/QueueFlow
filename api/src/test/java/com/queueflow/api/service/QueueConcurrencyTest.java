@@ -128,6 +128,7 @@ class QueueConcurrencyTest {
                             return queueService.joinQueue(
                                     queue.getId(),
                                     null,
+                                    null,
                                     new JoinQueueRequest(null)
                             );
                         })

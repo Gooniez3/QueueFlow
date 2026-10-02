@@ -28,7 +28,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -599,6 +599,242 @@ class QueueControllerTest {
         assertThat(queueRepository.count())
                 .isZero();
     }
+
+    @Test
+    void shouldReturnTodaySharedQueueWithoutAuthentication()
+        throws Exception {
+
+    Business business = createBusiness();
+
+    Branch branch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            "today-shared@example.com"
+    );
+
+    createQueue(
+            token,
+            business.getId(),
+            branch.getId(),
+            sharedQueueRequest()
+    );
+
+    LocalDate expectedBusinessDate =
+            LocalDate.now(
+                    ZoneId.of("Asia/Singapore")
+            );
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/businesses/{businessId}/branches/{branchId}/queues/today",
+                            business.getId(),
+                            branch.getId()
+                    )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").isNumber())
+            .andExpect(jsonPath("$.branchId")
+                    .value(branch.getId()))
+            .andExpect(jsonPath("$.serviceId")
+                    .doesNotExist())
+            .andExpect(jsonPath("$.name")
+                    .value("Main Queue"))
+            .andExpect(jsonPath("$.businessDate")
+                    .value(expectedBusinessDate.toString()))
+            .andExpect(jsonPath("$.ticketPrefix")
+                    .value("A"))
+            .andExpect(jsonPath("$.status")
+                    .value("OPEN"));
+   }
+
+    @Test
+    void shouldReturnTodayServiceQueueWithoutAuthentication()
+        throws Exception {
+
+    Business business = createBusiness();
+
+    Branch branch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    com.queueflow.api.entity.Service service =
+            serviceRepository.save(
+                    new com.queueflow.api.entity.Service(
+                            branch,
+                            "Computer Repair",
+                            "Computer repair service",
+                            30
+                    )
+            );
+
+    String token = createMemberAndLogin(
+            business,
+            "today-service@example.com"
+    );
+
+    createQueue(
+            token,
+            business.getId(),
+            branch.getId(),
+            serviceQueueRequest(service.getId())
+    );
+
+    LocalDate expectedBusinessDate =
+            LocalDate.now(
+                    ZoneId.of("Asia/Singapore")
+            );
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/businesses/{businessId}/branches/{branchId}/queues/today",
+                            business.getId(),
+                            branch.getId()
+                    )
+                            .param(
+                                    "serviceId",
+                                    service.getId().toString()
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").isNumber())
+            .andExpect(jsonPath("$.branchId")
+                    .value(branch.getId()))
+            .andExpect(jsonPath("$.serviceId")
+                    .value(service.getId()))
+            .andExpect(jsonPath("$.name")
+                    .value("Repair Queue"))
+            .andExpect(jsonPath("$.businessDate")
+                    .value(expectedBusinessDate.toString()))
+            .andExpect(jsonPath("$.ticketPrefix")
+                    .value("R"))
+            .andExpect(jsonPath("$.status")
+                    .value("OPEN"));
+  }
+
+   @Test
+   void shouldReturnNotFoundWhenTodayServiceQueueDoesNotExist()
+        throws Exception {
+
+    Business business = createBusiness();
+
+    Branch branch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    com.queueflow.api.entity.Service service =
+            serviceRepository.save(
+                    new com.queueflow.api.entity.Service(
+                            branch,
+                            "Computer Repair",
+                            "Computer repair service",
+                            30
+                    )
+            );
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/businesses/{businessId}/branches/{branchId}/queues/today",
+                            business.getId(),
+                            branch.getId()
+                    )
+                            .param(
+                                    "serviceId",
+                                    service.getId().toString()
+                            )
+            )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status")
+                    .value(404))
+            .andExpect(jsonPath("$.message")
+                    .value("Queue not found for today"));
+   }
+
+    @Test
+    void shouldReturnNotFoundWhenTodaySharedQueueDoesNotExist()
+        throws Exception {
+
+    Business business = createBusiness();
+
+    Branch branch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/businesses/{businessId}/branches/{branchId}/queues/today",
+                            business.getId(),
+                            branch.getId()
+                    )
+            )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status")
+                    .value(404))
+            .andExpect(jsonPath("$.message")
+                    .value("Queue not found for today"));
+  }
+
+    @Test
+    void shouldReturnNotFoundWhenTodayQueueServiceBelongsToDifferentBranch()
+        throws Exception {
+
+    Business business = createBusiness();
+
+    Branch firstBranch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    Branch secondBranch =
+            branchRepository.save(
+                    new Branch(
+                            business,
+                            "Second Branch",
+                            "456 Second Street",
+                            null,
+                            null
+                    )
+            );
+
+    secondBranch.setTimezone("Asia/Singapore");
+    secondBranch = branchRepository.save(secondBranch);
+
+    com.queueflow.api.entity.Service service =
+            serviceRepository.save(
+                    new com.queueflow.api.entity.Service(
+                            secondBranch,
+                            "Other Service",
+                            "Service at another branch",
+                            20
+                    )
+            );
+
+    mockMvc.perform(
+                    get(
+                            "/api/v1/businesses/{businessId}/branches/{branchId}/queues/today",
+                            business.getId(),
+                            firstBranch.getId()
+                    )
+                            .param(
+                                    "serviceId",
+                                    service.getId().toString()
+                            )
+            )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status")
+                    .value(404))
+            .andExpect(jsonPath("$.message")
+                    .value(
+                            "Service not found with id: "
+                                    + service.getId()
+                    ));
+   }
 
     private Business createBusiness() {
         return businessRepository.save(
