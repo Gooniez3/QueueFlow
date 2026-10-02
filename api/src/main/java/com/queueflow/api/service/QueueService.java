@@ -17,11 +17,13 @@ import com.queueflow.api.request.JoinQueueRequest;
 import com.queueflow.api.response.QueueEntryResponse;
 import com.queueflow.api.response.QueuePositionResponse;
 import com.queueflow.api.response.QueueResponse;
+import com.queueflow.api.response.QueueStaffEntryResponse;
 import com.queueflow.api.security.AuthTokenService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -41,6 +43,7 @@ public class QueueService {
     private final ServiceRepository serviceRepository;
     private final UserAccountRepository userAccountRepository;
     private final AuthTokenService authTokenService;
+    private final BusinessAuthorizationService businessAuthorizationService;
 
     public QueueService(
             QueueRepository queueRepository,
@@ -48,7 +51,8 @@ public class QueueService {
             BranchRepository branchRepository,
             ServiceRepository serviceRepository,
             UserAccountRepository userAccountRepository,
-            AuthTokenService authTokenService
+            AuthTokenService authTokenService,
+            BusinessAuthorizationService businessAuthorizationService
     ) {
         this.queueRepository = queueRepository;
         this.queueEntryRepository = queueEntryRepository;
@@ -56,6 +60,7 @@ public class QueueService {
         this.serviceRepository = serviceRepository;
         this.userAccountRepository = userAccountRepository;
         this.authTokenService = authTokenService;
+        this.businessAuthorizationService = businessAuthorizationService;
     }
 
     @Transactional
@@ -304,6 +309,263 @@ public class QueueService {
         );
     }
 
+    @Transactional
+    public QueueStaffEntryResponse callNext(
+            Long queueId,
+            Long staffUserId
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        businessAuthorizationService
+                .requireMembership(
+                        staffUserId,
+                        businessId
+                );
+
+        if (queue.getStatus() != QueueStatus.OPEN) {
+            throw new IllegalStateException(
+                    "Queue must be open to call the next entry"
+            );
+        }
+
+        QueueEntry entry =
+                queueEntryRepository
+                        .findFirstByQueueIdAndStatusOrderByTicketSequenceAsc(
+                                queueId,
+                                QueueEntryStatus.WAITING
+                        )
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "No waiting entries in this queue"
+                                )
+                        );
+
+        entry.setStatus(
+                QueueEntryStatus.CALLED
+        );
+
+        entry.setCalledAt(
+                OffsetDateTime.now()
+        );
+
+        QueueEntry savedEntry =
+                queueEntryRepository.save(entry);
+
+        return toStaffEntryResponse(
+                savedEntry
+        );
+    }
+
+    @Transactional
+    public QueueStaffEntryResponse startServing(
+            Long queueId,
+            Long entryId,
+            Long staffUserId
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        businessAuthorizationService
+                .requireMembership(
+                        staffUserId,
+                        businessId
+                );
+
+        QueueEntry entry = queueEntryRepository
+                .findById(entryId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue entry not found with id: "
+                                        + entryId
+                        )
+                );
+
+        if (!entry.getQueue()
+                .getId()
+                .equals(queueId)) {
+
+            throw new IllegalArgumentException(
+                    "Queue entry does not belong to this queue"
+            );
+        }
+
+        if (entry.getStatus() != QueueEntryStatus.CALLED) {
+            throw new IllegalStateException(
+                    "Only a called entry can start serving"
+            );
+        }
+
+        entry.setStatus(
+                QueueEntryStatus.SERVING
+        );
+
+        entry.setServingAt(
+                OffsetDateTime.now()
+        );
+
+        QueueEntry savedEntry =
+                queueEntryRepository.save(entry);
+
+        return toStaffEntryResponse(
+                savedEntry
+        );
+    }
+
+    @Transactional
+    public QueueStaffEntryResponse completeEntry(
+            Long queueId,
+            Long entryId,
+            Long staffUserId
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        businessAuthorizationService
+                .requireMembership(
+                        staffUserId,
+                        businessId
+                );
+
+        QueueEntry entry = queueEntryRepository
+                .findById(entryId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue entry not found with id: "
+                                        + entryId
+                        )
+                );
+
+        if (!entry.getQueue()
+                .getId()
+                .equals(queueId)) {
+
+            throw new IllegalArgumentException(
+                    "Queue entry does not belong to this queue"
+            );
+        }
+
+        if (entry.getStatus() != QueueEntryStatus.SERVING) {
+            throw new IllegalStateException(
+                    "Only a serving entry can be completed"
+            );
+        }
+
+        entry.setStatus(
+                QueueEntryStatus.COMPLETED
+        );
+
+        entry.setCompletedAt(
+                OffsetDateTime.now()
+        );
+
+        QueueEntry savedEntry =
+                queueEntryRepository.save(entry);
+
+        return toStaffEntryResponse(
+                savedEntry
+        );
+    }
+
+    @Transactional
+    public QueueStaffEntryResponse skipEntry(
+            Long queueId,
+            Long entryId,
+            Long staffUserId
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        businessAuthorizationService
+                .requireMembership(
+                        staffUserId,
+                        businessId
+                );
+
+        QueueEntry entry = queueEntryRepository
+                .findById(entryId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue entry not found with id: "
+                                        + entryId
+                        )
+                );
+
+        if (!entry.getQueue()
+                .getId()
+                .equals(queueId)) {
+
+            throw new IllegalArgumentException(
+                    "Queue entry does not belong to this queue"
+            );
+        }
+
+        if (entry.getStatus() != QueueEntryStatus.CALLED) {
+            throw new IllegalStateException(
+                    "Only a called entry can be skipped"
+            );
+        }
+
+        entry.setStatus(
+                QueueEntryStatus.SKIPPED
+        );
+
+        QueueEntry savedEntry =
+                queueEntryRepository.save(entry);
+
+        return toStaffEntryResponse(
+                savedEntry
+        );
+    }
+
     private com.queueflow.api.entity.Service resolveJoinService(
             Queue queue,
             Long requestedServiceId
@@ -442,6 +704,43 @@ public class QueueService {
                 entry.getStatus(),
                 entry.getJoinedAt(),
                 guestToken
+        );
+    }
+
+    private QueueStaffEntryResponse toStaffEntryResponse(
+            QueueEntry entry
+    ) {
+
+        Long userId =
+                entry.getUser() == null
+                        ? null
+                        : entry.getUser().getId();
+
+        Long counterId =
+                entry.getCounter() == null
+                        ? null
+                        : entry.getCounter().getId();
+
+        String ticketNumber =
+                formatTicketNumber(
+                        entry.getQueue().getTicketPrefix(),
+                        entry.getTicketSequence()
+                );
+
+        return new QueueStaffEntryResponse(
+                entry.getId(),
+                entry.getQueue().getId(),
+                entry.getService().getId(),
+                userId,
+                counterId,
+                entry.getTicketSequence(),
+                ticketNumber,
+                entry.getStatus(),
+                entry.getJoinedAt(),
+                entry.getCalledAt(),
+                entry.getServingAt(),
+                entry.getCompletedAt(),
+                entry.getCancelledAt()
         );
     }
 }
