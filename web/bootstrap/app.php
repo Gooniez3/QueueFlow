@@ -22,12 +22,17 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReportWhen(
-            fn (QueueFlowApiException $exception): bool => request()->is('staff', 'staff/*')
+            fn (QueueFlowApiException $exception): bool => (
+                request()->is('staff', 'staff/*')
                 && in_array(
                     $exception->status,
                     [401, 403, 404],
                     true,
-                ),
+                )
+            ) || (
+                request()->routeIs('home', 'businesses.show', 'branches.show', 'services.show')
+                && $exception->status === 404
+            ),
         );
 
         $exceptions->render(function (QueueFlowApiException $exception, Request $request) {
@@ -43,6 +48,23 @@ return Application::configure(basePath: dirname(__DIR__))
                     'You are not authorized to access this staff resource.',
                     403,
                 ),
+                404 => response(
+                    'The requested QueueFlow resource was not found.',
+                    404,
+                ),
+                default => response(
+                    'QueueFlow is temporarily unavailable. Please try again later.',
+                    503,
+                ),
+            };
+        });
+
+        $exceptions->render(function (QueueFlowApiException $exception, Request $request) {
+            if (! $request->routeIs('home', 'businesses.show', 'branches.show', 'services.show')) {
+                return null;
+            }
+
+            return match ($exception->status) {
                 404 => response(
                     'The requested QueueFlow resource was not found.',
                     404,

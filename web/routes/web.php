@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\CustomerBranchController;
+use App\Http\Controllers\CustomerBusinessController;
 use App\Http\Controllers\CustomerHomeController;
+use App\Http\Controllers\CustomerServiceController;
 use App\Http\Controllers\CustomerTicketController;
 use App\Http\Controllers\QueueBoardController;
 use App\Http\Controllers\Staff\AuthenticatedSessionController;
@@ -12,6 +15,15 @@ use App\Http\Controllers\Staff\StaffHomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', CustomerHomeController::class)->name('home');
+Route::get('/businesses/{businessId}', [CustomerBusinessController::class, 'show'])
+    ->whereNumber('businessId')
+    ->name('businesses.show');
+Route::get('/businesses/{businessId}/branches/{branchId}', [CustomerBranchController::class, 'show'])
+    ->whereNumber(['businessId', 'branchId'])
+    ->name('branches.show');
+Route::get('/businesses/{businessId}/branches/{branchId}/services/{serviceId}', [CustomerServiceController::class, 'show'])
+    ->whereNumber(['businessId', 'branchId', 'serviceId'])
+    ->name('services.show');
 Route::get('/queue-board', QueueBoardController::class)->name('queue-board.show');
 Route::get('/ticket', CustomerTicketController::class)->name('tickets.show');
 

@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Contracts\QueuePresentationSource;
+use App\Services\QueueFlowApiClient;
 use Illuminate\View\View;
 
 class CustomerHomeController extends Controller
 {
     public function __construct(
-        private readonly QueuePresentationSource $queuePresentationSource,
+        private readonly QueueFlowApiClient $apiClient,
     ) {}
 
     public function __invoke(): View
     {
         return view('home', [
-            'home' => $this->queuePresentationSource->customerHome(),
+            'businesses' => $this->apiClient->businesses(),
         ]);
     }
 }

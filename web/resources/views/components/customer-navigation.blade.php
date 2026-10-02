@@ -1,7 +1,7 @@
-@props(['updated'])
+@props(['updated' => null])
 
 @php
-    $isHome = request()->routeIs('home');
+    $isHome = request()->routeIs('home', 'businesses.show', 'branches.show', 'services.show');
     $isTicket = request()->routeIs('tickets.show');
     $activeDestination = $isTicket ? 'ticket' : 'home';
 @endphp
@@ -26,7 +26,9 @@
             >My Ticket</a>
         </nav>
 
-        <p class="ml-auto shrink-0 text-xs text-muted md:ml-2 md:border-l md:border-line md:pl-6">Updated {{ strtolower($updated) }}</p>
+        @if ($updated)
+            <p class="ml-auto shrink-0 text-xs text-muted md:ml-2 md:border-l md:border-line md:pl-6">Updated {{ strtolower($updated) }}</p>
+        @endif
     </div>
 
     <nav
