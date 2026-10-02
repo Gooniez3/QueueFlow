@@ -62,8 +62,8 @@ class BusinessControllerTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    @BeforeEach
-    void cleanDatabase() {
+        @BeforeEach
+        void cleanDatabase() {
         authSessionRepository.deleteAll();
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();

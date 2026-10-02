@@ -97,7 +97,8 @@ public class SecurityConfig {
                                 "/api/v1/queues/*/entries/*/cancel"
                         ).permitAll()
 
-                        // Everything else requires authentication.
+                        // Business creation and all other mutations
+                        // require authentication.
                         .anyRequest().authenticated()
                 )
 
