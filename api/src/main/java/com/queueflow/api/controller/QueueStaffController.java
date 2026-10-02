@@ -1,5 +1,6 @@
 package com.queueflow.api.controller;
 
+import com.queueflow.api.response.QueueResponse;
 import com.queueflow.api.response.QueueStaffEntryResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.QueueService;
@@ -79,6 +80,51 @@ public class QueueStaffController {
                 queueService.skipEntry(
                         queueId,
                         entryId,
+                        principal.userId()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/pause")
+    public ResponseEntity<QueueResponse> pauseQueue(
+            @PathVariable Long queueId,
+            @AuthenticationPrincipal AuthUserPrincipal principal
+    ) {
+
+        QueueResponse response =
+                queueService.pauseQueue(
+                        queueId,
+                        principal.userId()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/resume")
+    public ResponseEntity<QueueResponse> resumeQueue(
+            @PathVariable Long queueId,
+            @AuthenticationPrincipal AuthUserPrincipal principal
+    ) {
+
+        QueueResponse response =
+                queueService.resumeQueue(
+                        queueId,
+                        principal.userId()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/close")
+    public ResponseEntity<QueueResponse> closeQueue(
+            @PathVariable Long queueId,
+            @AuthenticationPrincipal AuthUserPrincipal principal
+    ) {
+
+        QueueResponse response =
+                queueService.closeQueue(
+                        queueId,
                         principal.userId()
                 );
 

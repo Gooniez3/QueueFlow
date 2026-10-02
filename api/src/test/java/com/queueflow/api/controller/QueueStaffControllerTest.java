@@ -25,6 +25,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.TestContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -33,6 +34,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -1450,7 +1452,630 @@ class QueueStaffControllerTest {
                 )
                 .andExpect(status().isForbidden());
     }
+    // =========================================================
+// PAUSE QUEUE
+// =========================================================
 
+    @Test
+    void shouldPauseOpenQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.OPEN
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "pause@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/pause",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.status")
+                    .value("PAUSED"));
+
+    Queue updated =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(updated.getStatus())
+            .isEqualTo(QueueStatus.PAUSED);
+ }
+    @Test
+    void shouldRejectPausingAlreadyPausedQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.PAUSED
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "pause-already-paused@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/pause",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status")
+                    .value(409));
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.PAUSED);
+   }
+    @Test
+    void shouldRejectPausingClosedQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.CLOSED
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "pause-closed@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/pause",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status")
+                    .value(409));
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.CLOSED);
+  }
+    @Test
+    void shouldRequireAuthenticationToPauseQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.OPEN
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/pause",
+                            queue.getId()
+                    )
+            )
+            .andExpect(status().isUnauthorized());
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.OPEN);
+  }
+    @Test
+    void shouldRejectUserWithoutBusinessMembershipWhenPausingQueue()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.OPEN
+    );
+
+    createUser(
+            "pause-outsider@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "pause-outsider@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/pause",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isForbidden());
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.OPEN);
+    }
+
+    // =========================================================
+// RESUME QUEUE
+// =========================================================
+
+    @Test
+    void shouldResumePausedQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.PAUSED
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "resume@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/resume",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.status")
+                    .value("OPEN"));
+
+    Queue updated =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(updated.getStatus())
+            .isEqualTo(QueueStatus.OPEN);
+   }
+    @Test
+    void shouldRejectResumingOpenQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.OPEN
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "resume-open@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/resume",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status")
+                    .value(409));
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.OPEN);
+   }
+    @Test
+    void shouldRejectResumingClosedQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.CLOSED
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "resume-closed@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/resume",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status")
+                    .value(409));
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.CLOSED);
+   }
+    @Test
+    void shouldRequireAuthenticationToResumeQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.PAUSED
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/resume",
+                            queue.getId()
+                    )
+            )
+            .andExpect(status().isUnauthorized());
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.PAUSED);
+ }
+    @Test
+    void shouldRejectUserWithoutBusinessMembershipWhenResumingQueue()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.PAUSED
+    );
+
+    createUser(
+            "resume-outsider@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "resume-outsider@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/resume",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isForbidden());
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.PAUSED);
+   }
+    // =========================================================
+// CLOSE QUEUE
+// =========================================================
+
+    @Test
+    void shouldCloseOpenQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.OPEN
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "close-open@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/close",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.status")
+                    .value("CLOSED"))
+            .andExpect(jsonPath("$.closedAt")
+                    .isNotEmpty());
+
+    Queue updated =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(updated.getStatus())
+            .isEqualTo(QueueStatus.CLOSED);
+
+    assertThat(updated.getClosedAt())
+            .isNotNull();
+ }
+    @Test
+    void shouldClosePausedQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.PAUSED
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "close-paused@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/close",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.status")
+                    .value("CLOSED"))
+            .andExpect(jsonPath("$.closedAt")
+                    .isNotEmpty());
+
+    Queue updated =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(updated.getStatus())
+            .isEqualTo(QueueStatus.CLOSED);
+
+    assertThat(updated.getClosedAt())
+            .isNotNull();
+  }
+    @Test
+    void shouldRejectClosingAlreadyClosedQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.CLOSED
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            branch,
+            "close-already-closed@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/close",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status")
+                    .value(409));
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.CLOSED);
+ }
+    @Test
+    void shouldRequireAuthenticationToCloseQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.OPEN
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/close",
+                            queue.getId()
+                    )
+            )
+            .andExpect(status().isUnauthorized());
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.OPEN);
+
+    assertThat(unchanged.getClosedAt())
+            .isNull();
+  }
+    @Test
+    void shouldRejectUserWithoutBusinessMembershipWhenClosingQueue() throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    Service service = createService(branch);
+
+    Queue queue = createQueue(
+            branch,
+            service,
+            QueueStatus.OPEN
+    );
+
+    createUser(
+            "close-outsider@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "close-outsider@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/staff/close",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isForbidden());
+
+    Queue unchanged =
+            queueRepository
+                    .findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(unchanged.getStatus())
+            .isEqualTo(QueueStatus.OPEN);
+
+    assertThat(unchanged.getClosedAt())
+            .isNull();
+  }
     // =========================================================
     // HELPERS
     // =========================================================

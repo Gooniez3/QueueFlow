@@ -566,6 +566,135 @@ public class QueueService {
         );
     }
 
+    @Transactional
+    public QueueResponse pauseQueue(
+            Long queueId,
+            Long staffUserId
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        businessAuthorizationService
+                .requireMembership(
+                        staffUserId,
+                        businessId
+                );
+
+        if (queue.getStatus() != QueueStatus.OPEN) {
+            throw new IllegalStateException(
+                    "Only an open queue can be paused"
+            );
+        }
+
+        queue.setStatus(
+                QueueStatus.PAUSED
+        );
+
+        Queue savedQueue =
+                queueRepository.save(queue);
+
+        return toResponse(savedQueue);
+    }
+
+    @Transactional
+    public QueueResponse resumeQueue(
+        Long queueId,
+        Long staffUserId
+    ) {
+
+    Queue queue = queueRepository
+            .findByIdForUpdate(queueId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Queue not found with id: "
+                                    + queueId
+                    )
+            );
+
+    Long businessId =
+            queue.getBranch()
+                    .getBusiness()
+                    .getId();
+
+    businessAuthorizationService
+            .requireMembership(
+                    staffUserId,
+                    businessId
+            );
+
+    if (queue.getStatus() != QueueStatus.PAUSED) {
+        throw new IllegalStateException(
+                "Only a paused queue can be resumed"
+        );
+    }
+
+    queue.setStatus(
+            QueueStatus.OPEN
+    );
+
+    Queue savedQueue =
+            queueRepository.save(queue);
+
+    return toResponse(savedQueue);
+   }
+   @Transactional
+   public QueueResponse closeQueue(
+        Long queueId,
+        Long staffUserId
+   ) {
+
+    Queue queue = queueRepository
+            .findByIdForUpdate(queueId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Queue not found with id: "
+                                    + queueId
+                    )
+            );
+
+    Long businessId =
+            queue.getBranch()
+                    .getBusiness()
+                    .getId();
+
+    businessAuthorizationService
+            .requireMembership(
+                    staffUserId,
+                    businessId
+            );
+
+    if (queue.getStatus() == QueueStatus.CLOSED) {
+        throw new IllegalStateException(
+                "Queue is already closed"
+        );
+    }
+
+    queue.setStatus(
+            QueueStatus.CLOSED
+    );
+
+    queue.setClosedAt(
+            OffsetDateTime.now()
+    );
+
+    Queue savedQueue =
+            queueRepository.save(queue);
+
+    return toResponse(savedQueue);
+   }
+
     private com.queueflow.api.entity.Service resolveJoinService(
             Queue queue,
             Long requestedServiceId
