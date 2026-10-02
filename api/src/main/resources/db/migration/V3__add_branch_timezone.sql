@@ -1,0 +1,2 @@
+ALTER TABLE branch
+ADD COLUMN timezone VARCHAR(100) NOT NULL DEFAULT 'Asia/Singapore';

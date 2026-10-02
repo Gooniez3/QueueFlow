@@ -28,6 +28,9 @@ public class Branch {
     @Column(precision = 9, scale = 6)
     private BigDecimal longitude;
 
+    @Column(nullable = false, length = 100)
+    private String timezone = "Asia/Singapore";
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -105,6 +108,14 @@ public class Branch {
 
     public void setLongitude(BigDecimal longitude) {
         this.longitude = longitude;
+    }
+
+    public String getTimezone() {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
     }
 
     public OffsetDateTime getCreatedAt() {

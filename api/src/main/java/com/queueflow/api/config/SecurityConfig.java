@@ -79,7 +79,25 @@ public class SecurityConfig {
                                 "/api/v1/businesses/**"
                         ).permitAll()
 
-                        // Business creation and all mutations
+                        // Public queue position lookup.
+                        // QueueService verifies ownership using either
+                        // the authenticated user or X-Guest-Token.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/queues/*/entries/*/position"
+                        ).permitAll()
+
+                        // Public queue joining and cancellation.
+                        // Guests can use these without authentication.
+                        // If a valid bearer token is supplied,
+                        // the bearer filter still identifies the user.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/queues/*/entries",
+                                "/api/v1/queues/*/entries/*/cancel"
+                        ).permitAll()
+
+                        // Business creation and all other mutations
                         // require authentication.
                         .anyRequest().authenticated()
                 )

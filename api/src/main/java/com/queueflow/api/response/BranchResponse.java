@@ -10,6 +10,7 @@ public record BranchResponse(
         String address,
         BigDecimal latitude,
         BigDecimal longitude,
+        String timezone,
         OffsetDateTime createdAt
 ) {
 }

@@ -32,4 +32,31 @@ public class BusinessAuthorizationService {
                         )
                 );
     }
+
+    public StaffMembership requireBranchAccess(
+            Long userId,
+            Long businessId,
+            Long branchId
+    ) {
+        StaffMembership membership =
+                requireMembership(
+                        userId,
+                        businessId
+                );
+
+        if (membership.getBranch() == null) {
+            return membership;
+        }
+
+        if (membership.getBranch()
+                .getId()
+                .equals(branchId)) {
+
+            return membership;
+        }
+
+        throw new AccessDeniedException(
+                "You do not have access to this branch"
+        );
+    }
 }
