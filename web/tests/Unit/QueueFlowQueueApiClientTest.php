@@ -6,6 +6,7 @@ use App\Data\QueueData;
 use App\Data\QueueEntryData;
 use App\Data\QueuePositionData;
 use App\Data\QueueStaffEntryData;
+use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowApiClient;
 use Illuminate\Http\Client\ConnectionException;
@@ -72,7 +73,30 @@ class QueueFlowQueueApiClientTest extends TestCase
             && $request->url() === 'http://localhost:8080/api/v1/queues/91/entries'
             && ! $request->hasHeader('Authorization')
             && ! $request->hasHeader('X-Guest-Token')
+            && ! $request->hasHeader('Idempotency-Key')
             && $request->data() === ['serviceId' => 31]);
+    }
+
+    public function test_guest_join_sends_supplied_idempotency_key(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/entries' => Http::response(
+                $this->queueEntryResponse(guestToken: 'inert-guest-token'),
+                201,
+            ),
+        ]);
+
+        app(QueueFlowApiClient::class)->joinQueue(
+            91,
+            31,
+            idempotencyKey: '11111111-1111-4111-8111-111111111111',
+        );
+
+        Http::assertSent(fn (Request $request): bool => $request->hasHeader(
+            'Idempotency-Key',
+            '11111111-1111-4111-8111-111111111111',
+        ) && ! $request->hasHeader('Authorization'));
     }
 
     public function test_registered_user_can_join_with_bearer_authentication(): void
@@ -89,6 +113,7 @@ class QueueFlowQueueApiClientTest extends TestCase
             91,
             31,
             'inert-customer-token',
+            '22222222-2222-4222-8222-222222222222',
         );
 
         $this->assertSame(42, $entry->userId);
@@ -97,7 +122,87 @@ class QueueFlowQueueApiClientTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->hasHeader(
             'Authorization',
             'Bearer inert-customer-token',
+        ) && $request->hasHeader(
+            'Idempotency-Key',
+            '22222222-2222-4222-8222-222222222222',
         ));
+    }
+
+    public function test_it_gets_service_specific_today_queue_without_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/queues/today?serviceId=31' => Http::response(
+                $this->todayQueueResponse(serviceId: 31),
+            ),
+        ]);
+
+        $queue = app(QueueFlowApiClient::class)->todayQueue(10, 21, 31);
+
+        $this->assertInstanceOf(TodayQueueData::class, $queue);
+        $this->assertSame(31, $queue->serviceId);
+        $this->assertSame('OPEN', $queue->status);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+            && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/queues/today?serviceId=31'
+            && ! $request->hasHeader('Authorization'));
+    }
+
+    public function test_it_gets_shared_today_queue_without_service_query_or_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/queues/today' => Http::response(
+                $this->todayQueueResponse(),
+            ),
+        ]);
+
+        $queue = app(QueueFlowApiClient::class)->todayQueue(10, 21);
+
+        $this->assertNull($queue->serviceId);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+            && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/queues/today'
+            && ! $request->hasHeader('Authorization'));
+    }
+
+    public function test_today_queue_not_found_is_preserved(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/queues/today' => Http::response([
+                'message' => 'Queue not found for today',
+            ], 404),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->todayQueue(10, 21);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(404, $exception->status);
+            $this->assertSame('Queue not found for today', $exception->getMessage());
+        }
+    }
+
+    public function test_today_queue_connection_failure_uses_existing_safe_exception(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/queues/today' => Http::failedConnection(
+                'Connection refused with internal details',
+            ),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->todayQueue(10, 21);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertNull($exception->status);
+            $this->assertSame('Unable to connect to the QueueFlow API.', $exception->getMessage());
+            $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
+        }
     }
 
     public function test_guest_position_uses_guest_token_header_and_maps_response(): void
@@ -381,6 +486,20 @@ class QueueFlowQueueApiClientTest extends TestCase
             'status' => $status,
             'joinedAt' => '2030-04-15T10:30:00+08:00',
             'guestToken' => $guestToken,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function todayQueueResponse(?int $serviceId = null): array
+    {
+        return [
+            'id' => 91,
+            'branchId' => 21,
+            'serviceId' => $serviceId,
+            'name' => $serviceId === null ? 'Walk-in Queue' : 'General Consultation',
+            'businessDate' => '2030-04-15',
+            'ticketPrefix' => 'A',
+            'status' => 'OPEN',
         ];
     }
 
