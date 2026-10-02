@@ -26,10 +26,114 @@
 @layer base {
     body {
         min-width: 320px;
+        overflow-x: clip;
     }
 
     ::selection {
         background: var(--color-mint);
         color: var(--color-ink);
+    }
+}
+
+@layer components {
+    .staff-container {
+        @apply mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8;
+    }
+
+    .staff-page {
+        @apply py-6 sm:py-10 lg:py-11;
+    }
+
+    .staff-eyebrow {
+        @apply text-xs font-semibold tracking-[0.18em] text-brand;
+    }
+
+    .staff-page-title {
+        @apply mt-2 max-w-3xl break-words font-editorial text-2xl leading-[1.1] tracking-[-0.03em] text-ink sm:mt-2.5 sm:text-4xl sm:leading-[1.08] sm:tracking-[-0.035em];
+    }
+
+    .staff-page-copy {
+        @apply mt-2 max-w-2xl text-sm leading-5 text-muted sm:mt-3 sm:leading-6;
+    }
+
+    .staff-section-title {
+        @apply font-editorial text-lg leading-tight tracking-[-0.02em] text-ink sm:text-xl sm:tracking-[-0.025em];
+    }
+
+    .staff-primary-button {
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    }
+
+    .staff-secondary-button {
+        @apply inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-brand/40 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    }
+
+    .staff-text-link {
+        @apply inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-4 transition-colors hover:text-ink hover:decoration-ink focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    }
+
+    .staff-back-control {
+        @apply inline-flex min-h-11 max-w-full shrink-0 items-center gap-2.5 rounded-lg text-sm font-semibold text-ink transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    }
+
+    .staff-resource-list {
+        @apply mt-3 grid gap-2.5 sm:mt-4 sm:gap-3;
+    }
+
+    .staff-resource-row {
+        @apply grid min-h-20 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-3 text-ink transition-colors hover:border-brand/35 hover:bg-brand/[0.025] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-24 sm:gap-4 sm:px-6 sm:py-4;
+    }
+
+    .staff-empty-state {
+        @apply mt-3 max-w-3xl rounded-xl border border-line bg-surface px-4 py-4 sm:mt-4 sm:px-6 sm:py-5;
+    }
+
+    .staff-form-wrap {
+        @apply max-w-3xl;
+    }
+
+    .staff-form-card {
+        @apply mt-6 grid gap-5 rounded-xl border border-line bg-surface p-5 sm:p-7;
+        box-shadow: 0 20px 55px -48px rgb(7 23 19 / 45%);
+    }
+
+    .staff-field {
+        @apply grid gap-2;
+    }
+
+    .staff-field-label {
+        @apply text-sm font-semibold text-ink;
+    }
+
+    .staff-field-optional {
+        @apply font-normal text-muted;
+    }
+
+    .staff-field-control {
+        @apply block w-full rounded-xl border border-line bg-white px-4 py-3 text-base font-normal text-ink outline-none transition placeholder:text-muted/60 hover:border-brand/35 focus:border-brand focus:ring-3 focus:ring-brand/10;
+    }
+
+    .staff-field-control-error {
+        @apply border-red-700 focus:border-red-700 focus:ring-red-700/10;
+    }
+
+    .staff-field-help {
+        @apply text-xs leading-5 text-muted;
+    }
+
+    .staff-field-error {
+        @apply text-sm leading-5 text-red-800;
+    }
+
+    .staff-alert-success {
+        @apply mb-6 flex w-fit max-w-full gap-3 rounded-lg border border-brand/15 bg-brand/5 px-3.5 py-2.5 text-sm leading-5 text-ink;
+    }
+
+    .staff-alert-error {
+        @apply rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-900;
+    }
+
+    .staff-status-badge {
+        @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold;
     }
 }

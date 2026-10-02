@@ -48,6 +48,13 @@ class EnsureQueueFlowStaffAuthenticated
                 );
             }
 
+            if ($exception->status === 404) {
+                return response(
+                    'The requested QueueFlow resource was not found.',
+                    404,
+                );
+            }
+
             report($exception);
 
             return response(

@@ -7,6 +7,7 @@ use App\Data\LoginData;
 use App\Data\RegisteredUserData;
 use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
+use Closure;
 use Illuminate\Contracts\Session\Session;
 
 class QueueFlowAuthService
@@ -147,6 +148,34 @@ class QueueFlowAuthService
         );
 
         return $context;
+    }
+
+    /**
+     * @template TResult
+     *
+     * @param  Closure(string): TResult  $request
+     * @return TResult
+     */
+    public function authenticatedRequest(Closure $request): mixed
+    {
+        $token = $this->token();
+
+        if ($token === null) {
+            throw new QueueFlowApiException(
+                message: 'Authentication is required.',
+                status: 401,
+            );
+        }
+
+        try {
+            return $request($token);
+        } catch (QueueFlowApiException $exception) {
+            if ($exception->status === 401) {
+                $this->clearAuthenticationState();
+            }
+
+            throw $exception;
+        }
     }
 
     public function logout(): void

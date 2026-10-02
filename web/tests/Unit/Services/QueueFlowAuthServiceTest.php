@@ -354,6 +354,70 @@ class QueueFlowAuthServiceTest extends TestCase
         $this->assertNull($context);
     }
 
+    public function test_authenticated_request_supplies_the_stored_token_to_server_side_operation(): void
+    {
+        $service = new QueueFlowAuthService(
+            Mockery::mock(QueueFlowApiClient::class),
+            $session = $this->sessionStore(),
+        );
+        $session->put('queueflow.auth', $this->storedAuthenticationState());
+
+        $result = $service->authenticatedRequest(
+            static fn (string $token): string => $token === 'inert-spring-token'
+                ? 'completed'
+                : 'unexpected',
+        );
+
+        $this->assertSame('completed', $result);
+        $this->assertTrue($service->hasAuthSession());
+    }
+
+    public function test_authenticated_request_401_clears_local_authentication(): void
+    {
+        $service = new QueueFlowAuthService(
+            Mockery::mock(QueueFlowApiClient::class),
+            $session = $this->sessionStore(),
+        );
+        $session->put('queueflow.auth', $this->storedAuthenticationState());
+
+        try {
+            $service->authenticatedRequest(
+                static fn () => throw new QueueFlowApiException(
+                    'Authentication is required',
+                    401,
+                ),
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(401, $exception->status);
+            $this->assertFalse($service->hasAuthSession());
+        }
+    }
+
+    public function test_authenticated_request_403_preserves_local_authentication(): void
+    {
+        $service = new QueueFlowAuthService(
+            Mockery::mock(QueueFlowApiClient::class),
+            $session = $this->sessionStore(),
+        );
+        $session->put('queueflow.auth', $this->storedAuthenticationState());
+
+        try {
+            $service->authenticatedRequest(
+                static fn () => throw new QueueFlowApiException(
+                    'Access denied',
+                    403,
+                ),
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(403, $exception->status);
+            $this->assertTrue($service->hasAuthSession());
+        }
+    }
+
     public function test_successful_logout_revokes_spring_session_and_invalidates_local_session(): void
     {
         $apiClient = Mockery::mock(QueueFlowApiClient::class);
