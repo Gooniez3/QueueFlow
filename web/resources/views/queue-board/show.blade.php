@@ -88,7 +88,7 @@
 
                 <div class="mt-auto pt-9 text-sm leading-6 text-board-muted lg:pt-12">
                     <p>Please keep your ticket ready and listen for your number.</p>
-                    <a class="mt-3 inline-block font-semibold text-mint underline decoration-mint/50 underline-offset-4 transition hover:decoration-mint" href="{{ route('tickets.show') }}">View sample customer ticket <span aria-hidden="true">&rarr;</span></a>
+                    <a class="mt-3 inline-block font-semibold text-mint underline decoration-mint/50 underline-offset-4 transition hover:decoration-mint" href="{{ route('tickets.show') }}">View my tickets <span aria-hidden="true">&rarr;</span></a>
                 </div>
             </aside>
         </div>

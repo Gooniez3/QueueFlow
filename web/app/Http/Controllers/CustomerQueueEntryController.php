@@ -61,7 +61,7 @@ class CustomerQueueEntryController extends Controller
         );
 
         try {
-            $this->customerQueueService->joinGuest(
+            $ticket = $this->customerQueueService->joinGuest(
                 $businessId,
                 $branchId,
                 $serviceId,
@@ -89,7 +89,7 @@ class CustomerQueueEntryController extends Controller
         );
 
         return redirect()
-            ->route('tickets.show')
+            ->route('queue-entries.show', [$ticket->queueId, $ticket->entryId])
             ->with('status', 'You have joined the queue.');
     }
 

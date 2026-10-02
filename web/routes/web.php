@@ -28,8 +28,11 @@ Route::get('/businesses/{businessId}/branches/{branchId}/services/{serviceId}', 
 Route::post('/queues/{queueId}/entries', [CustomerQueueEntryController::class, 'store'])
     ->whereNumber('queueId')
     ->name('queue-entries.store');
+Route::get('/queues/{queueId}/entries/{entryId}', [CustomerTicketController::class, 'show'])
+    ->whereNumber(['queueId', 'entryId'])
+    ->name('queue-entries.show');
 Route::get('/queue-board', QueueBoardController::class)->name('queue-board.show');
-Route::get('/ticket', CustomerTicketController::class)->name('tickets.show');
+Route::get('/ticket', [CustomerTicketController::class, 'index'])->name('tickets.show');
 
 Route::prefix('staff')->name('staff.')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])

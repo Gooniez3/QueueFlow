@@ -2,7 +2,7 @@
 
 @php
     $isHome = request()->routeIs('home', 'businesses.show', 'branches.show', 'services.show');
-    $isTicket = request()->routeIs('tickets.show');
+    $isTicket = request()->routeIs('tickets.show', 'queue-entries.show');
     $activeDestination = $isTicket ? 'ticket' : 'home';
 @endphp
 
@@ -23,7 +23,7 @@
                 class="border-b-2 px-0.5 py-2 transition {{ $isTicket ? 'border-brand text-brand' : 'border-transparent text-muted hover:border-line hover:text-ink' }}"
                 href="{{ route('tickets.show') }}"
                 @if ($isTicket) aria-current="page" @endif
-            >My Ticket</a>
+            >My Tickets</a>
         </nav>
 
         @if ($updated)
@@ -78,7 +78,7 @@
                         <path d="M9 8.25h6M9 12h4.5" />
                     </svg>
                 </span>
-                <span>My Ticket</span>
+                <span>My Tickets</span>
             </a>
 
             <button

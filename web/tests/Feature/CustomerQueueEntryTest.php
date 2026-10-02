@@ -125,7 +125,9 @@ class CustomerQueueEntryTest extends TestCase
             'unrelated' => 'preserved',
         ])->post(route('queue-entries.store', 91), $this->joinPayload());
 
-        $response->assertRedirect(route('tickets.show'))
+        $detailUrl = route('queue-entries.show', [91, 301]);
+
+        $response->assertRedirect($detailUrl)
             ->assertSessionHas('status', 'You have joined the queue.')
             ->assertSessionHas('queueflow.customer.entries.91:301.guestToken', 'raw-guest-secret')
             ->assertSessionMissing('queueflow.customer.join_attempts.10:21:31:91')
@@ -140,7 +142,8 @@ class CustomerQueueEntryTest extends TestCase
 
         $this->assertNotNull($sentKeys[0]);
         $this->assertTrue((bool) preg_match('/^[0-9a-f-]{36}$/', (string) $sentKeys[0]));
-        $this->assertSame(route('tickets.show'), $response->headers->get('Location'));
+        $this->assertSame($detailUrl, $response->headers->get('Location'));
+        $this->assertStringNotContainsString('?', $detailUrl);
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
             && $request->url() === 'http://localhost:8080/api/v1/queues/91/entries'
@@ -173,7 +176,7 @@ class CustomerQueueEntryTest extends TestCase
 
         $secondResponse = $this->post(route('queue-entries.store', 91), $this->joinPayload());
 
-        $secondResponse->assertRedirect(route('tickets.show'))
+        $secondResponse->assertRedirect(route('queue-entries.show', [91, 301]))
             ->assertSessionMissing('queueflow.customer.join_attempts.10:21:31:91');
         $this->assertCount(2, $sentKeys);
         $this->assertSame($sentKeys[0], $sentKeys[1]);

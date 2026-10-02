@@ -37,8 +37,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 ) || (
                     request()->routeIs('queue-entries.store')
                     && in_array($exception->status, [400, 403, 404, 409], true)
+                ) || (
+                    request()->routeIs('queue-entries.show')
+                    && in_array($exception->status, [403, 404], true)
                 )
             ),
+        );
+
+        $exceptions->dontReportWhen(
+            fn (Throwable $exception): bool => $exception instanceof GuestQueueOwnershipException
+                && request()->routeIs('queue-entries.show'),
         );
 
         $exceptions->render(function (QueueFlowApiException $exception, Request $request) {
@@ -66,6 +74,13 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (GuestQueueOwnershipException $exception, Request $request) {
+            if ($request->routeIs('queue-entries.show')) {
+                return response(
+                    'This ticket is not available in this browser/session.',
+                    404,
+                );
+            }
+
             if (! $request->routeIs('queue-entries.store')) {
                 return null;
             }
@@ -77,6 +92,23 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (QueueFlowApiException $exception, Request $request) {
+            if ($request->routeIs('queue-entries.show')) {
+                return match ($exception->status) {
+                    403 => response(
+                        'We could not verify this ticket for this browser/session.',
+                        403,
+                    ),
+                    404 => response(
+                        'This ticket is no longer available.',
+                        404,
+                    ),
+                    default => response(
+                        'QueueFlow is temporarily unavailable. Please try again later.',
+                        503,
+                    ),
+                };
+            }
+
             if (! $request->routeIs('home', 'businesses.show', 'branches.show', 'services.show')) {
                 return null;
             }
