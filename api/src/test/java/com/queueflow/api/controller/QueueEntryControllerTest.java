@@ -723,6 +723,95 @@ class QueueEntryControllerTest {
         assertThat(queueEntryRepository.count())
                 .isZero();
     }
+    @Test
+    void shouldAllowRegisteredUserToCancelOwnWaitingEntry()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    UserAccount user = createUser(
+            "cancel@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "cancel@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id")
+                    .value(entry.getId()))
+            .andExpect(jsonPath("$.queueId")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.userId")
+                    .value(user.getId()))
+            .andExpect(jsonPath("$.ticketNumber")
+                    .value("A001"))
+            .andExpect(jsonPath("$.status")
+                    .value("CANCELLED"))
+
+            .andExpect(jsonPath("$.guestToken")
+                    .doesNotExist());
+
+    QueueEntry cancelledEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(cancelledEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.CANCELLED
+            );
+
+    assertThat(cancelledEntry.getCancelledAt())
+            .isNotNull();
+  }
+
 
     private Business createBusiness() {
 
@@ -733,6 +822,582 @@ class QueueEntryControllerTest {
                 )
         );
     }
+     @Test
+     void shouldAllowGuestToCancelOwnWaitingEntryWithGuestToken()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    MvcResult joinResult =
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/entries",
+                                    queue.getId()
+                            )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content("{}")
+                    )
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.guestToken")
+                            .isString())
+                    .andReturn();
+
+    String guestToken =
+            extractJsonString(
+                    joinResult.getResponse()
+                            .getContentAsString(),
+                    "guestToken"
+            );
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "X-Guest-Token",
+                                    guestToken
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id")
+                    .value(entry.getId()))
+            .andExpect(jsonPath("$.queueId")
+                    .value(queue.getId()))
+            .andExpect(jsonPath("$.userId")
+                    .doesNotExist())
+            .andExpect(jsonPath("$.ticketNumber")
+                    .value("A001"))
+            .andExpect(jsonPath("$.status")
+                    .value("CANCELLED"))
+            .andExpect(jsonPath("$.guestToken")
+                    .doesNotExist());
+
+    QueueEntry cancelledEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(cancelledEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.CANCELLED
+            );
+
+    assertThat(cancelledEntry.getCancelledAt())
+            .isNotNull();
+  }
+    @Test
+    void shouldRejectGuestCancellationWithWrongToken()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "X-Guest-Token",
+                                    "this-is-the-wrong-token"
+                            )
+            )
+            .andExpect(status().isForbidden());
+
+    QueueEntry unchangedEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(unchangedEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.WAITING
+            );
+
+    assertThat(unchangedEntry.getCancelledAt())
+            .isNull();
+  }
+     @Test
+     void shouldRejectGuestCancellationWithoutToken()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queue.getId(),
+                            entry.getId()
+                    )
+            )
+            .andExpect(status().isForbidden());
+
+    QueueEntry unchangedEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(unchangedEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.WAITING
+            );
+
+    assertThat(unchangedEntry.getCancelledAt())
+            .isNull();
+  }
+    @Test
+    void shouldRejectRegisteredUserCancellingAnotherUsersEntry()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    createUser(
+            "owner@example.com",
+            "password123"
+    );
+
+    String ownerToken = loginAndGetToken(
+            "owner@example.com",
+            "password123"
+    );
+
+    createUser(
+            "other@example.com",
+            "password123"
+    );
+
+    String otherToken = loginAndGetToken(
+            "other@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + ownerToken
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + otherToken
+                            )
+            )
+            .andExpect(status().isForbidden());
+
+    QueueEntry unchangedEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(unchangedEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.WAITING
+            );
+
+    assertThat(unchangedEntry.getCancelledAt())
+            .isNull();
+  }
+    @Test
+    void shouldRejectCancellationWhenEntryIsAlreadyCalled()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    createUser(
+            "called@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "called@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    entry.setStatus(
+            com.queueflow.api.entity.QueueEntryStatus.CALLED
+    );
+
+    queueEntryRepository.saveAndFlush(entry);
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queue.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isConflict());
+
+    QueueEntry unchangedEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(unchangedEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.CALLED
+            );
+
+    assertThat(unchangedEntry.getCancelledAt())
+            .isNull();
+  }
+    @Test
+    void shouldReturnNotFoundWhenEntryBelongsToDifferentQueue()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service serviceOne =
+            createService(
+                    branch,
+                    "Service One"
+            );
+
+    com.queueflow.api.entity.Service serviceTwo =
+            createService(
+                    branch,
+                    "Service Two"
+            );
+
+    Queue queueOne = createServiceQueue(
+            branch,
+            serviceOne,
+            "A"
+    );
+
+    Queue queueTwo = createServiceQueue(
+            branch,
+            serviceTwo,
+            "B"
+    );
+
+    createUser(
+            "mismatch@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "mismatch@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queueOne.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queueTwo.getId(),
+                            entry.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isNotFound());
+
+    QueueEntry unchangedEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(unchangedEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.WAITING
+            );
+
+    assertThat(unchangedEntry.getCancelledAt())
+            .isNull();
+  }
+    @Test
+    void shouldReturnNotFoundWhenCancellingFromUnknownQueue()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    createUser(
+            "unknownqueue@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "unknownqueue@example.com",
+            "password123"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated());
+
+    QueueEntry entry =
+            queueEntryRepository.findAll()
+                    .getFirst();
+
+    long unknownQueueId = 999999999L;
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            unknownQueueId,
+                            entry.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isNotFound());
+
+    QueueEntry unchangedEntry =
+            queueEntryRepository.findById(
+                    entry.getId()
+            ).orElseThrow();
+
+    assertThat(unchangedEntry.getStatus())
+            .isEqualTo(
+                    com.queueflow.api.entity.QueueEntryStatus.WAITING
+            );
+
+    assertThat(unchangedEntry.getCancelledAt())
+            .isNull();
+   }
+    @Test
+    void shouldReturnNotFoundWhenCancellingUnknownEntry()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "General Service"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "A"
+    );
+
+    createUser(
+            "unknownentry@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "unknownentry@example.com",
+            "password123"
+    );
+
+    long unknownEntryId = 999999999L;
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries/{entryId}/cancel",
+                            queue.getId(),
+                            unknownEntryId
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+            )
+            .andExpect(status().isNotFound());
+  }
 
     private Branch createBranch(
             Business business

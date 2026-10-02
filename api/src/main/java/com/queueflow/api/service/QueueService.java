@@ -244,6 +244,95 @@ public class QueueService {
                 rawGuestToken
         );
     }
+    @Transactional
+    public QueueEntryResponse cancelQueueEntry(
+        Long queueId,
+        Long entryId,
+        Long userId,
+        String guestToken
+ ) {
+
+    Queue queue = queueRepository
+            .findByIdForUpdate(queueId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Queue not found with id: "
+                                    + queueId
+                    )
+            );
+
+    QueueEntry entry = queueEntryRepository
+            .findById(entryId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Queue entry not found with id: "
+                                    + entryId
+                    )
+            );
+
+    if (!entry.getQueue()
+            .getId()
+            .equals(queueId)) {
+
+        throw new ResourceNotFoundException(
+                "Queue entry not found with id: "
+                        + entryId
+        );
+    }
+
+    boolean registeredOwner =
+        entry.getUser() != null
+                && userId != null
+                && entry.getUser()
+                        .getId()
+                        .equals(userId);
+
+  boolean guestOwner =
+        entry.getUser() == null
+                && guestToken != null
+                && !guestToken.isBlank()
+                && entry.getGuestTokenHash() != null
+                && entry.getGuestTokenHash()
+                        .equals(
+                                authTokenService.hashToken(
+                                        guestToken
+                                )
+                        );
+
+  if (!registeredOwner && !guestOwner) {
+    throw new org.springframework.security.access.AccessDeniedException(
+            "You cannot cancel this queue entry"
+    );
+ }
+
+    if (entry.getStatus()
+            != QueueEntryStatus.WAITING) {
+
+        throw new IllegalStateException(
+                "Only a waiting queue entry can be cancelled"
+        );
+    }
+
+    entry.setStatus(
+            QueueEntryStatus.CANCELLED
+    );
+
+    entry.setCancelledAt(
+            OffsetDateTime.now()
+    );
+
+    QueueEntry savedEntry =
+            queueEntryRepository.save(entry);
+
+    return toEntryResponse(
+            savedEntry,
+            formatTicketNumber(
+                    queue.getTicketPrefix(),
+                    savedEntry.getTicketSequence()
+            ),
+            null
+    );
+ }
 
     @Transactional(readOnly = true)
     public QueuePositionResponse getQueuePosition(

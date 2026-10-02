@@ -85,7 +85,8 @@ public class SecurityConfig {
                         // the bearer filter still identifies the user.
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/v1/queues/*/entries"
+                                "/api/v1/queues/*/entries",
+                                "/api/v1/queues/*/entries/*/cancel"
                         ).permitAll()
 
                         // Everything else requires authentication.

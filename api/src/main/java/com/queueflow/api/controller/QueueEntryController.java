@@ -44,4 +44,30 @@ public class QueueEntryController {
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
+    @PostMapping("/{entryId}/cancel")
+    public ResponseEntity<QueueEntryResponse> cancelQueueEntry(
+        @PathVariable Long queueId,
+        @PathVariable Long entryId,
+        @AuthenticationPrincipal AuthUserPrincipal principal,
+        @RequestHeader(
+                value = "X-Guest-Token",
+                required = false
+        ) String guestToken
+    ) {
+
+    Long userId =
+            principal == null
+                    ? null
+                    : principal.userId();
+
+    QueueEntryResponse response =
+            queueService.cancelQueueEntry(
+                    queueId,
+                    entryId,
+                    userId,
+                    guestToken
+            );
+
+    return ResponseEntity.ok(response);
+    }
 }
