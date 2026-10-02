@@ -192,6 +192,7 @@ class BranchManagementTest extends TestCase
             'address' => '1 River Road',
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'timezone' => 'Asia/Singapore',
             'createdAt' => '2026-09-30T10:15:30+08:00',
         ];
     }

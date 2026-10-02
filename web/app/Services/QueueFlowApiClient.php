@@ -6,6 +6,10 @@ use App\Data\AuthUserData;
 use App\Data\BranchData;
 use App\Data\BusinessData;
 use App\Data\LoginData;
+use App\Data\QueueData;
+use App\Data\QueueEntryData;
+use App\Data\QueuePositionData;
+use App\Data\QueueStaffEntryData;
 use App\Data\RegisteredUserData;
 use App\Data\ServiceData;
 use App\Data\StaffMembershipData;
@@ -121,16 +125,23 @@ class QueueFlowApiClient
         string $address,
         ?float $latitude = null,
         ?float $longitude = null,
+        ?string $timezone = null,
     ): BranchData {
+        $payload = [
+            'name' => $name,
+            'address' => $address,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ];
+
+        if ($timezone !== null) {
+            $payload['timezone'] = $timezone;
+        }
+
         try {
             $response = $this->client()
                 ->withToken($token)
-                ->post("/api/v1/businesses/{$businessId}/branches", [
-                    'name' => $name,
-                    'address' => $address,
-                    'latitude' => $latitude,
-                    'longitude' => $longitude,
-                ]);
+                ->post("/api/v1/businesses/{$businessId}/branches", $payload);
         } catch (ConnectionException $exception) {
             throw $this->connectionException($exception);
         }
@@ -174,6 +185,137 @@ class QueueFlowApiClient
         $this->ensureSuccessful($response);
 
         return ServiceData::fromArray($response->json());
+    }
+
+    public function createQueue(
+        int $businessId,
+        int $branchId,
+        #[\SensitiveParameter] string $token,
+        ?int $serviceId,
+        string $name,
+        string $ticketPrefix,
+    ): QueueData {
+        $response = $this->sendPost(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}/queues",
+            [
+                'serviceId' => $serviceId,
+                'name' => $name,
+                'ticketPrefix' => $ticketPrefix,
+            ],
+        );
+
+        return QueueData::fromArray($response->json());
+    }
+
+    public function joinQueue(
+        int $queueId,
+        ?int $serviceId = null,
+        #[\SensitiveParameter] ?string $token = null,
+    ): QueueEntryData {
+        $response = $this->sendPost(
+            $this->withQueueCredentials($token),
+            "/api/v1/queues/{$queueId}/entries",
+            ['serviceId' => $serviceId],
+        );
+
+        return QueueEntryData::fromArray($response->json());
+    }
+
+    public function queuePosition(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] ?string $token = null,
+        #[\SensitiveParameter] ?string $guestToken = null,
+    ): QueuePositionData {
+        $response = $this->sendGet(
+            $this->withQueueCredentials($token, $guestToken),
+            "/api/v1/queues/{$queueId}/entries/{$entryId}/position",
+        );
+
+        return QueuePositionData::fromArray($response->json());
+    }
+
+    public function cancelQueueEntry(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] ?string $token = null,
+        #[\SensitiveParameter] ?string $guestToken = null,
+    ): QueueEntryData {
+        $response = $this->sendPost(
+            $this->withQueueCredentials($token, $guestToken),
+            "/api/v1/queues/{$queueId}/entries/{$entryId}/cancel",
+        );
+
+        return QueueEntryData::fromArray($response->json());
+    }
+
+    public function callNextQueueEntry(
+        int $queueId,
+        #[\SensitiveParameter] string $token,
+    ): QueueStaffEntryData {
+        return $this->staffQueueEntryTransition(
+            $queueId,
+            $token,
+            'call-next',
+        );
+    }
+
+    public function startServingQueueEntry(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] string $token,
+    ): QueueStaffEntryData {
+        return $this->staffQueueEntryTransition(
+            $queueId,
+            $token,
+            "entries/{$entryId}/start",
+        );
+    }
+
+    public function completeQueueEntry(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] string $token,
+    ): QueueStaffEntryData {
+        return $this->staffQueueEntryTransition(
+            $queueId,
+            $token,
+            "entries/{$entryId}/complete",
+        );
+    }
+
+    public function skipQueueEntry(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] string $token,
+    ): QueueStaffEntryData {
+        return $this->staffQueueEntryTransition(
+            $queueId,
+            $token,
+            "entries/{$entryId}/skip",
+        );
+    }
+
+    public function pauseQueue(
+        int $queueId,
+        #[\SensitiveParameter] string $token,
+    ): QueueData {
+        return $this->staffQueueTransition($queueId, $token, 'pause');
+    }
+
+    public function resumeQueue(
+        int $queueId,
+        #[\SensitiveParameter] string $token,
+    ): QueueData {
+        return $this->staffQueueTransition($queueId, $token, 'resume');
+    }
+
+    public function closeQueue(
+        int $queueId,
+        #[\SensitiveParameter] string $token,
+    ): QueueData {
+        return $this->staffQueueTransition($queueId, $token, 'close');
     }
 
     public function createService(
@@ -287,6 +429,85 @@ class QueueFlowApiClient
         }
 
         $this->ensureSuccessful($response);
+    }
+
+    private function staffQueueEntryTransition(
+        int $queueId,
+        #[\SensitiveParameter] string $token,
+        string $path,
+    ): QueueStaffEntryData {
+        $response = $this->sendPost(
+            $this->client()->withToken($token),
+            "/api/v1/queues/{$queueId}/staff/{$path}",
+        );
+
+        return QueueStaffEntryData::fromArray($response->json());
+    }
+
+    private function staffQueueTransition(
+        int $queueId,
+        #[\SensitiveParameter] string $token,
+        string $action,
+    ): QueueData {
+        $response = $this->sendPost(
+            $this->client()->withToken($token),
+            "/api/v1/queues/{$queueId}/staff/{$action}",
+        );
+
+        return QueueData::fromArray($response->json());
+    }
+
+    private function withQueueCredentials(
+        #[\SensitiveParameter] ?string $token = null,
+        #[\SensitiveParameter] ?string $guestToken = null,
+    ): PendingRequest {
+        $request = $this->client();
+
+        if ($token !== null && $token !== '') {
+            $request = $request->withToken($token);
+        }
+
+        if ($guestToken !== null && $guestToken !== '') {
+            $request = $request->withHeaders([
+                'X-Guest-Token' => $guestToken,
+            ]);
+        }
+
+        return $request;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function sendPost(
+        PendingRequest $request,
+        string $path,
+        array $payload = [],
+    ): Response {
+        try {
+            $response = $request->post($path, $payload);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return $response;
+    }
+
+    private function sendGet(
+        PendingRequest $request,
+        string $path,
+    ): Response {
+        try {
+            $response = $request->get($path);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return $response;
     }
 
     private function ensureSuccessful(Response $response): void

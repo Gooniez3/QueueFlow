@@ -621,6 +621,7 @@ class QueueFlowApiClientTest extends TestCase
                     'address' => '10 River Road, Singapore',
                     'latitude' => 1.3521,
                     'longitude' => 103.8198,
+                    'timezone' => 'Asia/Singapore',
                     'createdAt' => '2030-04-15T10:30:00+08:00',
                 ],
                 [
@@ -630,6 +631,7 @@ class QueueFlowApiClientTest extends TestCase
                     'address' => 'Service area assigned daily',
                     'latitude' => null,
                     'longitude' => null,
+                    'timezone' => 'Australia/Perth',
                     'createdAt' => '2030-04-16T10:30:00+08:00',
                 ],
             ]),
@@ -644,6 +646,8 @@ class QueueFlowApiClientTest extends TestCase
         $this->assertSame(1.3521, $branches[0]->latitude);
         $this->assertNull($branches[1]->latitude);
         $this->assertNull($branches[1]->longitude);
+        $this->assertSame('Asia/Singapore', $branches[0]->timezone);
+        $this->assertSame('Australia/Perth', $branches[1]->timezone);
 
         Http::assertSent(
             fn ($request) => $request->method() === 'GET'
@@ -663,6 +667,7 @@ class QueueFlowApiClientTest extends TestCase
                 'address' => '10 River Road, Singapore',
                 'latitude' => 1.3521,
                 'longitude' => 103.8198,
+                'timezone' => 'Asia/Singapore',
                 'createdAt' => '2030-04-15T10:30:00+08:00',
             ]),
         ]);
@@ -673,6 +678,7 @@ class QueueFlowApiClientTest extends TestCase
         $this->assertSame(21, $branch->id);
         $this->assertSame('Riverside Clinic', $branch->name);
         $this->assertSame('10 River Road, Singapore', $branch->address);
+        $this->assertSame('Asia/Singapore', $branch->timezone);
 
         Http::assertSent(
             fn ($request) => $request->method() === 'GET'
@@ -692,6 +698,7 @@ class QueueFlowApiClientTest extends TestCase
                 'address' => '10 River Road, Singapore',
                 'latitude' => 1.3521,
                 'longitude' => 103.8198,
+                'timezone' => 'Australia/Perth',
                 'createdAt' => '2030-04-15T10:30:00+08:00',
             ], 201),
         ]);
@@ -703,10 +710,12 @@ class QueueFlowApiClientTest extends TestCase
             '10 River Road, Singapore',
             1.3521,
             103.8198,
+            'Australia/Perth',
         );
 
         $this->assertInstanceOf(BranchData::class, $branch);
         $this->assertSame(21, $branch->id);
+        $this->assertSame('Australia/Perth', $branch->timezone);
 
         Http::assertSent(
             fn ($request) => $request->method() === 'POST'
@@ -717,6 +726,7 @@ class QueueFlowApiClientTest extends TestCase
                     'address' => '10 River Road, Singapore',
                     'latitude' => 1.3521,
                     'longitude' => 103.8198,
+                    'timezone' => 'Australia/Perth',
                 ]
         );
     }
