@@ -399,6 +399,74 @@ class BranchControllerTest {
                 .isZero();
     }
 
+        @Test
+        void shouldDefaultTimezoneWhenTimezoneIsOmitted()
+            throws Exception {
+
+        Business business = businessRepository.save(
+                new Business(
+                        "QueueFlow Clinic",
+                        "Medical clinic"
+                )
+        );
+
+        UserAccount user = createUser(
+                "default-timezone@example.com",
+                "password123"
+        );
+
+        StaffMembership membership =
+                new StaffMembership(
+                        user,
+                        business,
+                        null,
+                        StaffRole.STAFF
+                );
+
+        staffMembershipRepository.save(membership);
+
+        String token = loginAndGetToken(
+                "default-timezone@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/businesses/{businessId}/branches",
+                                business.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                            "name": "Downtown Branch",
+                                            "address": "123 Main Street",
+                                            "latitude": 1.3521,
+                                            "longitude": 103.8198
+                                        }
+                                        """)
+                )
+                .andExpect(status().isCreated())
+                .andExpect(
+                        jsonPath("$.timezone")
+                                .value("Asia/Singapore")
+                );
+
+        assertThat(branchRepository.count())
+                .isEqualTo(1);
+
+        assertThat(
+                branchRepository.findAll()
+                        .getFirst()
+                        .getTimezone()
+        ).isEqualTo("Asia/Singapore");
+    }
+
     @Test
     void shouldRejectInvalidTimezone() throws Exception {
 

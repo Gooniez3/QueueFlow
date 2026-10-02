@@ -43,9 +43,13 @@ public class BranchService {
                         )
                 );
 
-        String timezone = validateTimezone(
-                request.timezone().trim()
-        );
+         String timezone =
+           request.timezone() == null
+                || request.timezone().isBlank()
+                ? "Asia/Singapore"
+                : request.timezone().trim();
+
+          timezone = validateTimezone(timezone);
 
         Branch branch = new Branch(
                 business,

@@ -19,6 +19,7 @@ import com.queueflow.api.response.QueuePositionResponse;
 import com.queueflow.api.response.QueueResponse;
 import com.queueflow.api.response.QueueStaffEntryResponse;
 import com.queueflow.api.security.AuthTokenService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -140,11 +141,27 @@ public class QueueService {
                         .toUpperCase()
         );
 
-        Queue savedQueue =
-                queueRepository.save(queue);
+   try {
+       Queue savedQueue =
+            queueRepository.saveAndFlush(queue);
 
-        return toResponse(savedQueue);
+    return toResponse(savedQueue);
+
+   } catch (DataIntegrityViolationException exception) {
+
+    if (service != null) {
+        throw new IllegalStateException(
+                "Queue already exists for this service today",
+                exception
+        );
     }
+
+    throw new IllegalStateException(
+            "Shared queue already exists for this branch today",
+            exception
+         );
+     }
+ }
 
     @Transactional
     public QueueEntryResponse joinQueue(
@@ -850,18 +867,24 @@ public class QueueService {
 
         if (queue.getService() != null) {
 
-            if (requestedServiceId != null
-                    && !queue.getService()
-                    .getId()
-                    .equals(requestedServiceId)) {
+    if (requestedServiceId != null
+            && !queue.getService()
+            .getId()
+            .equals(requestedServiceId)) {
 
-                throw new IllegalStateException(
-                        "Requested service does not match this queue"
-                );
-            }
+        throw new IllegalStateException(
+                "Requested service does not match this queue"
+        );
+    }
 
-            return queue.getService();
-        }
+    if (!queue.getService().isActive()) {
+        throw new IllegalStateException(
+                "Service is not active"
+        );
+    }
+
+    return queue.getService();
+   }
 
         if (requestedServiceId == null) {
             throw new IllegalArgumentException(

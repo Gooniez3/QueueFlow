@@ -9,8 +9,10 @@ import com.queueflow.api.repository.BusinessRepository;
 import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
+import com.queueflow.api.request.CreateQueueRequest;
 import com.queueflow.api.request.JoinQueueRequest;
 import com.queueflow.api.response.QueueEntryResponse;
+import com.queueflow.api.response.QueueResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -212,4 +214,125 @@ class QueueConcurrencyTest {
             executor.shutdownNow();
         }
     }
+
+    @Test
+    void shouldPreventDuplicateQueueCreationUnderConcurrency()
+        throws Exception {
+
+    Business business = businessRepository.save(
+            new Business(
+                    "Concurrency Clinic",
+                    "Concurrency test"
+            )
+    );
+
+    Branch branch = branchRepository.save(
+            new Branch(
+                    business,
+                    "Main Branch",
+                    "123 Main Street",
+                    null,
+                    null
+            )
+    );
+
+    com.queueflow.api.entity.Service service =
+            serviceRepository.save(
+                    new com.queueflow.api.entity.Service(
+                            branch,
+                            "Consultation",
+                            "General consultation",
+                            30
+                    )
+            );
+
+    CreateQueueRequest request =
+            new CreateQueueRequest(
+                    service.getId(),
+                    "Consultation Queue",
+                    "A"
+            );
+
+    int concurrentCreates = 2;
+
+    ExecutorService executor =
+            Executors.newFixedThreadPool(concurrentCreates);
+
+    CountDownLatch ready =
+            new CountDownLatch(concurrentCreates);
+
+    CountDownLatch start =
+            new CountDownLatch(1);
+
+    List<Future<Object>> futures =
+            new ArrayList<>();
+
+    try {
+        for (int i = 0; i < concurrentCreates; i++) {
+
+            futures.add(
+                    executor.submit(() -> {
+
+                        ready.countDown();
+
+                        start.await();
+
+                        try {
+                            return queueService.createQueue(
+                                    business.getId(),
+                                    branch.getId(),
+                                    request
+                            );
+                        } catch (Exception exception) {
+                            return exception;
+                        }
+                    })
+            );
+        }
+
+        ready.await();
+        start.countDown();
+
+        List<Object> results = new ArrayList<>();
+
+        for (Future<Object> future : futures) {
+            results.add(future.get());
+        }
+
+        long successfulCreates =
+                results.stream()
+                        .filter(
+                                QueueResponse.class::isInstance
+                        )
+                        .count();
+
+        assertThat(successfulCreates)
+                .isEqualTo(1);
+
+        assertThat(queueRepository.count())
+                .isEqualTo(1);
+
+        List<Exception> failures =
+                results.stream()
+                        .filter(Exception.class::isInstance)
+                        .map(Exception.class::cast)
+                        .toList();
+
+        assertThat(failures)
+                .hasSize(1);
+
+        assertThat(failures.getFirst())
+                .isInstanceOf(
+                        IllegalStateException.class
+                );
+
+        assertThat(failures.getFirst())
+                .hasMessage(
+                        "Queue already exists for this service today"
+                );
+
+    } finally {
+        executor.shutdownNow();
+    }
+ }
 }

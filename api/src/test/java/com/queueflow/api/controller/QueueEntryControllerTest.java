@@ -241,6 +241,48 @@ class QueueEntryControllerTest {
     }
 
     @Test
+    void shouldRejectJoinWhenServiceSpecificQueueServiceIsInactive()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "Computer Repair"
+            );
+
+    service.setActive(false);
+    serviceRepository.save(service);
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "R"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isConflict())
+            .andExpect(
+                    jsonPath("$.message")
+                            .value("Service is not active")
+            );
+
+    assertThat(queueEntryRepository.count())
+            .isZero();
+  }
+
+    @Test
     void shouldAllocateSequentialTicketNumbers()
             throws Exception {
 
