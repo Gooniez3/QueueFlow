@@ -1,5 +1,6 @@
 package com.queueflow.api.controller;
 
+import com.queueflow.api.response.PublicQueueResponse;
 import com.queueflow.api.request.CreateQueueRequest;
 import com.queueflow.api.response.QueueResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
@@ -29,6 +30,23 @@ public class QueueController {
         this.businessAuthorizationService =
                 businessAuthorizationService;
     }
+
+    @GetMapping("/today")
+    public ResponseEntity<PublicQueueResponse> getTodayQueue(
+        @PathVariable Long businessId,
+        @PathVariable Long branchId,
+        @RequestParam(required = false) Long serviceId
+    ) {
+
+    PublicQueueResponse response =
+            queueService.getTodayQueue(
+                    businessId,
+                    branchId,
+                    serviceId
+            );
+
+    return ResponseEntity.ok(response);
+  }
 
     @PostMapping
     public ResponseEntity<QueueResponse> createQueue(

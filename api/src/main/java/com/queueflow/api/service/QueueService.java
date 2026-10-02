@@ -1,5 +1,6 @@
 package com.queueflow.api.service;
 
+import com.queueflow.api.response.PublicQueueResponse;
 import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Queue;
 import com.queueflow.api.entity.QueueEntry;
@@ -162,6 +163,87 @@ public class QueueService {
          );
      }
  }
+    @Transactional(readOnly = true)
+    public PublicQueueResponse getTodayQueue(
+        Long businessId,
+        Long branchId,
+        Long serviceId
+   ) {
+
+    Branch branch = requireBranch(
+            businessId,
+            branchId
+    );
+
+    LocalDate businessDate = LocalDate.now(
+            ZoneId.of(branch.getTimezone())
+    );
+
+    Queue queue;
+
+    if (serviceId != null) {
+
+        com.queueflow.api.entity.Service service =
+                serviceRepository
+                        .findById(serviceId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Service not found with id: "
+                                                + serviceId
+                                )
+                        );
+
+        if (!service.getBranch()
+                .getId()
+                .equals(branchId)) {
+
+            throw new ResourceNotFoundException(
+                    "Service not found with id: "
+                            + serviceId
+            );
+        }
+
+        queue = queueRepository
+                .findByBranchIdAndServiceIdAndBusinessDate(
+                        branchId,
+                        serviceId,
+                        businessDate
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found for today"
+                        )
+                );
+
+    } else {
+
+        queue = queueRepository
+                .findByBranchIdAndServiceIsNullAndBusinessDate(
+                        branchId,
+                        businessDate
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found for today"
+                        )
+                );
+    }
+
+    Long responseServiceId =
+            queue.getService() == null
+                    ? null
+                    : queue.getService().getId();
+
+    return new PublicQueueResponse(
+            queue.getId(),
+            queue.getBranch().getId(),
+            responseServiceId,
+            queue.getName(),
+            queue.getBusinessDate(),
+            queue.getTicketPrefix(),
+            queue.getStatus()
+    );
+  }
 
     @Transactional
     public QueueEntryResponse joinQueue(
