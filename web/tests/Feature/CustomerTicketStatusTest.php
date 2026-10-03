@@ -20,7 +20,7 @@ class CustomerTicketStatusTest extends TestCase
 
         $response->assertOk()
             ->assertViewIs('tickets.index')
-            ->assertSee('My Tickets')
+            ->assertSee('Tickets')
             ->assertSee('No tickets yet')
             ->assertSee('href="'.route('home').'"', false)
             ->assertDontSee('A023')
@@ -41,6 +41,7 @@ class CustomerTicketStatusTest extends TestCase
             ->assertSee('href="'.route('queue-entries.show', [92, 401]).'"', false)
             ->assertDontSee('first-raw-guest-token')
             ->assertDontSee('second-raw-guest-token')
+            ->assertDontSee('Central branch')
             ->assertDontSee('guestToken')
             ->assertDontSee('Idempotency-Key')
             ->assertDontSee('queueflow.customer.join_attempts');
@@ -79,12 +80,18 @@ class CustomerTicketStatusTest extends TestCase
 
         $response->assertOk()
             ->assertViewIs('tickets.show')
+            ->assertSeeInOrder(['Ticket number', 'A023', 'Current status'])
+            ->assertSee('WAITING')
             ->assertSee('A023')
             ->assertSee("You're in the queue")
             ->assertSee('People ahead')
             ->assertSee('7')
             ->assertSee('Estimated wait')
             ->assertSee('83 minutes')
+            ->assertSee('data-demo-qr', false)
+            ->assertSee('Saved in this browser')
+            ->assertSee('Owned ticket')
+            ->assertDontSee('Central branch')
             ->assertDontSee('Ready now')
             ->assertDontSee('raw-guest-token')
             ->assertDontSee('guestToken')
@@ -132,7 +139,7 @@ class CustomerTicketStatusTest extends TestCase
         } else {
             $response->assertDontSee('People ahead')
                 ->assertDontSee('Estimated wait')
-                ->assertSee('Waiting position is not shown for this ticket status.');
+                ->assertDontSee('Waiting position is not shown for this ticket status.');
         }
     }
 
@@ -188,7 +195,7 @@ class CustomerTicketStatusTest extends TestCase
             ->get(route('queue-entries.show', [91, 301]));
 
         $response->assertOk()
-            ->assertSee('Cancel my ticket')
+            ->assertSee('Cancel ticket')
             ->assertSee('method="POST"', false)
             ->assertSee('action="'.$cancelUrl.'"', false)
             ->assertSee('name="_token"', false)
@@ -214,7 +221,7 @@ class CustomerTicketStatusTest extends TestCase
             ->get(route('queue-entries.show', [91, 301]));
 
         $response->assertOk()
-            ->assertDontSee('Cancel my ticket')
+            ->assertDontSee('Cancel ticket')
             ->assertDontSee(route('queue-entries.cancel', [91, 301]));
     }
 
@@ -252,10 +259,10 @@ class CustomerTicketStatusTest extends TestCase
             ->get(route('queue-entries.show', [91, 301]));
 
         $indexResponse->assertSee('data-active-destination="ticket"', false)
-            ->assertSee('My Tickets')
+            ->assertSee('Tickets')
             ->assertSee('href="'.route('tickets.show').'"', false);
         $detailResponse->assertSee('data-active-destination="ticket"', false)
-            ->assertSee('My Tickets')
+            ->assertSee('Tickets')
             ->assertSee('href="'.route('tickets.show').'"', false);
     }
 

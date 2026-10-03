@@ -2,19 +2,77 @@
 
 namespace App\Http\Controllers;
 
+use App\Data\GuestQueueOwnershipData;
+use App\Data\QueuePositionData;
+use App\Presentation\CustomerDemoPresentation;
+use App\Services\GuestQueueOwnershipStore;
 use App\Services\QueueFlowApiClient;
+use App\Services\QueueFlowCustomerQueueService;
 use Illuminate\View\View;
 
 class CustomerHomeController extends Controller
 {
     public function __construct(
         private readonly QueueFlowApiClient $apiClient,
+        private readonly GuestQueueOwnershipStore $ownershipStore,
+        private readonly QueueFlowCustomerQueueService $customerQueueService,
+        private readonly CustomerDemoPresentation $demoPresentation,
     ) {}
 
     public function __invoke(): View
     {
+        $businesses = $this->apiClient->businesses();
+        $activeTicket = $this->ownershipStore->all()[0] ?? null;
+        $position = $activeTicket === null
+            ? null
+            : $this->position($activeTicket);
+        $activeBusiness = $activeTicket === null
+            ? null
+            : collect($businesses)->first(
+                fn ($business): bool => $business->id === $activeTicket->businessId,
+            );
+
         return view('home', [
-            'businesses' => $this->apiClient->businesses(),
+            'businesses' => $businesses,
+            'activeTicket' => $activeTicket,
+            'activeBusiness' => $activeBusiness,
+            'position' => $position,
+            'statusLabel' => $position === null ? null : $this->statusLabel($position->status),
+            'presentation' => [
+                'liveQueues' => $this->demoPresentation->liveQueues(),
+                'activeTicket' => $this->demoPresentation->activeTicketSummary(),
+                'ticket' => $this->demoPresentation->ticketDetails(),
+            ],
         ]);
+    }
+
+    private function position(GuestQueueOwnershipData $ownership): QueuePositionData
+    {
+        $position = $this->customerQueueService->position(
+            $ownership->queueId,
+            $ownership->entryId,
+        );
+
+        abort_if(
+            $position->queueId !== $ownership->queueId
+                || $position->entryId !== $ownership->entryId,
+            404,
+            'The requested ticket was not found.',
+        );
+
+        return $position;
+    }
+
+    private function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'WAITING' => 'Waiting',
+            'CALLED' => 'Called',
+            'SERVING' => 'Serving',
+            'COMPLETED' => 'Completed',
+            'CANCELLED' => 'Cancelled',
+            'SKIPPED' => 'Skipped',
+            default => 'Status update',
+        };
     }
 }

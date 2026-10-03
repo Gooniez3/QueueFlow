@@ -13,5 +13,6 @@
         <main class="min-h-screen">
             @yield('content')
         </main>
+        @stack('scripts')
     </body>
 </html>

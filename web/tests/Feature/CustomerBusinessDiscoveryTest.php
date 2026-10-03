@@ -28,11 +28,28 @@ class CustomerBusinessDiscoveryTest extends TestCase
             ->assertSee('Northstar Health')
             ->assertSee('Riverside Clinic')
             ->assertSee('Downtown Clinic')
+            ->assertSee('href="'.route('places.index').'"', false)
             ->assertSee('href="'.route('branches.show', [10, 21]).'"', false)
             ->assertSee('href="'.route('branches.show', [10, 22]).'"', false)
             ->assertDontSee('inert-spring-token');
 
         Http::assertSent(fn (Request $request): bool => ! $request->hasHeader('Authorization'));
+        Http::assertSentCount(2);
+    }
+
+    public function test_public_business_page_renders_location_empty_state(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10' => Http::response($this->business()),
+            'http://localhost:8080/api/v1/businesses/10/branches' => Http::response([]),
+        ]);
+
+        $this->get(route('businesses.show', 10))
+            ->assertOk()
+            ->assertSee('No locations are available.')
+            ->assertSee('Please check again later.');
+
         Http::assertSentCount(2);
     }
 

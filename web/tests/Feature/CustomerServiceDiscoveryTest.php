@@ -31,7 +31,12 @@ class CustomerServiceDiscoveryTest extends TestCase
             ->assertSee('General Consultation')
             ->assertSee('Accepting customers')
             ->assertSee('QUEUE OPEN')
+            ->assertSee('20 min')
             ->assertSee('Join queue')
+            ->assertSee('YOUR NUMBER')
+            ->assertSee('A-???')
+            ->assertSee('The preview is not your issued number.')
+            ->assertSee('href="'.route('branches.show', [10, 21]).'"', false)
             ->assertSee('data-customer-join-form', false)
             ->assertSee('action="'.route('queue-entries.store', 91).'"', false)
             ->assertSee('name="_token"', false)
@@ -63,6 +68,7 @@ class CustomerServiceDiscoveryTest extends TestCase
 
         $response->assertOk()
             ->assertSee($heading)
+            ->assertSee('Choose another service')
             ->assertDontSee('data-join-placeholder', false)
             ->assertDontSee('<form', false);
     }
@@ -93,6 +99,7 @@ class CustomerServiceDiscoveryTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Service unavailable')
+            ->assertSee('Choose another service')
             ->assertDontSee('data-customer-join-form', false)
             ->assertDontSee('<form', false);
     }
@@ -111,6 +118,7 @@ class CustomerServiceDiscoveryTest extends TestCase
         $response->assertOk()
             ->assertSee('General Consultation')
             ->assertSee('No queue available today')
+            ->assertSee('Choose another service')
             ->assertDontSee('data-customer-join-form', false)
             ->assertDontSee('<form', false)
             ->assertDontSee('The requested QueueFlow resource was not found.');

@@ -7,6 +7,7 @@ use App\Data\BusinessData;
 use App\Data\ServiceData;
 use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
+use App\Presentation\CustomerDemoPresentation;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowCustomerQueueService;
 use Illuminate\View\View;
@@ -16,6 +17,7 @@ class CustomerServiceController extends Controller
     public function __construct(
         private readonly QueueFlowApiClient $apiClient,
         private readonly QueueFlowCustomerQueueService $customerQueueService,
+        private readonly CustomerDemoPresentation $demoPresentation,
     ) {}
 
     public function show(
@@ -41,6 +43,7 @@ class CustomerServiceController extends Controller
             'branch' => $branch,
             'service' => $service,
             'queue' => $this->applicableQueueOrNull($businessId, $branchId, $serviceId),
+            'presentation' => $this->demoPresentation->joinPreview(),
         ]);
     }
 

@@ -51,4 +51,29 @@ class QueueBoardTest extends TestCase
             ->assertDontSee('data-customer-navigation', false)
             ->assertDontSee('data-customer-bottom-navigation', false);
     }
+
+    public function test_queue_board_renders_demo_stats_and_highlights_real_owned_ticket(): void
+    {
+        $response = $this->withSession([
+            'queueflow.customer.entries' => [
+                '91:301' => [
+                    'businessId' => 10,
+                    'branchId' => 21,
+                    'serviceId' => 31,
+                    'queueId' => 91,
+                    'entryId' => 301,
+                    'ticketNumber' => 'A024',
+                    'guestToken' => 'private-board-token',
+                ],
+            ],
+        ])->get(route('queue-board.show'));
+
+        $response->assertOk()
+            ->assertSee('average wait')
+            ->assertSee('served today')
+            ->assertSee('Recently served')
+            ->assertSee('YOU')
+            ->assertSee('Your ticket: A024')
+            ->assertDontSee('private-board-token');
+    }
 }

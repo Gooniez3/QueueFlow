@@ -174,6 +174,12 @@ class CustomerQueueEntryTest extends TestCase
             && ! $request->hasHeader('Authorization')
             && ! $request->hasHeader('X-Guest-Token')
             && $request->data() === ['serviceId' => 31]);
+
+        $this->get(route('tickets.show'))
+            ->assertOk()
+            ->assertSee('A023')
+            ->assertSee('href="'.$detailUrl.'"', false)
+            ->assertDontSee('raw-guest-secret');
     }
 
     public function test_connection_failure_retains_attempt_and_retry_reuses_same_key(): void
@@ -315,7 +321,7 @@ class CustomerQueueEntryTest extends TestCase
             ->assertSee('Your ticket has been cancelled.')
             ->assertDontSee('People ahead')
             ->assertDontSee('Estimated wait')
-            ->assertDontSee('Cancel my ticket')
+            ->assertDontSee('Cancel ticket')
             ->assertDontSee('raw-guest-token');
 
         $this->get(route('tickets.show'))

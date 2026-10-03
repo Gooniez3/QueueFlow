@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\GuestQueueOwnershipException;
+use App\Presentation\CustomerDemoPresentation;
 use App\Services\GuestQueueOwnershipStore;
 use App\Services\QueueFlowCustomerQueueService;
 use Illuminate\View\View;
@@ -12,12 +13,14 @@ class CustomerTicketController extends Controller
     public function __construct(
         private readonly GuestQueueOwnershipStore $ownershipStore,
         private readonly QueueFlowCustomerQueueService $customerQueueService,
+        private readonly CustomerDemoPresentation $demoPresentation,
     ) {}
 
     public function index(): View
     {
         return view('tickets.index', [
             'tickets' => $this->ownershipStore->all(),
+            'presentation' => $this->demoPresentation->ticketDetails(),
         ]);
     }
 
@@ -41,6 +44,7 @@ class CustomerTicketController extends Controller
             'ownership' => $ownership,
             'position' => $position,
             'status' => $this->statusPresentation($position->status),
+            'presentation' => $this->demoPresentation->ticketDetails(),
         ]);
     }
 

@@ -28,11 +28,30 @@ class CustomerBranchDiscoveryTest extends TestCase
             ->assertSee('General Consultation')
             ->assertSee('Inactive Service')
             ->assertSee('Unavailable')
+            ->assertSee('20 min')
+            ->assertSee('href="'.route('businesses.show', 10).'"', false)
             ->assertSee('href="'.route('services.show', [10, 21, 31]).'"', false)
             ->assertDontSee('href="'.route('services.show', [10, 21, 32]).'"', false)
             ->assertDontSee('inert-spring-token');
 
         Http::assertSent(fn (Request $request): bool => ! $request->hasHeader('Authorization'));
+        Http::assertSentCount(3);
+    }
+
+    public function test_public_branch_page_renders_service_empty_state(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10' => Http::response($this->business()),
+            'http://localhost:8080/api/v1/businesses/10/branches/21' => Http::response($this->branch()),
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services' => Http::response([]),
+        ]);
+
+        $this->get(route('branches.show', [10, 21]))
+            ->assertOk()
+            ->assertSee('No services are available.')
+            ->assertSee('Please check again later.');
+
         Http::assertSentCount(3);
     }
 
