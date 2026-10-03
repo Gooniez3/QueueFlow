@@ -35,6 +35,23 @@ public class QueueStaffController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/entries/{entryId}/recall")
+    public ResponseEntity<QueueStaffEntryResponse> recallEntry(
+            @PathVariable Long queueId,
+            @PathVariable Long entryId,
+            @AuthenticationPrincipal AuthUserPrincipal principal
+    ) {
+
+        QueueStaffEntryResponse response =
+                queueService.recallEntry(
+                        queueId,
+                        entryId,
+                        principal.userId()
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/entries/{entryId}/start")
     public ResponseEntity<QueueStaffEntryResponse> startServing(
             @PathVariable Long queueId,

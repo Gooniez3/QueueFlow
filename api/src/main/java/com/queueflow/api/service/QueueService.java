@@ -19,6 +19,10 @@ import com.queueflow.api.response.QueueEntryResponse;
 import com.queueflow.api.response.QueuePositionResponse;
 import com.queueflow.api.response.QueueResponse;
 import com.queueflow.api.response.QueueStaffEntryResponse;
+import com.queueflow.api.response.StaffDashboardCountsResponse;
+import com.queueflow.api.response.StaffDashboardQueueResponse;
+import com.queueflow.api.response.StaffDashboardResponse;
+import com.queueflow.api.response.StaffDashboardServiceResponse;
 import com.queueflow.api.security.AuthTokenService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -610,6 +614,46 @@ public class QueueService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public StaffDashboardResponse getStaffDashboard(
+            Long businessId,
+            Long branchId,
+            Long staffUserId
+    ) {
+
+        Branch branch = requireBranch(
+                businessId,
+                branchId
+        );
+
+        businessAuthorizationService.requireBranchAccess(
+                staffUserId,
+                businessId,
+                branchId
+        );
+
+        LocalDate businessDate = LocalDate.now(
+                ZoneId.of(branch.getTimezone())
+        );
+
+        List<Queue> queues =
+                queueRepository.findByBranchIdAndBusinessDate(
+                        branchId,
+                        businessDate
+                );
+
+        List<StaffDashboardQueueResponse> dashboardQueues =
+                queues.stream()
+                        .map(this::toStaffDashboardQueueResponse)
+                        .toList();
+
+        return new StaffDashboardResponse(
+                businessId,
+                branchId,
+                businessDate,
+                dashboardQueues
+        );
+    }
     @Transactional
     public QueueStaffEntryResponse callNext(
             Long queueId,
@@ -674,6 +718,74 @@ public class QueueService {
         );
     }
 
+    @Transactional
+    public QueueStaffEntryResponse recallEntry(
+            Long queueId,
+            Long entryId,
+            Long staffUserId
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        Long branchId =
+                queue.getBranch()
+                        .getId();
+
+        businessAuthorizationService
+                .requireBranchAccess(
+                        staffUserId,
+                        businessId,
+                        branchId
+                );
+
+        QueueEntry entry = queueEntryRepository
+                .findById(entryId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue entry not found with id: "
+                                        + entryId
+                        )
+                );
+
+        if (!entry.getQueue()
+                .getId()
+                .equals(queueId)) {
+
+            throw new ResourceNotFoundException(
+                    "Queue entry not found with id: "
+                            + entryId
+            );
+        }
+
+        if (entry.getStatus() != QueueEntryStatus.CALLED) {
+            throw new IllegalStateException(
+                    "Only a called entry can be recalled"
+            );
+        }
+
+        entry.setCalledAt(
+                OffsetDateTime.now()
+        );
+
+        QueueEntry savedEntry =
+                queueEntryRepository.save(entry);
+
+        return toStaffEntryResponse(
+                savedEntry
+        );
+    }
     @Transactional
     public QueueStaffEntryResponse startServing(
             Long queueId,
@@ -1099,6 +1211,94 @@ public class QueueService {
                 + String.format("%03d", sequence);
     }
 
+    private StaffDashboardQueueResponse toStaffDashboardQueueResponse(
+            Queue queue
+    ) {
+
+        List<QueueEntry> waitingEntries =
+                queueEntryRepository
+                        .findByQueueIdAndStatusOrderByTicketSequenceAsc(
+                                queue.getId(),
+                                QueueEntryStatus.WAITING
+                        );
+
+        List<QueueEntry> calledEntries =
+                queueEntryRepository
+                        .findByQueueIdAndStatusOrderByTicketSequenceAsc(
+                                queue.getId(),
+                                QueueEntryStatus.CALLED
+                        );
+
+        List<QueueEntry> servingEntries =
+                queueEntryRepository
+                        .findByQueueIdAndStatusOrderByTicketSequenceAsc(
+                                queue.getId(),
+                                QueueEntryStatus.SERVING
+                        );
+
+        if (calledEntries.size() > 1) {
+            throw new IllegalStateException(
+                    "Queue invariant violated: multiple CALLED entries for queue "
+                            + queue.getId()
+            );
+        }
+
+        if (servingEntries.size() > 1) {
+            throw new IllegalStateException(
+                    "Queue invariant violated: multiple SERVING entries for queue "
+                            + queue.getId()
+            );
+        }
+
+        QueueStaffEntryResponse called =
+                calledEntries.isEmpty()
+                        ? null
+                        : toStaffEntryResponse(
+                                calledEntries.get(0)
+                        );
+
+        QueueStaffEntryResponse serving =
+                servingEntries.isEmpty()
+                        ? null
+                        : toStaffEntryResponse(
+                                servingEntries.get(0)
+                        );
+
+        List<QueueStaffEntryResponse> waiting =
+                waitingEntries.stream()
+                        .map(this::toStaffEntryResponse)
+                        .toList();
+
+        StaffDashboardServiceResponse service = null;
+
+        if (queue.getService() != null) {
+            service =
+                    new StaffDashboardServiceResponse(
+                            queue.getService().getId(),
+                            queue.getService().getName(),
+                            queue.getService().getDurationMinutes()
+                    );
+        }
+
+        StaffDashboardCountsResponse counts =
+                new StaffDashboardCountsResponse(
+                        waitingEntries.size(),
+                        calledEntries.size(),
+                        servingEntries.size()
+                );
+
+        return new StaffDashboardQueueResponse(
+                queue.getId(),
+                queue.getName(),
+                queue.getStatus(),
+                queue.getTicketPrefix(),
+                service,
+                counts,
+                serving,
+                called,
+                waiting
+        );
+    }
     private Branch requireBranch(
             Long businessId,
             Long branchId
@@ -1238,4 +1438,3 @@ public class QueueService {
     }
   }
 }
-

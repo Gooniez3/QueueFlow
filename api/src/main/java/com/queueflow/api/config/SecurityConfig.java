@@ -72,6 +72,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/login"
                         ).permitAll()
 
+                        // Staff dashboard requires authentication.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/businesses/*/branches/*/staff/dashboard"
+                        ).authenticated()
                         // Public business/branch/service discovery
                         .requestMatchers(
                                 HttpMethod.GET,

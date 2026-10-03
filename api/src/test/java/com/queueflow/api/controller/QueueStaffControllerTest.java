@@ -1453,6 +1453,231 @@ class QueueStaffControllerTest {
                 .andExpect(status().isForbidden());
     }
     // =========================================================
+    // RECALL
+    // =========================================================
+
+    @Test
+    void shouldRecallCalledEntry() throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        OffsetDateTime originalCalledAt =
+                OffsetDateTime.now().minusMinutes(5);
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(originalCalledAt);
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "recall@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/recall",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(entry.getId()))
+                .andExpect(jsonPath("$.queueId")
+                        .value(queue.getId()))
+                .andExpect(jsonPath("$.ticketSequence")
+                        .value(1))
+                .andExpect(jsonPath("$.ticketNumber")
+                        .value("A001"))
+                .andExpect(jsonPath("$.status")
+                        .value("CALLED"));
+
+        QueueEntry updated =
+                queueEntryRepository
+                        .findById(entry.getId())
+                        .orElseThrow();
+
+        assertThat(updated.getStatus())
+                .isEqualTo(QueueEntryStatus.CALLED);
+
+        assertThat(updated.getTicketSequence())
+                .isEqualTo(1);
+
+        assertThat(updated.getCalledAt())
+                .isAfter(originalCalledAt);
+    }
+
+    @Test
+    void shouldRejectRecallWhenEntryIsNotCalled()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "recall-waiting@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/recall",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status")
+                        .value(409));
+    }
+
+    @Test
+    void shouldRejectRecallForEntryFromDifferentQueue()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+
+        Service firstService = createService(
+                branch,
+                "Recall First Service"
+        );
+
+        Service secondService = createService(
+                branch,
+                "Recall Second Service"
+        );
+
+        Queue firstQueue = createQueue(
+                branch,
+                firstService,
+                QueueStatus.OPEN
+        );
+
+        Queue secondQueue = createQueue(
+                branch,
+                secondService,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                secondQueue,
+                secondService,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(
+                OffsetDateTime.now().minusMinutes(5)
+        );
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "recall-wrong-queue@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/recall",
+                                firstQueue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldRejectUserWithoutBusinessMembershipWhenRecalling()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        createUser(
+                "recall-outsider@example.com",
+                "password123"
+        );
+
+        String token = loginAndGetToken(
+                "recall-outsider@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/recall",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    // =========================================================
 // PAUSE QUEUE
 // =========================================================
 
