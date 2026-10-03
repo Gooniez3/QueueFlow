@@ -2,6 +2,7 @@ package com.queueflow.api.controller;
 
 import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Business;
+import com.queueflow.api.entity.GuestJoinIdempotency;
 import com.queueflow.api.entity.Queue;
 import com.queueflow.api.entity.QueueEntry;
 import com.queueflow.api.entity.QueueStatus;
@@ -22,12 +23,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -42,6 +45,9 @@ class QueueEntryControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private QueueEntryRepository queueEntryRepository;
@@ -2225,4 +2231,356 @@ void shouldRejectInvalidIdempotencyKey()
     assertThat(guestJoinIdempotencyRepository.count())
             .isEqualTo(2);
  }
+    @Test
+    void shouldTreatExpiredIdempotencyKeyAsFreshGuestJoin()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "Computer Repair"
+            );
+
+    Queue queue =
+            createServiceQueue(
+                    branch,
+                    service,
+                    "R"
+            );
+
+    String idempotencyKey =
+            "55555555-5555-4555-8555-555555555555";
+
+    MvcResult firstResult =
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/entries",
+                                    queue.getId()
+                            )
+                                    .header(
+                                            "Idempotency-Key",
+                                            idempotencyKey
+                                    )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content("{}")
+                    )
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.ticketSequence")
+                            .value(1))
+                    .andExpect(jsonPath("$.ticketNumber")
+                            .value("R001"))
+                    .andReturn();
+
+    String firstGuestToken =
+            extractJsonString(
+                    firstResult.getResponse()
+                            .getContentAsString(),
+                    "guestToken"
+            );
+
+    jdbcTemplate.update(
+            """
+            UPDATE guest_join_idempotency
+            SET expires_at = ?
+            WHERE queue_id = ?
+              AND idempotency_key = ?
+            """,
+            OffsetDateTime.now().minusMinutes(1),
+            queue.getId(),
+            idempotencyKey
+    );
+
+    MvcResult secondResult =
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/entries",
+                                    queue.getId()
+                            )
+                                    .header(
+                                            "Idempotency-Key",
+                                            idempotencyKey
+                                    )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content("{}")
+                    )
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.ticketSequence")
+                            .value(2))
+                    .andExpect(jsonPath("$.ticketNumber")
+                            .value("R002"))
+                    .andReturn();
+
+    String secondGuestToken =
+            extractJsonString(
+                    secondResult.getResponse()
+                            .getContentAsString(),
+                    "guestToken"
+            );
+    assertThat(secondGuestToken)
+        .isNotEqualTo(firstGuestToken);
+
+    assertThat(queueEntryRepository.count())
+        .isEqualTo(2);
+
+    assertThat(guestJoinIdempotencyRepository.count())
+        .isEqualTo(1);
+
+     Queue updatedQueue =
+        queueRepository.findById(queue.getId())
+                .orElseThrow();
+
+   assertThat(updatedQueue.getNextTicketSequence())
+        .isEqualTo(3);
+
+   GuestJoinIdempotency replacement =
+        guestJoinIdempotencyRepository
+                .findByQueueIdAndIdempotencyKey(
+                        queue.getId(),
+                        idempotencyKey
+                )
+                .orElseThrow();
+
+  Long replacementEntryId =
+        replacement.getQueueEntry().getId();
+
+  QueueEntry replacementEntry =
+        queueEntryRepository
+                .findById(replacementEntryId)
+                .orElseThrow();
+
+  assertThat(replacementEntry.getTicketSequence())
+        .isEqualTo(2);
+
+  assertThat(replacement.getExpiresAt())
+        .isAfter(OffsetDateTime.now());
+   }
+
+   @Test
+void shouldIgnoreGuestIdempotencyForAuthenticatedJoin()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(
+                    branch,
+                    "Computer Repair"
+            );
+
+    Queue queue = createServiceQueue(
+            branch,
+            service,
+            "R"
+    );
+
+    UserAccount user = createUser(
+            "idempotent-user@example.com",
+            "password123"
+    );
+
+    String token = loginAndGetToken(
+            "idempotent-user@example.com",
+            "password123"
+    );
+
+    String idempotencyKey =
+            "77777777-7777-4777-8777-777777777777";
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .header(
+                                    "Idempotency-Key",
+                                    idempotencyKey
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.userId")
+                    .value(user.getId()))
+            .andExpect(jsonPath("$.ticketSequence")
+                    .value(1))
+            .andExpect(jsonPath("$.ticketNumber")
+                    .value("R001"))
+            .andExpect(jsonPath("$.guestToken")
+                    .doesNotExist());
+
+    assertThat(queueEntryRepository.count())
+            .isEqualTo(1);
+
+    assertThat(
+            guestJoinIdempotencyRepository.count()
+    ).isZero();
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            queue.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .header(
+                                    "Idempotency-Key",
+                                    idempotencyKey
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message")
+                    .value(
+                            "User already has an active ticket in this queue"
+                    ));
+
+    assertThat(queueEntryRepository.count())
+            .isEqualTo(1);
+
+    assertThat(
+            guestJoinIdempotencyRepository.count()
+    ).isZero();
+
+    Queue updatedQueue =
+            queueRepository.findById(queue.getId())
+                    .orElseThrow();
+
+    assertThat(updatedQueue.getNextTicketSequence())
+            .isEqualTo(2);
+  }
+
+  @Test
+void shouldAllowSameIdempotencyKeyAcrossDifferentQueues()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service firstService =
+            createService(
+                    branch,
+                    "Computer Repair"
+            );
+
+    com.queueflow.api.entity.Service secondService =
+            createService(
+                    branch,
+                    "Phone Repair"
+            );
+
+    Queue firstQueue =
+            createServiceQueue(
+                    branch,
+                    firstService,
+                    "R"
+            );
+
+    Queue secondQueue =
+            createServiceQueue(
+                    branch,
+                    secondService,
+                    "P"
+            );
+
+    String idempotencyKey =
+            "88888888-8888-4888-8888-888888888888";
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            firstQueue.getId()
+                    )
+                            .header(
+                                    "Idempotency-Key",
+                                    idempotencyKey
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.queueId")
+                    .value(firstQueue.getId()))
+            .andExpect(jsonPath("$.serviceId")
+                    .value(firstService.getId()))
+            .andExpect(jsonPath("$.ticketSequence")
+                    .value(1))
+            .andExpect(jsonPath("$.ticketNumber")
+                    .value("R001"))
+            .andExpect(jsonPath("$.guestToken")
+                    .isString());
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/queues/{queueId}/entries",
+                            secondQueue.getId()
+                    )
+                            .header(
+                                    "Idempotency-Key",
+                                    idempotencyKey
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("{}")
+            )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.queueId")
+                    .value(secondQueue.getId()))
+            .andExpect(jsonPath("$.serviceId")
+                    .value(secondService.getId()))
+            .andExpect(jsonPath("$.ticketSequence")
+                    .value(1))
+            .andExpect(jsonPath("$.ticketNumber")
+                    .value("P001"))
+            .andExpect(jsonPath("$.guestToken")
+                    .isString());
+
+    assertThat(queueEntryRepository.count())
+            .isEqualTo(2);
+
+    assertThat(
+            guestJoinIdempotencyRepository.count()
+    ).isEqualTo(2);
+
+    Queue updatedFirstQueue =
+            queueRepository.findById(firstQueue.getId())
+                    .orElseThrow();
+
+    Queue updatedSecondQueue =
+            queueRepository.findById(secondQueue.getId())
+                    .orElseThrow();
+
+    assertThat(
+            updatedFirstQueue.getNextTicketSequence()
+    ).isEqualTo(2);
+
+    assertThat(
+            updatedSecondQueue.getNextTicketSequence()
+    ).isEqualTo(2);
+  }
 }
+
+
+
+

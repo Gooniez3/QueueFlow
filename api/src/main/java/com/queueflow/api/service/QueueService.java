@@ -296,40 +296,45 @@ public class QueueService {
                     )
                     .orElse(null);
 
-    if (existing != null
-            && existing.getExpiresAt()
-                    .isAfter(OffsetDateTime.now())) {
+    if (existing != null) {
 
-        if (!existing.getService()
-                .getId()
-                .equals(service.getId())) {
+        if (existing.getExpiresAt()
+                .isAfter(OffsetDateTime.now())) {
 
-            throw new IllegalStateException(
-                    "Idempotency-Key was already used with a different request"
+            if (!existing.getService()
+                    .getId()
+                    .equals(service.getId())) {
+
+                throw new IllegalStateException(
+                        "Idempotency-Key was already used with a different request"
+                );
+            }
+
+            QueueEntry existingEntry =
+                    existing.getQueueEntry();
+
+            String guestToken =
+                    guestTokenEncryptionService.decrypt(
+                            existing.getEncryptedGuestToken()
+                    );
+
+            String ticketNumber =
+                    formatTicketNumber(
+                            queue.getTicketPrefix(),
+                            existingEntry.getTicketSequence()
+                    );
+
+            return toEntryResponse(
+                    existingEntry,
+                    ticketNumber,
+                    guestToken
             );
         }
 
-        QueueEntry existingEntry =
-                existing.getQueueEntry();
-
-        String guestToken =
-                guestTokenEncryptionService.decrypt(
-                        existing.getEncryptedGuestToken()
-                );
-
-        String ticketNumber =
-                formatTicketNumber(
-                        queue.getTicketPrefix(),
-                        existingEntry.getTicketSequence()
-                );
-
-        return toEntryResponse(
-                existingEntry,
-                ticketNumber,
-                guestToken
-        );
+        guestJoinIdempotencyRepository.delete(existing);
+        guestJoinIdempotencyRepository.flush();
     }
-   }
+}
 
         UserAccount user = null;
         String rawGuestToken = null;
@@ -1233,3 +1238,4 @@ public class QueueService {
     }
   }
 }
+

@@ -6,6 +6,7 @@ import com.queueflow.api.entity.Queue;
 import com.queueflow.api.entity.QueueEntry;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
+import com.queueflow.api.repository.GuestJoinIdempotencyRepository;
 import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
@@ -43,6 +44,9 @@ class QueueConcurrencyTest {
     private QueueRepository queueRepository;
 
     @Autowired
+    private GuestJoinIdempotencyRepository guestJoinIdempotencyRepository;
+
+    @Autowired
     private ServiceRepository serviceRepository;
 
     @Autowired
@@ -53,6 +57,7 @@ class QueueConcurrencyTest {
 
     @BeforeEach
     void cleanDatabase() {
+        guestJoinIdempotencyRepository.deleteAll();
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();
         serviceRepository.deleteAll();
@@ -336,4 +341,140 @@ class QueueConcurrencyTest {
         executor.shutdownNow();
     }
  }
+  @Test
+void shouldReplaySameGuestJoinUnderConcurrency()
+        throws Exception {
+
+    Business business = businessRepository.save(
+            new Business(
+                    "Concurrency Clinic",
+                    "Concurrency test"
+            )
+    );
+
+    Branch branch = branchRepository.save(
+            new Branch(
+                    business,
+                    "Main Branch",
+                    "123 Main Street",
+                    null,
+                    null
+            )
+    );
+
+    com.queueflow.api.entity.Service service =
+            serviceRepository.save(
+                    new com.queueflow.api.entity.Service(
+                            branch,
+                            "Consultation",
+                            "General consultation",
+                            30
+                    )
+            );
+
+    Queue queue = queueRepository.save(
+            new Queue(
+                    branch,
+                    service,
+                    "Consultation Queue",
+                    LocalDate.now(),
+                    "A"
+            )
+    );
+
+    String idempotencyKey =
+            "66666666-6666-4666-8666-666666666666";
+
+    int concurrentJoins = 2;
+
+    ExecutorService executor =
+            Executors.newFixedThreadPool(concurrentJoins);
+
+    CountDownLatch ready =
+            new CountDownLatch(concurrentJoins);
+
+    CountDownLatch start =
+            new CountDownLatch(1);
+
+    List<Future<QueueEntryResponse>> futures =
+            new ArrayList<>();
+
+    try {
+        for (int i = 0; i < concurrentJoins; i++) {
+
+            futures.add(
+                    executor.submit(() -> {
+
+                        ready.countDown();
+
+                        start.await();
+
+                        return queueService.joinQueue(
+                                queue.getId(),
+                                null,
+                                idempotencyKey,
+                                new JoinQueueRequest(null)
+                        );
+                    })
+            );
+        }
+
+        ready.await();
+        start.countDown();
+
+        List<QueueEntryResponse> responses =
+                new ArrayList<>();
+
+        for (Future<QueueEntryResponse> future : futures) {
+            responses.add(future.get());
+        }
+
+        assertThat(responses)
+                .hasSize(2);
+
+        assertThat(responses)
+                .extracting(
+                        QueueEntryResponse::ticketSequence
+                )
+                .containsOnly(1);
+
+        assertThat(responses)
+                .extracting(
+                        QueueEntryResponse::ticketNumber
+                )
+                .containsOnly("A001");
+
+        assertThat(responses)
+                .extracting(
+                        QueueEntryResponse::guestToken
+                )
+                .allMatch(token -> token != null
+                        && !token.isBlank());
+
+        assertThat(responses.get(0).guestToken())
+                .isEqualTo(
+                        responses.get(1).guestToken()
+                );
+
+        assertThat(queueEntryRepository.count())
+                .isEqualTo(1);
+
+        assertThat(
+                guestJoinIdempotencyRepository.count()
+        ).isEqualTo(1);
+
+        Queue updatedQueue =
+                queueRepository
+                        .findById(queue.getId())
+                        .orElseThrow();
+
+        assertThat(
+                updatedQueue.getNextTicketSequence()
+        ).isEqualTo(2);
+
+    } finally {
+        executor.shutdownNow();
+    }
+  }
 }
+
