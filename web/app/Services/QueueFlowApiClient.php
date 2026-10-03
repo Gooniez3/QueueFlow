@@ -12,6 +12,7 @@ use App\Data\QueuePositionData;
 use App\Data\QueueStaffEntryData;
 use App\Data\RegisteredUserData;
 use App\Data\ServiceData;
+use App\Data\StaffDashboardData;
 use App\Data\StaffMembershipData;
 use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
@@ -285,6 +286,18 @@ class QueueFlowApiClient
         );
     }
 
+    public function recallQueueEntry(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] string $token,
+    ): QueueStaffEntryData {
+        return $this->staffQueueEntryTransition(
+            $queueId,
+            $token,
+            "entries/{$entryId}/recall",
+        );
+    }
+
     public function startServingQueueEntry(
         int $queueId,
         int $entryId,
@@ -340,6 +353,19 @@ class QueueFlowApiClient
         #[\SensitiveParameter] string $token,
     ): QueueData {
         return $this->staffQueueTransition($queueId, $token, 'close');
+    }
+
+    public function staffDashboard(
+        int $businessId,
+        int $branchId,
+        #[\SensitiveParameter] string $token,
+    ): StaffDashboardData {
+        $response = $this->sendGet(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}/staff/dashboard",
+        );
+
+        return StaffDashboardData::fromArray($response->json());
     }
 
     public function createService(

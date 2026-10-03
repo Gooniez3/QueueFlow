@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Data\QueueData;
 use App\Data\QueueStaffEntryData;
+use App\Data\StaffDashboardData;
 
 class QueueFlowQueueService
 {
@@ -36,6 +37,19 @@ class QueueFlowQueueService
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueStaffEntryData => $this->apiClient->callNextQueueEntry(
                 $queueId,
+                $token,
+            ),
+        );
+    }
+
+    public function recallQueueEntry(
+        int $queueId,
+        int $entryId,
+    ): QueueStaffEntryData {
+        return $this->authService->authenticatedRequest(
+            fn (#[\SensitiveParameter] string $token): QueueStaffEntryData => $this->apiClient->recallQueueEntry(
+                $queueId,
+                $entryId,
                 $token,
             ),
         );
@@ -105,6 +119,19 @@ class QueueFlowQueueService
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueData => $this->apiClient->closeQueue(
                 $queueId,
+                $token,
+            ),
+        );
+    }
+
+    public function staffDashboard(
+        int $businessId,
+        int $branchId,
+    ): StaffDashboardData {
+        return $this->authService->authenticatedRequest(
+            fn (#[\SensitiveParameter] string $token): StaffDashboardData => $this->apiClient->staffDashboard(
+                $businessId,
+                $branchId,
                 $token,
             ),
         );
