@@ -481,6 +481,10 @@ class CustomerQueueEntryTest extends TestCase
                 return $joinHandler($request);
             }
 
+            if ($url === 'http://localhost:8080/api/v1/queues/91/entries/301/position') {
+                return Http::response($this->queuePosition('WAITING'));
+            }
+
             throw new RuntimeException("Unexpected QueueFlow request: {$request->method()} {$url}");
         });
     }

@@ -2,10 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Data\GuestQueueOwnershipData;
-use App\Data\QueuePositionData;
 use App\Presentation\CustomerDemoPresentation;
-use App\Services\GuestQueueOwnershipStore;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowCustomerQueueService;
 use Illuminate\View\View;
@@ -14,7 +11,6 @@ class CustomerHomeController extends Controller
 {
     public function __construct(
         private readonly QueueFlowApiClient $apiClient,
-        private readonly GuestQueueOwnershipStore $ownershipStore,
         private readonly QueueFlowCustomerQueueService $customerQueueService,
         private readonly CustomerDemoPresentation $demoPresentation,
     ) {}
@@ -22,10 +18,10 @@ class CustomerHomeController extends Controller
     public function __invoke(): View
     {
         $businesses = $this->apiClient->businesses();
-        $activeTicket = $this->ownershipStore->all()[0] ?? null;
-        $position = $activeTicket === null
-            ? null
-            : $this->position($activeTicket);
+        $classifiedTickets = $this->customerQueueService->classifiedOwnedTickets();
+        $resolvedActiveTicket = $classifiedTickets['active'][0] ?? null;
+        $activeTicket = $resolvedActiveTicket?->ownership;
+        $position = $resolvedActiveTicket?->position;
         $activeBusiness = $activeTicket === null
             ? null
             : collect($businesses)->first(
@@ -44,23 +40,6 @@ class CustomerHomeController extends Controller
                 'ticket' => $this->demoPresentation->ticketDetails(),
             ],
         ]);
-    }
-
-    private function position(GuestQueueOwnershipData $ownership): QueuePositionData
-    {
-        $position = $this->customerQueueService->position(
-            $ownership->queueId,
-            $ownership->entryId,
-        );
-
-        abort_if(
-            $position->queueId !== $ownership->queueId
-                || $position->entryId !== $ownership->entryId,
-            404,
-            'The requested ticket was not found.',
-        );
-
-        return $position;
     }
 
     private function statusLabel(string $status): string

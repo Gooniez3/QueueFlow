@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Data\CustomerOwnedTicketData;
 use App\Data\CustomerQueueTicketData;
 use App\Data\GuestQueueOwnershipData;
 use App\Data\QueuePositionData;
@@ -94,6 +95,52 @@ class QueueFlowCustomerQueueService
             token: null,
             guestToken: $ownership->guestToken(),
         );
+    }
+
+    /**
+     * @return array{
+     *     active: list<CustomerOwnedTicketData>,
+     *     history: list<CustomerOwnedTicketData>,
+     *     unclassified: list<CustomerOwnedTicketData>
+     * }
+     */
+    public function classifiedOwnedTickets(): array
+    {
+        $tickets = [];
+
+        foreach ($this->ownershipStore->all() as $ownership) {
+            $position = $this->position($ownership->queueId, $ownership->entryId);
+
+            if ($position->queueId !== $ownership->queueId
+                || $position->entryId !== $ownership->entryId) {
+                throw GuestQueueOwnershipException::missing();
+            }
+
+            $tickets[] = new CustomerOwnedTicketData($ownership, $position);
+        }
+
+        usort($tickets, function (CustomerOwnedTicketData $left, CustomerOwnedTicketData $right): int {
+            $queueComparison = $left->position->queueId <=> $right->position->queueId;
+
+            return $queueComparison !== 0
+                ? $queueComparison
+                : $left->position->entryId <=> $right->position->entryId;
+        });
+
+        return [
+            'active' => array_values(array_filter(
+                $tickets,
+                fn (CustomerOwnedTicketData $ticket): bool => $ticket->isActive(),
+            )),
+            'history' => array_values(array_filter(
+                $tickets,
+                fn (CustomerOwnedTicketData $ticket): bool => $ticket->isTerminal(),
+            )),
+            'unclassified' => array_values(array_filter(
+                $tickets,
+                fn (CustomerOwnedTicketData $ticket): bool => ! $ticket->isActive() && ! $ticket->isTerminal(),
+            )),
+        ];
     }
 
     public function cancel(int $queueId, int $entryId): CustomerQueueTicketData

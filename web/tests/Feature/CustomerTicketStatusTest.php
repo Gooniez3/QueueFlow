@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Data\QueuePositionData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowCustomerQueueService;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -13,9 +16,6 @@ class CustomerTicketStatusTest extends TestCase
 {
     public function test_my_tickets_renders_empty_state_without_mock_ticket(): void
     {
-        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
-        $customerQueueService->shouldNotReceive('position');
-
         $response = $this->get(route('tickets.show'));
 
         $response->assertOk()
@@ -29,6 +29,11 @@ class CustomerTicketStatusTest extends TestCase
 
     public function test_my_tickets_lists_multiple_owned_tickets_with_credential_free_links(): void
     {
+        $this->fakePositions([
+            301 => [91, 'A023', 'WAITING'],
+            401 => [92, 'B014', 'CALLED'],
+        ]);
+
         $response = $this->withSession($this->ownershipSession([
             $this->ownership(91, 301, 'A023', 'first-raw-guest-token'),
             $this->ownership(92, 401, 'B014', 'second-raw-guest-token'),
@@ -45,6 +50,85 @@ class CustomerTicketStatusTest extends TestCase
             ->assertDontSee('guestToken')
             ->assertDontSee('Idempotency-Key')
             ->assertDontSee('queueflow.customer.join_attempts');
+    }
+
+    public function test_my_tickets_classifies_live_spring_statuses_and_retains_terminal_ownership(): void
+    {
+        $this->fakePositions([
+            301 => [91, 'A001', 'WAITING'],
+            302 => [92, 'A002', 'CALLED'],
+            303 => [93, 'A003', 'SERVING'],
+            304 => [94, 'A004', 'COMPLETED'],
+            305 => [95, 'A005', 'CANCELLED'],
+            306 => [96, 'A006', 'SKIPPED'],
+        ]);
+        $entries = [
+            $this->ownership(91, 301, 'A001', 'waiting-token'),
+            $this->ownership(92, 302, 'A002', 'called-token'),
+            $this->ownership(93, 303, 'A003', 'serving-token'),
+            $this->ownership(94, 304, 'A004', 'completed-token'),
+            $this->ownership(95, 305, 'A005', 'cancelled-token'),
+            $this->ownership(96, 306, 'A006', 'skipped-token'),
+        ];
+
+        $response = $this->withSession($this->ownershipSession($entries))
+            ->get(route('tickets.show'));
+
+        $response->assertOk()
+            ->assertViewHas('activeTickets', fn (array $tickets): bool => count($tickets) === 3)
+            ->assertViewHas('historyTickets', fn (array $tickets): bool => count($tickets) === 3)
+            ->assertSeeInOrder([
+                'Active tickets',
+                'WAITING',
+                'A001',
+                'CALLED',
+                'A002',
+                'SERVING',
+                'A003',
+                'Ticket history',
+                'COMPLETED',
+                'A004',
+                'CANCELLED',
+                'A005',
+                'SKIPPED',
+                'A006',
+            ])
+            ->assertDontSee('waiting-token')
+            ->assertDontSee('called-token')
+            ->assertDontSee('serving-token')
+            ->assertDontSee('completed-token')
+            ->assertDontSee('cancelled-token')
+            ->assertDontSee('skipped-token')
+            ->assertSessionHas('queueflow.customer.entries.94:304.guestToken', 'completed-token')
+            ->assertSessionHas('queueflow.customer.entries.95:305.guestToken', 'cancelled-token')
+            ->assertSessionHas('queueflow.customer.entries.96:306.guestToken', 'skipped-token');
+
+        Http::assertSentCount(6);
+        Http::assertSent(fn (Request $request): bool => $request->hasHeader(
+            'X-Guest-Token',
+            'cancelled-token',
+        ));
+    }
+
+    public function test_ticket_index_position_failure_uses_safe_customer_error_and_preserves_ownership(): void
+    {
+        Exceptions::fake([QueueFlowApiException::class]);
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('classifiedOwnedTickets')
+            ->once()
+            ->andThrow(new QueueFlowApiException('Internal Spring position detail', 500));
+
+        $response = $this->withSession($this->ownershipSession())
+            ->get(route('tickets.show'));
+
+        $response->assertServiceUnavailable()
+            ->assertSee('QueueFlow is temporarily unavailable. Please try again later.')
+            ->assertDontSee('Internal Spring position detail')
+            ->assertDontSee('raw-guest-token')
+            ->assertSessionHas('queueflow.customer.entries.91:301.guestToken', 'raw-guest-token');
+        Exceptions::assertReported(
+            fn (QueueFlowApiException $exception): bool => $exception->status === 500,
+        );
     }
 
     public function test_ticket_routes_are_public_numeric_and_credential_free(): void
@@ -352,5 +436,29 @@ class CustomerTicketStatusTest extends TestCase
             peopleAhead: $peopleAhead,
             estimatedWaitMinutes: $estimatedWaitMinutes,
         );
+    }
+
+    /** @param  array<int, array{int, string, string}>  $tickets */
+    private function fakePositions(array $tickets): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(function (Request $request) use ($tickets) {
+            foreach ($tickets as $entryId => [$queueId, $ticketNumber, $status]) {
+                if ($request->url() === "http://localhost:8080/api/v1/queues/{$queueId}/entries/{$entryId}/position") {
+                    return Http::response([
+                        'entryId' => $entryId,
+                        'queueId' => $queueId,
+                        'serviceId' => 31,
+                        'ticketSequence' => $entryId,
+                        'ticketNumber' => $ticketNumber,
+                        'status' => $status,
+                        'peopleAhead' => 2,
+                        'estimatedWaitMinutes' => 40,
+                    ]);
+                }
+            }
+
+            throw new \RuntimeException("Unexpected QueueFlow request: {$request->method()} {$request->url()}");
+        });
     }
 }

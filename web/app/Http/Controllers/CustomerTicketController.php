@@ -18,8 +18,12 @@ class CustomerTicketController extends Controller
 
     public function index(): View
     {
+        $classifiedTickets = $this->customerQueueService->classifiedOwnedTickets();
+
         return view('tickets.index', [
-            'tickets' => $this->ownershipStore->all(),
+            'activeTickets' => $classifiedTickets['active'],
+            'historyTickets' => $classifiedTickets['history'],
+            'unclassifiedTickets' => $classifiedTickets['unclassified'],
             'presentation' => $this->demoPresentation->ticketDetails(),
         ]);
     }
