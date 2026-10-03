@@ -1,6 +1,11 @@
 <?php
 
+use App\Http\Controllers\CustomerBranchController;
+use App\Http\Controllers\CustomerBusinessController;
+use App\Http\Controllers\CustomerExperienceController;
 use App\Http\Controllers\CustomerHomeController;
+use App\Http\Controllers\CustomerQueueEntryController;
+use App\Http\Controllers\CustomerServiceController;
 use App\Http\Controllers\CustomerTicketController;
 use App\Http\Controllers\QueueBoardController;
 use App\Http\Controllers\Staff\AuthenticatedSessionController;
@@ -12,8 +17,33 @@ use App\Http\Controllers\Staff\StaffHomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', CustomerHomeController::class)->name('home');
+Route::get('/places', [CustomerExperienceController::class, 'places'])->name('places.index');
+Route::get('/places/{category}', [CustomerExperienceController::class, 'category'])
+    ->where('category', '[a-z-]+')
+    ->name('places.show');
+Route::get('/account', [CustomerExperienceController::class, 'account'])->name('account.show');
+Route::get('/more', [CustomerExperienceController::class, 'more'])->name('more.show');
+Route::get('/scanner', [CustomerExperienceController::class, 'scanner'])->name('scanner.show');
+Route::get('/businesses/{businessId}', [CustomerBusinessController::class, 'show'])
+    ->whereNumber('businessId')
+    ->name('businesses.show');
+Route::get('/businesses/{businessId}/branches/{branchId}', [CustomerBranchController::class, 'show'])
+    ->whereNumber(['businessId', 'branchId'])
+    ->name('branches.show');
+Route::get('/businesses/{businessId}/branches/{branchId}/services/{serviceId}', [CustomerServiceController::class, 'show'])
+    ->whereNumber(['businessId', 'branchId', 'serviceId'])
+    ->name('services.show');
+Route::post('/queues/{queueId}/entries', [CustomerQueueEntryController::class, 'store'])
+    ->whereNumber('queueId')
+    ->name('queue-entries.store');
+Route::get('/queues/{queueId}/entries/{entryId}', [CustomerTicketController::class, 'show'])
+    ->whereNumber(['queueId', 'entryId'])
+    ->name('queue-entries.show');
+Route::post('/queues/{queueId}/entries/{entryId}/cancel', [CustomerQueueEntryController::class, 'cancel'])
+    ->whereNumber(['queueId', 'entryId'])
+    ->name('queue-entries.cancel');
 Route::get('/queue-board', QueueBoardController::class)->name('queue-board.show');
-Route::get('/ticket', CustomerTicketController::class)->name('tickets.show');
+Route::get('/ticket', [CustomerTicketController::class, 'index'])->name('tickets.show');
 
 Route::prefix('staff')->name('staff.')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])

@@ -1,98 +1,54 @@
 @extends('layouts.app')
 
-@section('title', 'Ticket '.$ticket['ticketNumber'].' - QueueFlow')
-@section('body-class', 'bg-cream text-ink')
+@section('title', 'Ticket '.$ownership->ticketNumber.' - QueueFlow')
+@section('body-class', 'bg-[#f7f6f2] text-customer-navy')
 
 @section('content')
-    <div class="mx-auto flex min-h-screen max-w-2xl flex-col px-5 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 md:pb-8 lg:pt-10">
-        <x-customer-navigation :updated="$ticket['lastUpdated']" />
+    <div class="customer-page customer-page-narrow">
+        <x-customer-navigation />
+        <header class="customer-hero pb-16"><div class="relative z-10 flex items-center justify-between gap-3"><a class="customer-back-link" href="{{ route('tickets.show') }}" aria-label="Back to My Tickets"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg></a><div class="text-center"><p class="text-xs text-white/65">My ticket</p><h1 class="text-xl font-bold">Live ticket</h1></div><span class="rounded-full bg-white/15 px-3 py-2 text-xs font-bold">History</span></div></header>
 
-        <header>
-            <h1 class="mt-10 text-xs font-semibold tracking-[0.2em] text-brand">MY TICKET</h1>
-            <p class="mt-4 font-editorial text-3xl leading-none tracking-[-0.03em] text-ink">{{ $ticket['businessName'] }}</p>
-            <p class="mt-2 text-sm text-muted">{{ $ticket['branchName'] }} <span class="px-1 text-line">&middot;</span> {{ $ticket['queueName'] }}</p>
-        </header>
+        <main class="relative z-10 -mt-7 px-5 pb-7">
+            @if (session('status'))<p class="mb-4 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-customer-green shadow-sm" role="status">{{ session('status') }}</p>@endif
 
-        <article class="mt-6 rounded-2xl bg-brand p-5 text-white sm:p-6">
-            <div class="flex items-center justify-between gap-4">
-                <p class="text-xs font-medium text-white/70">Current status</p>
-                <p class="rounded-full bg-amber px-4 py-2 text-xs font-bold tracking-[0.08em] text-amber-ink">{{ $ticket['status'] }}</p>
-            </div>
+            <article class="rounded-[1.6rem] bg-white p-5 shadow-[0_16px_38px_-25px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40">
+                <div class="flex items-start justify-between gap-3"><div><p class="font-bold">QueueFlow ticket</p><p class="text-xs text-customer-muted">Saved in this browser</p></div><p @class(['customer-status-badge', 'bg-customer-yellow text-customer-navy' => $status['label'] === 'CALLED', 'bg-customer-green/10 text-customer-green' => in_array($status['label'], ['WAITING', 'SERVING'], true), 'bg-customer-indigo/10 text-customer-indigo' => ! in_array($status['label'], ['CALLED', 'WAITING', 'SERVING'], true)])>{{ $status['label'] }}</p></div>
 
-            <p class="mt-4 text-6xl leading-none font-semibold tracking-[-0.065em] tabular-nums sm:text-7xl">{{ $ticket['ticketNumber'] }}</p>
-            <p class="mt-3 text-base font-semibold">{{ $ticket['serviceName'] }}</p>
-
-            @if ($ticket['counter'])
-                <div class="mt-5 flex items-end justify-between gap-4 border-t border-dashed border-white/25 pt-4">
-                    <p class="text-sm text-white/75">Please proceed to</p>
-                    <p class="text-2xl font-semibold tracking-[-0.025em] text-amber">{{ $ticket['counter'] }}</p>
+                <div class="mt-5 grid grid-cols-[1fr_7rem] items-center gap-4">
+                    <div><p class="text-[0.65rem] font-bold tracking-[0.13em] text-customer-muted">Ticket number</p><p class="mt-1 break-words text-5xl leading-none font-bold tracking-[-0.055em] text-customer-indigo">{{ $ownership->ticketNumber }}</p><p class="mt-4 text-[0.65rem] font-bold tracking-[0.12em] text-customer-muted">Current status</p><h2 class="mt-1 text-xl font-bold">{{ $status['heading'] }}</h2></div>
+                    <div><x-demo-qr :pattern="$presentation['qrPattern']" /><p class="mt-2 text-center text-[0.6rem] text-customer-muted">Presentation QR</p></div>
                 </div>
-            @endif
-        </article>
+                <p class="mt-3 text-sm leading-5 text-customer-muted">{{ $status['message'] }}</p>
 
-        <dl class="grid grid-cols-2 border-b border-line py-5">
-            <div class="pr-5">
-                <dt class="text-xs text-muted">People ahead</dt>
-                <dd class="mt-1 text-3xl font-semibold tracking-[-0.035em] tabular-nums">{{ $ticket['peopleAhead'] }}</dd>
-            </div>
-            <div class="border-l border-line pl-5">
-                <dt class="text-xs text-muted">Estimated wait</dt>
-                <dd class="mt-2 text-lg font-semibold tracking-[-0.025em]">{{ $ticket['estimatedWait'] }}</dd>
-            </div>
-        </dl>
-
-        <section class="border-b border-line py-6" aria-labelledby="qr-heading">
-            <div class="flex items-baseline justify-between gap-4">
-                <h2 id="qr-heading" class="text-lg font-semibold tracking-[-0.02em]">Ticket QR</h2>
-                @if ($ticket['qrPresentation']['isMock'])
-                    <p class="text-[0.65rem] text-muted">Mock preview &middot; not scannable</p>
+                @if ($status['showWaitingPosition'])
+                    <dl class="mt-5 grid grid-cols-2 gap-3 border-t border-dashed border-customer-line pt-5"><div><dt class="text-xs text-customer-muted">People ahead</dt><dd class="mt-1 text-2xl font-bold">{{ $position->peopleAhead }}</dd></div><div><dt class="text-xs text-customer-muted">Estimated wait</dt><dd class="mt-1 text-2xl font-bold">{{ $position->estimatedWaitMinutes }} {{ $position->estimatedWaitMinutes === 1 ? 'minute' : 'minutes' }}</dd></div></dl>
                 @endif
-            </div>
 
-            <div class="mt-4 grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-5 sm:grid-cols-[6.5rem_minmax(0,1fr)]">
-                <div class="aspect-square overflow-hidden border-8 border-white bg-white text-ink" role="img" aria-label="Mock QR visual, not scannable">
-                    <svg class="size-full" viewBox="0 0 17 17" aria-hidden="true" shape-rendering="crispEdges">
-                        <rect width="17" height="17" fill="white" />
-                        @foreach ($ticket['qrPresentation']['pattern'] as $rowIndex => $row)
-                            @foreach (str_split($row) as $columnIndex => $cell)
-                                @if ($cell === '1')
-                                    <rect x="{{ $columnIndex }}" y="{{ $rowIndex }}" width="1" height="1" fill="currentColor" />
-                                @endif
-                            @endforeach
-                        @endforeach
-                    </svg>
-                </div>
+                <dl class="mt-5 grid grid-cols-2 gap-y-4 border-t border-dashed border-customer-line pt-5 text-xs"><div><dt class="text-customer-muted">Ticket ID</dt><dd class="mt-1 font-bold">QF-{{ $ownership->entryId }}</dd></div><div><dt class="text-customer-muted">Date</dt><dd class="mt-1 font-bold">{{ $presentation['date'] }}</dd></div><div><dt class="text-customer-muted">Joined</dt><dd class="mt-1 font-bold">{{ $presentation['joinedAt'] }}</dd></div><div><dt class="text-customer-muted">Party size</dt><dd class="mt-1 font-bold">{{ $presentation['partySize'] }}</dd></div></dl>
+                <div class="mt-5 flex items-center gap-3 rounded-2xl bg-customer-canvas p-4"><span class="grid size-9 shrink-0 place-items-center rounded-full bg-customer-indigo/10 text-customer-indigo"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-5" /></svg></span><div><p class="text-sm font-bold">Owned ticket</p><p class="text-xs text-customer-muted">Available in this browser session</p></div></div>
+            </article>
 
-                <div class="min-w-0">
-                    <h3 class="text-base leading-5 font-semibold">{{ $ticket['qrPresentation']['heading'] }}</h3>
-                    <p class="mt-1 text-sm leading-5 text-muted">{{ $ticket['qrPresentation']['instructions'] }}</p>
-                    <p class="mt-2 text-xs font-semibold text-brand">{{ $ticket['qrPresentation']['ticketLabel'] }}</p>
-                </div>
-            </div>
-        </section>
+            <a class="customer-secondary-button mt-5" href="{{ route('queue-entries.show', [$ownership->queueId, $ownership->entryId]) }}">Refresh status</a>
 
-        <section class="border-b border-line py-6" aria-label="Ticket progress">
-            <div class="grid grid-cols-4 gap-2" aria-hidden="true">
-                <span class="h-1.5 rounded-full bg-brand"></span>
-                <span class="h-1.5 rounded-full bg-brand"></span>
-                <span class="h-1.5 rounded-full bg-amber"></span>
-                <span class="h-1.5 rounded-full bg-line"></span>
-            </div>
-            <ol class="mt-2 grid grid-cols-4 gap-2 text-[0.68rem] text-muted">
-                <li>Joined</li>
-                <li class="text-center">Almost</li>
-                <li class="text-center font-semibold text-ink">Called</li>
-                <li class="text-right">Served</li>
-            </ol>
-        </section>
+            @if ($status['canCancel'])
+                <button class="customer-destructive-button mt-4" type="button" data-open-leave-dialog>Leave queue</button>
+                <span class="sr-only">Cancel ticket</span>
+                <dialog class="m-auto w-[min(calc(100%-2rem),24rem)] rounded-[1.5rem] bg-white p-0 text-customer-navy shadow-2xl backdrop:bg-customer-navy/70" data-leave-dialog>
+                    <div class="p-5"><h2 class="text-xl font-bold">Leave this queue?</h2><p class="mt-2 text-sm leading-5 text-customer-muted">Your current ticket will be cancelled. You will need to join again for a new ticket.</p><form class="mt-5" method="POST" action="{{ route('queue-entries.cancel', [$ownership->queueId, $ownership->entryId]) }}">@csrf<button class="customer-destructive-button" type="submit">Yes, leave queue</button></form><button class="customer-secondary-button mt-3" type="button" data-close-leave-dialog>Keep my ticket</button></div>
+                </dialog>
+            @endif
 
-        <section class="pt-6">
-            <h2 class="font-editorial text-2xl font-semibold tracking-[-0.025em] text-ink">Your turn is coming up.</h2>
-            <p class="mt-2 text-sm leading-6 text-muted">{{ $ticket['statusMessage'] }} Stay nearby.</p>
-        </section>
-
-        <footer class="mt-auto pt-8 pb-3">
-            <a class="text-sm font-medium text-muted underline decoration-line underline-offset-4 transition hover:text-brand hover:decoration-brand" href="{{ route('queue-board.show') }}"><span aria-hidden="true">&larr;</span> Back to queue board</a>
-        </footer>
+            <a class="customer-text-link mt-5" href="{{ route('tickets.show') }}">&larr;&nbsp; Back to My Tickets</a>
+        </main>
     </div>
 @endsection
+
+@if ($status['canCancel'])
+    @push('scripts')
+        <script type="module">
+            const dialog = document.querySelector('[data-leave-dialog]');
+            document.querySelector('[data-open-leave-dialog]')?.addEventListener('click', () => dialog?.showModal());
+            document.querySelector('[data-close-leave-dialog]')?.addEventListener('click', () => dialog?.close());
+        </script>
+    @endpush
+@endif

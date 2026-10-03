@@ -21,6 +21,14 @@
     --color-mint: #4ed4b2;
     --color-amber: #f0a735;
     --color-amber-ink: #15221d;
+    --color-customer-canvas: #f4f4ff;
+    --color-customer-indigo: #4a35ff;
+    --color-customer-indigo-dark: #3524dc;
+    --color-customer-navy: #15113f;
+    --color-customer-yellow: #ffc83d;
+    --color-customer-green: #16b978;
+    --color-customer-muted: #626786;
+    --color-customer-line: #d8d9ee;
 }
 
 @layer base {
@@ -36,6 +44,137 @@
 }
 
 @layer components {
+    .customer-page {
+        @apply relative mx-auto min-h-dvh w-full max-w-[28rem] overflow-hidden bg-customer-canvas pb-[calc(7rem+env(safe-area-inset-bottom))] text-customer-navy sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:rounded-[2rem] sm:shadow-[0_24px_70px_-32px_rgba(21,17,63,0.35)];
+    }
+
+    .customer-page-narrow {
+        @apply max-w-[28rem];
+    }
+
+    .customer-content {
+        @apply px-5;
+    }
+
+    .customer-hero {
+        @apply relative overflow-hidden rounded-b-[2rem] bg-customer-indigo px-5 pt-7 pb-14 text-white;
+    }
+
+    .customer-hero::before,
+    .customer-hero::after {
+        position: absolute;
+        border: 1px solid rgb(255 255 255 / 14%);
+        border-radius: 9999px;
+        content: '';
+        pointer-events: none;
+    }
+
+    .customer-hero::before {
+        top: -4rem;
+        right: -4.25rem;
+        width: 11rem;
+        height: 11rem;
+    }
+
+    .customer-hero::after {
+        top: -2.25rem;
+        right: -2.5rem;
+        width: 7.5rem;
+        height: 7.5rem;
+    }
+
+    .customer-back-link {
+        @apply inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white;
+    }
+
+    .customer-eyebrow {
+        @apply text-[0.68rem] font-bold tracking-[0.12em] text-customer-indigo;
+    }
+
+    .customer-page-title {
+        @apply relative z-10 break-words text-[2rem] leading-[1.02] font-bold tracking-[-0.045em] text-white;
+    }
+
+    .customer-page-copy {
+        @apply relative z-10 mt-2 max-w-sm text-sm leading-5 text-white/80;
+    }
+
+    .customer-section {
+        @apply px-5 py-6;
+    }
+
+    .customer-section-title {
+        @apply text-lg font-bold tracking-[-0.025em] text-customer-navy;
+    }
+
+    .customer-resource-list {
+        @apply mt-3 grid gap-3;
+    }
+
+    .customer-resource-row {
+        @apply grid min-h-20 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[1.15rem] bg-white px-4 py-3 text-customer-navy shadow-[0_10px_30px_-24px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/45 transition hover:-translate-y-0.5 hover:ring-customer-indigo/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo;
+    }
+
+    .customer-resource-icon {
+        @apply grid size-12 shrink-0 place-items-center rounded-2xl bg-customer-indigo text-sm font-bold text-white;
+    }
+
+    .customer-resource-action {
+        @apply grid size-8 shrink-0 place-items-center rounded-full bg-customer-canvas text-lg font-semibold text-customer-indigo;
+    }
+
+    .customer-surface {
+        @apply rounded-[1.5rem] bg-white px-5 py-5 shadow-[0_14px_35px_-26px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/45;
+    }
+
+    .customer-empty-state {
+        @apply mt-4 rounded-[1.5rem] bg-white px-5 py-7 shadow-[0_14px_35px_-26px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/45;
+    }
+
+    .customer-primary-button {
+        @apply inline-flex min-h-13 w-full items-center justify-center rounded-full bg-customer-yellow px-5 py-3 text-sm font-bold text-customer-navy transition hover:bg-[#ffbf1f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo;
+    }
+
+    .customer-secondary-button {
+        @apply inline-flex min-h-12 w-full items-center justify-center rounded-full bg-customer-indigo px-5 py-3 text-sm font-bold text-white transition hover:bg-customer-indigo-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo;
+    }
+
+    .customer-destructive-button {
+        @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-red-500 bg-transparent px-5 py-3 text-sm font-bold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600;
+    }
+
+    .customer-text-link {
+        @apply inline-flex min-h-11 items-center text-sm font-bold text-customer-indigo transition hover:text-customer-indigo-dark focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo;
+    }
+
+    .customer-floating-panel {
+        @apply relative z-10 mx-5 -mt-8 rounded-[1.5rem] bg-white p-5 shadow-[0_18px_45px_-28px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40;
+    }
+
+    .customer-ticket-card {
+        @apply relative overflow-hidden rounded-[1.5rem] bg-customer-navy p-5 text-white shadow-[0_18px_45px_-25px_rgba(21,17,63,0.65)];
+    }
+
+    .customer-ticket-card::after {
+        position: absolute;
+        top: -4.25rem;
+        right: -4rem;
+        width: 11rem;
+        height: 11rem;
+        border-radius: 9999px;
+        background: rgb(74 53 255 / 14%);
+        content: '';
+        pointer-events: none;
+    }
+
+    .customer-status-badge {
+        @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.68rem] font-bold;
+    }
+
+    .customer-scan-line {
+        animation: customer-scan 2.4s ease-in-out infinite alternate;
+    }
+
     .staff-container {
         @apply mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8;
     }
@@ -135,5 +274,21 @@
 
     .staff-status-badge {
         @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold;
+    }
+}
+
+@keyframes customer-scan {
+    from {
+        transform: translateY(-5.5rem);
+    }
+
+    to {
+        transform: translateY(5.5rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .customer-scan-line {
+        animation: none;
     }
 }

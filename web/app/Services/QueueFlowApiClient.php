@@ -13,6 +13,7 @@ use App\Data\QueueStaffEntryData;
 use App\Data\RegisteredUserData;
 use App\Data\ServiceData;
 use App\Data\StaffMembershipData;
+use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -208,13 +209,36 @@ class QueueFlowApiClient
         return QueueData::fromArray($response->json());
     }
 
+    public function todayQueue(
+        int $businessId,
+        int $branchId,
+        ?int $serviceId = null,
+    ): TodayQueueData {
+        $response = $this->sendGet(
+            $this->client(),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}/queues/today",
+            $serviceId === null ? [] : ['serviceId' => $serviceId],
+        );
+
+        return TodayQueueData::fromArray($response->json());
+    }
+
     public function joinQueue(
         int $queueId,
         ?int $serviceId = null,
         #[\SensitiveParameter] ?string $token = null,
+        #[\SensitiveParameter] ?string $idempotencyKey = null,
     ): QueueEntryData {
+        $request = $this->withQueueCredentials($token);
+
+        if ($idempotencyKey !== null && $idempotencyKey !== '') {
+            $request = $request->withHeaders([
+                'Idempotency-Key' => $idempotencyKey,
+            ]);
+        }
+
         $response = $this->sendPost(
-            $this->withQueueCredentials($token),
+            $request,
             "/api/v1/queues/{$queueId}/entries",
             ['serviceId' => $serviceId],
         );
@@ -498,9 +522,10 @@ class QueueFlowApiClient
     private function sendGet(
         PendingRequest $request,
         string $path,
+        array $query = [],
     ): Response {
         try {
-            $response = $request->get($path);
+            $response = $request->get($path, $query);
         } catch (ConnectionException $exception) {
             throw $this->connectionException($exception);
         }
