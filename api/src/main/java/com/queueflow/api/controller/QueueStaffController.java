@@ -2,7 +2,6 @@ package com.queueflow.api.controller;
 
 import com.queueflow.api.response.QueueResponse;
 import com.queueflow.api.response.QueueStaffEntryResponse;
-import com.queueflow.api.response.StaffDashboardResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.QueueService;
 import org.springframework.http.ResponseEntity;
@@ -21,13 +20,6 @@ public class QueueStaffController {
         this.queueService = queueService;
     }
 
-    @GetMapping("/dashboard")
-    public ResponseEntity<StaffDashboardResponse> getDashboard(
-            @PathVariable Long queueId,
-            @AuthenticationPrincipal AuthUserPrincipal principal
-    ) {
-        throw new UnsupportedOperationException();
-    }
     @PostMapping("/call-next")
     public ResponseEntity<QueueStaffEntryResponse> callNext(
             @PathVariable Long queueId,
@@ -59,6 +51,7 @@ public class QueueStaffController {
 
         return ResponseEntity.ok(response);
     }
+
     @PostMapping("/entries/{entryId}/start")
     public ResponseEntity<QueueStaffEntryResponse> startServing(
             @PathVariable Long queueId,
