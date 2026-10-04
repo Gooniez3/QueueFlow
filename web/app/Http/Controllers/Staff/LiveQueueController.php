@@ -8,6 +8,7 @@ use App\Data\StaffMembershipData;
 use App\Http\Controllers\Controller;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowQueueService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -76,6 +77,134 @@ class LiveQueueController extends Controller
         ]);
     }
 
+    public function pause(int $businessId, int $branchId, int $queueId): RedirectResponse
+    {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->pauseQueue($queueId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Queue paused successfully.',
+        );
+    }
+
+    public function resume(int $businessId, int $branchId, int $queueId): RedirectResponse
+    {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->resumeQueue($queueId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Queue resumed successfully.',
+        );
+    }
+
+    public function close(int $businessId, int $branchId, int $queueId): RedirectResponse
+    {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->closeQueue($queueId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Queue closed successfully.',
+        );
+    }
+
+    public function callNext(int $businessId, int $branchId, int $queueId): RedirectResponse
+    {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->callNextQueueEntry($queueId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Next ticket called successfully.',
+        );
+    }
+
+    public function startServing(
+        int $businessId,
+        int $branchId,
+        int $queueId,
+        int $entryId,
+    ): RedirectResponse {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->startServingQueueEntry($queueId, $entryId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Service started successfully.',
+        );
+    }
+
+    public function recall(
+        int $businessId,
+        int $branchId,
+        int $queueId,
+        int $entryId,
+    ): RedirectResponse {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->recallQueueEntry($queueId, $entryId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Ticket recalled successfully.',
+        );
+    }
+
+    public function skip(
+        int $businessId,
+        int $branchId,
+        int $queueId,
+        int $entryId,
+    ): RedirectResponse {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->skipQueueEntry($queueId, $entryId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Ticket skipped successfully.',
+        );
+    }
+
+    public function complete(
+        int $businessId,
+        int $branchId,
+        int $queueId,
+        int $entryId,
+    ): RedirectResponse {
+        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+
+        $this->queueService->completeQueueEntry($queueId, $entryId);
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            'Ticket completed successfully.',
+        );
+    }
+
     /**
      * @param  list<BranchData>  $branches
      * @param  list<StaffMembershipData>  $memberships
@@ -110,6 +239,31 @@ class LiveQueueController extends Controller
         );
     }
 
+    private function ensureQueueBelongsToBranch(int $businessId, int $branchId, int $queueId): void
+    {
+        $branch = $this->apiClient->branch($businessId, $branchId);
+
+        $this->ensureBranchBelongsToBusiness($branch, $businessId);
+
+        $dashboard = $this->queueService->staffDashboard($businessId, $branchId);
+
+        abort_if(
+            $dashboard->businessId !== $businessId || $dashboard->branchId !== $branchId,
+            404,
+            'The requested queue dashboard was not found for this branch.',
+        );
+
+        $queueExists = collect($dashboard->queues)->contains(
+            static fn (StaffDashboardQueueData $queue): bool => $queue->queueId === $queueId,
+        );
+
+        abort_unless(
+            $queueExists,
+            404,
+            'The requested queue was not found for this branch.',
+        );
+    }
+
     /**
      * @param  list<StaffDashboardQueueData>  $queues
      */
@@ -135,5 +289,20 @@ class LiveQueueController extends Controller
         abort_unless($selectedQueue instanceof StaffDashboardQueueData, 404);
 
         return $selectedQueue;
+    }
+
+    private function redirectToQueue(
+        int $businessId,
+        int $branchId,
+        int $queueId,
+        string $message,
+    ): RedirectResponse {
+        return redirect()
+            ->route('staff.live-queues.index', [
+                'businessId' => $businessId,
+                'branchId' => $branchId,
+                'queue' => $queueId,
+            ])
+            ->with('status', $message);
     }
 }
