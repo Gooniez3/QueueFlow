@@ -26,6 +26,10 @@ class AuthenticatedSessionTest extends TestCase
             ->assertSee('type="password"', false)
             ->assertSee('name="_token"', false)
             ->assertSee('href="'.route('staff.register').'"', false)
+            ->assertSee('QueueFlow')
+            ->assertSee('STAFF PORTAL')
+            ->assertSee('class="staff-auth-shell"', false)
+            ->assertSee('class="staff-auth-card"', false)
             ->assertSeeInOrder([
                 'Welcome back.',
                 'Sign in',

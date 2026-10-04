@@ -14,7 +14,10 @@ class BranchManagementTest extends TestCase
             'http://localhost:8080/api/v1/businesses/10' => Http::response($this->business()),
             'http://localhost:8080/api/v1/businesses/10/branches' => Http::response([
                 $this->branch(101, 'Riverside Clinic'),
-                $this->branch(102, 'Central Clinic', null, null),
+                [
+                    ...$this->branch(102, 'Central Clinic', null, null),
+                    'address' => '88 Orchard Avenue',
+                ],
             ]),
         ]);
 
@@ -23,11 +26,24 @@ class BranchManagementTest extends TestCase
         $response->assertOk()
             ->assertSee('Riverside Clinic')
             ->assertSee('Central Clinic')
-            ->assertSee('Add branch')
-            ->assertSee('Back to businesses')
-            ->assertSee('2 branches')
-            ->assertDontSee('2 total')
-            ->assertSee('aria-label="Breadcrumb"', false)
+            ->assertSee('1 River Road')
+            ->assertSee('88 Orchard Avenue')
+            ->assertSee('Northstar Health')
+            ->assertSee('Community health services.')
+            ->assertSee('Business overview')
+            ->assertSee('Business information')
+            ->assertSee('Branches')
+            ->assertSee('&middot; 2', false)
+            ->assertSee('STAFF')
+            ->assertSee('href="'.route('staff.branches.create', 10).'"', false)
+            ->assertSee('href="'.route('staff.branches.show', [10, 101]).'"', false)
+            ->assertSee('href="'.route('staff.branches.show', [10, 102]).'"', false)
+            ->assertSee('Live queues')
+            ->assertSee('aria-disabled="true"', false)
+            ->assertDontSee('href="#"', false)
+            ->assertDontSee('Central Branch')
+            ->assertDontSee('Harbour Branch')
+            ->assertDontSee('OWNER')
             ->assertDontSee('inert-spring-token');
 
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/api/v1/businesses/10')

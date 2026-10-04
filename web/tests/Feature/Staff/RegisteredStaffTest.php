@@ -27,7 +27,11 @@ class RegisteredStaffTest extends TestCase
             ->assertSee('name="password"', false)
             ->assertSee('type="password"', false)
             ->assertSee('name="_token"', false)
-            ->assertSee('href="'.route('staff.login').'"', false);
+            ->assertSee('href="'.route('staff.login').'"', false)
+            ->assertSee('QueueFlow')
+            ->assertSee('STAFF PORTAL')
+            ->assertSee('class="staff-auth-shell"', false)
+            ->assertSee('class="staff-auth-card"', false);
     }
 
     public function test_successful_registration_does_not_authenticate_and_redirects_to_login(): void

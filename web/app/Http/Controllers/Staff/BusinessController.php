@@ -23,6 +23,12 @@ class BusinessController extends Controller
     public function index(Request $request): View
     {
         $authContext = $request->attributes->get('queueflow.auth');
+        $membershipsByBusinessId = [];
+
+        foreach ($authContext['memberships'] as $membership) {
+            $membershipsByBusinessId[$membership->businessId][] = $membership;
+        }
+
         $businessIds = array_values(array_unique(array_map(
             static fn (StaffMembershipData $membership): int => $membership->businessId,
             $authContext['memberships'],
@@ -36,6 +42,7 @@ class BusinessController extends Controller
         return view('staff.businesses.index', [
             'authContext' => $authContext,
             'businesses' => $businesses,
+            'membershipsByBusinessId' => $membershipsByBusinessId,
         ]);
     }
 
@@ -77,10 +84,20 @@ class BusinessController extends Controller
 
     public function show(Request $request, int $businessId): View
     {
+        $authContext = $request->attributes->get('queueflow.auth');
+        $businessRoles = array_values(array_unique(array_map(
+            static fn (StaffMembershipData $membership): string => $membership->role,
+            array_filter(
+                $authContext['memberships'],
+                static fn (StaffMembershipData $membership): bool => $membership->belongsToBusiness($businessId),
+            ),
+        )));
+
         return view('staff.businesses.show', [
-            'authContext' => $request->attributes->get('queueflow.auth'),
+            'authContext' => $authContext,
             'business' => $this->apiClient->business($businessId),
             'branches' => $this->apiClient->branches($businessId),
+            'businessRoles' => $businessRoles,
         ]);
     }
 
