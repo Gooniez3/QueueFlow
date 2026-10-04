@@ -17,6 +17,9 @@ public class Business {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(nullable = false, length = 100)
+    private String category = "OTHER";
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -26,9 +29,13 @@ public class Business {
     public Business() {
     }
 
-    public Business(String name, String description) {
+    public Business(
+            String name,
+            String description
+    ) {
         this.name = name;
         this.description = description;
+        this.category = "OTHER";
     }
 
     @PrePersist
@@ -36,6 +43,10 @@ public class Business {
         OffsetDateTime now = OffsetDateTime.now();
         createdAt = now;
         updatedAt = now;
+
+        if (category == null || category.isBlank()) {
+            category = "OTHER";
+        }
     }
 
     @PreUpdate
@@ -51,7 +62,9 @@ public class Business {
         return name;
     }
 
-    public void setName(String name) {
+    public void setName(
+            String name
+    ) {
         this.name = name;
     }
 
@@ -59,15 +72,29 @@ public class Business {
         return description;
     }
 
-    public void setDescription(String description) {
+    public void setDescription(
+            String description
+    ) {
         this.description = description;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(
+            String category
+    ) {
+        this.category = category;
     }
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(OffsetDateTime createdAt) {
+    public void setCreatedAt(
+            OffsetDateTime createdAt
+    ) {
         this.createdAt = createdAt;
     }
 
@@ -75,8 +102,9 @@ public class Business {
         return updatedAt;
     }
 
-    public void setUpdatedAt(OffsetDateTime updatedAt) {
+    public void setUpdatedAt(
+            OffsetDateTime updatedAt
+    ) {
         this.updatedAt = updatedAt;
     }
-    
 }

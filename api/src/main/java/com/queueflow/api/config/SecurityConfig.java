@@ -91,7 +91,8 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/v1/queues/*/entries/*/position",
                                 "/api/v1/queues/{queueId}/board",
-                                "/api/v1/public/queues/resolve/{publicCode}"
+                                "/api/v1/public/queues/resolve/{publicCode}",
+                                "/api/v1/public/discovery"
                         ).permitAll()
 
                         // Public queue joining and cancellation.
