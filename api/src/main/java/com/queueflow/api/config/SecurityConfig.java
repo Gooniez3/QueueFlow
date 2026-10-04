@@ -89,7 +89,8 @@ public class SecurityConfig {
                         // the authenticated user or X-Guest-Token.
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/v1/queues/*/entries/*/position"
+                                "/api/v1/queues/*/entries/*/position",
+                                "/api/v1/queues/{queueId}/board"
                         ).permitAll()
 
                         // Public queue joining and cancellation.
