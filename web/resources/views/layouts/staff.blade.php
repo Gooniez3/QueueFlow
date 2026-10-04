@@ -100,6 +100,10 @@
                     @hasSection('staff-context')
                         @yield('staff-context')
                     @endif
+                    <div class="staff-context-chip border-0 bg-staff-canvas" aria-label="Current date">
+                        <x-staff.icon class="size-4.5 text-staff-muted" name="calendar" />
+                        <time datetime="{{ now()->toDateString() }}">{{ now()->format('D, j M Y') }}</time>
+                    </div>
                     <div class="staff-account-chip" aria-label="Signed in staff member">
                         <span class="staff-avatar staff-avatar-small">{{ $staffInitials }}</span>
                         <span class="max-w-48 truncate font-semibold">{{ $staffName }}</span>

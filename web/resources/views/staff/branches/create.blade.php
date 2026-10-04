@@ -1,6 +1,15 @@
 @extends('layouts.staff')
 
 @section('title', 'Add branch')
+@section('staff-area', 'Businesses')
+
+@section('staff-topbar-breadcrumbs')
+    <x-staff.topbar-breadcrumbs :items="[
+        ['label' => 'Businesses', 'url' => route('staff.businesses.index')],
+        ['label' => $business->name, 'url' => route('staff.businesses.show', $business->id)],
+        ['label' => 'Add branch'],
+    ]" />
+@endsection
 
 @section('staff-content')
     <div class="staff-form-wrap">
@@ -14,10 +23,13 @@
             ]"
         />
 
-        <header class="mt-6">
+        <header class="mt-6 flex items-start gap-4">
+            <span class="grid size-12 shrink-0 place-items-center rounded-xl bg-staff-indigo-soft text-staff-indigo" aria-hidden="true"><x-staff.icon name="branch" /></span>
+            <div>
             <p class="staff-eyebrow">NEW BRANCH</p>
             <h1 class="staff-page-title">Add a branch</h1>
             <p class="staff-page-copy">Create a location for {{ $business->name }}. Coordinates are optional and can be added when they are useful.</p>
+            </div>
         </header>
 
         <form class="staff-form-card" method="POST" action="{{ route('staff.branches.store', $business->id) }}">
@@ -45,7 +57,7 @@
                 @enderror
             </div>
 
-            <fieldset class="border-t border-line pt-6">
+            <fieldset class="border-t border-staff-line pt-6">
                 <legend class="staff-field-label">Coordinates <span class="staff-field-optional">(optional)</span></legend>
                 <p class="staff-field-help mt-2">Use decimal latitude and longitude only when the precise branch location is known.</p>
 
@@ -67,7 +79,7 @@
                 </div>
             </fieldset>
 
-            <div class="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center">
+            <div class="flex flex-col-reverse gap-3 border-t border-staff-line pt-6 sm:flex-row sm:items-center">
                 <a class="staff-secondary-button" href="{{ route('staff.businesses.show', $business->id) }}">Cancel</a>
                 <button class="staff-primary-button" type="submit">Create branch</button>
             </div>

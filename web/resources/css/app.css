@@ -43,6 +43,8 @@
     --color-staff-sidebar-label: #8f8cc4;
     --color-staff-success: #0e6b40;
     --color-staff-success-soft: #e3f6ec;
+    --color-staff-warning: #7a5200;
+    --color-staff-warning-soft: #fff1c9;
     --color-staff-danger: #b83a20;
     --color-staff-danger-soft: #fde7e2;
 }
@@ -265,7 +267,7 @@
     }
 
     .staff-workspace {
-        @apply min-w-0 flex-1;
+        @apply min-w-0 flex-1 lg:h-dvh lg:overflow-y-auto;
     }
 
     .staff-topbar {
@@ -368,6 +370,106 @@
         @apply rounded-[1.25rem] border border-staff-line bg-staff-surface;
     }
 
+    .staff-resource-hero {
+        @apply relative overflow-hidden rounded-[1.75rem] bg-staff-indigo px-5 py-6 text-white sm:px-7 sm:py-7 lg:px-8;
+    }
+
+    .staff-resource-hero::before,
+    .staff-resource-hero::after {
+        position: absolute;
+        border: 1.5px solid rgb(255 255 255 / 14%);
+        border-radius: 9999px;
+        content: '';
+        pointer-events: none;
+    }
+
+    .staff-resource-hero::before {
+        top: -9.375rem;
+        right: -5.625rem;
+        width: 26.25rem;
+        height: 26.25rem;
+    }
+
+    .staff-resource-hero::after {
+        top: -5rem;
+        right: 1.875rem;
+        width: 16.25rem;
+        height: 16.25rem;
+    }
+
+    .staff-resource-hero-content {
+        @apply relative z-10 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between;
+    }
+
+    .staff-resource-identity {
+        @apply flex min-w-0 items-center gap-4 sm:gap-4.5;
+    }
+
+    .staff-resource-mark {
+        @apply grid size-15 shrink-0 place-items-center rounded-[1.1rem] bg-staff-amber font-staff-display text-xl font-extrabold text-staff-ink sm:size-17 sm:rounded-[1.25rem] sm:text-2xl;
+    }
+
+    .staff-resource-title {
+        @apply break-words font-staff-display text-2xl leading-[1.1] font-extrabold tracking-[-0.035em] text-white sm:text-[2rem];
+    }
+
+    .staff-resource-subtitle {
+        @apply mt-1.5 break-words text-sm leading-5 text-[#e6e5ff];
+    }
+
+    .staff-resource-actions {
+        @apply relative z-10 flex flex-wrap gap-2.5 sm:justify-end;
+    }
+
+    .staff-hero-secondary-button {
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/15 px-4.5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white;
+    }
+
+    .staff-hero-metrics {
+        @apply relative z-10 mt-5 grid gap-3 sm:mt-5.5 sm:grid-cols-2 lg:grid-cols-3;
+    }
+
+    .staff-hero-metric {
+        @apply rounded-2xl bg-white/12 px-4.5 py-3.5;
+    }
+
+    .staff-hero-metric-label {
+        @apply font-staff-display text-[0.68rem] font-semibold tracking-[0.14em] text-[#c9ccff];
+    }
+
+    .staff-hero-metric-value {
+        @apply mt-1 break-words font-staff-display text-xl leading-tight font-extrabold text-white sm:text-[1.75rem];
+    }
+
+    .staff-section-header {
+        @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+    }
+
+    .staff-card-muted-block {
+        @apply rounded-[0.875rem] bg-staff-canvas px-4 py-3;
+    }
+
+    .staff-empty-dashed {
+        @apply rounded-[1.25rem] border border-dashed border-[#b9bce0] bg-white/50 px-5 py-8 text-center;
+    }
+
+    .staff-business-grid {
+        @apply grid gap-4.5 md:grid-cols-2 xl:grid-cols-3;
+    }
+
+    .staff-business-card {
+        @apply relative flex min-h-64 flex-col overflow-hidden rounded-[1.25rem] border border-staff-line bg-white;
+    }
+
+    .staff-business-card::before {
+        @apply h-2 w-full shrink-0 bg-staff-indigo;
+        content: '';
+    }
+
+    .staff-form-heading {
+        @apply font-staff-display text-xl font-extrabold tracking-[-0.025em] text-staff-ink;
+    }
+
     .staff-primary-button {
         @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-staff-indigo px-4.5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#352ad5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-staff-indigo;
     }
@@ -451,6 +553,14 @@
 
     .staff-status-badge {
         @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold;
+    }
+
+    .staff-filter-button {
+        @apply min-h-10 rounded-full border border-staff-line bg-white px-4 text-sm font-bold text-staff-ink transition-colors hover:border-staff-indigo/30 hover:text-staff-indigo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-staff-indigo;
+    }
+
+    .staff-filter-button-active {
+        @apply border-staff-ink bg-staff-ink text-white hover:border-staff-ink hover:text-white;
     }
 
     .staff-card-title {

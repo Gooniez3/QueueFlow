@@ -87,6 +87,24 @@ class QueueFlowApiClient
         return BusinessData::fromArray($response->json());
     }
 
+    public function updateBusiness(
+        int $businessId,
+        #[\SensitiveParameter] string $token,
+        string $name,
+        ?string $description,
+    ): BusinessData {
+        $response = $this->sendPut(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}",
+            [
+                'name' => $name,
+                'description' => $description,
+            ],
+        );
+
+        return BusinessData::fromArray($response->json());
+    }
+
     /**
      * @return list<BranchData>
      */
@@ -149,6 +167,31 @@ class QueueFlowApiClient
         }
 
         $this->ensureSuccessful($response);
+
+        return BranchData::fromArray($response->json());
+    }
+
+    public function updateBranch(
+        int $businessId,
+        int $branchId,
+        #[\SensitiveParameter] string $token,
+        string $name,
+        string $address,
+        ?float $latitude,
+        ?float $longitude,
+        string $timezone,
+    ): BranchData {
+        $response = $this->sendPut(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}",
+            [
+                'name' => $name,
+                'address' => $address,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'timezone' => $timezone,
+            ],
+        );
 
         return BranchData::fromArray($response->json());
     }
@@ -393,6 +436,30 @@ class QueueFlowApiClient
         return ServiceData::fromArray($response->json());
     }
 
+    public function updateService(
+        int $businessId,
+        int $branchId,
+        int $serviceId,
+        #[\SensitiveParameter] string $token,
+        string $name,
+        ?string $description,
+        int $durationMinutes,
+        bool $active,
+    ): ServiceData {
+        $response = $this->sendPut(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}/services/{$serviceId}",
+            [
+                'name' => $name,
+                'description' => $description,
+                'durationMinutes' => $durationMinutes,
+                'active' => $active,
+            ],
+        );
+
+        return ServiceData::fromArray($response->json());
+    }
+
     public function register(
         string $email,
         #[\SensitiveParameter] string $password,
@@ -536,6 +603,25 @@ class QueueFlowApiClient
     ): Response {
         try {
             $response = $request->post($path, $payload);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return $response;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function sendPut(
+        PendingRequest $request,
+        string $path,
+        array $payload,
+    ): Response {
+        try {
+            $response = $request->put($path, $payload);
         } catch (ConnectionException $exception) {
             throw $this->connectionException($exception);
         }

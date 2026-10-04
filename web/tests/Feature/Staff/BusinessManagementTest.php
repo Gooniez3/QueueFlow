@@ -44,6 +44,12 @@ class BusinessManagementTest extends TestCase
             'http://localhost:8080/api/v1/auth/me' => Http::response($this->meResponse($memberships)),
             'http://localhost:8080/api/v1/businesses/10' => Http::response($this->business(10, 'Northstar Health')),
             'http://localhost:8080/api/v1/businesses/20' => Http::response($this->business(20, 'Harbour Services')),
+            'http://localhost:8080/api/v1/businesses/10/branches' => Http::response([$this->branch()]),
+            'http://localhost:8080/api/v1/businesses/20/branches' => Http::response([]),
+            'http://localhost:8080/api/v1/businesses/10/branches/101/services' => Http::response([
+                $this->service(501),
+                $this->service(502, 'Follow-up Consultation'),
+            ]),
         ]);
 
         $response = $this->withAuthentication($memberships)
@@ -52,7 +58,15 @@ class BusinessManagementTest extends TestCase
         $response->assertOk()
             ->assertSee('Northstar Health')
             ->assertSee('Harbour Services')
+            ->assertSee('Riverside Clinic')
+            ->assertSee('Owner 1')
+            ->assertSee('Manager 1')
+            ->assertSee('Staff 1')
+            ->assertSee('Search businesses')
+            ->assertSee('>1</dd>', false)
+            ->assertSee('>2</dd>', false)
             ->assertDontSee('Unmanaged Business')
+            ->assertDontSee('CapyTech')
             ->assertDontSee('inert-spring-token');
 
         Http::assertSent(fn (Request $request): bool => in_array($request->url(), [
@@ -60,7 +74,7 @@ class BusinessManagementTest extends TestCase
             'http://localhost:8080/api/v1/businesses/20',
         ], true)
             && ! $request->hasHeader('Authorization'));
-        Http::assertSentCount(3);
+        Http::assertSentCount(6);
     }
 
     public function test_business_creation_is_authenticated_and_refreshes_membership_context(): void
@@ -225,6 +239,128 @@ class BusinessManagementTest extends TestCase
         $this->assertSame(503, $response->getStatusCode());
     }
 
+    public function test_business_edit_page_loads_existing_values_without_exposing_the_token(): void
+    {
+        $membership = $this->membership(10, 'OWNER');
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/auth/me' => Http::response($this->meResponse([$membership])),
+            'http://localhost:8080/api/v1/businesses/10' => Http::response(
+                $this->business(10, 'Northstar Health', 'Community health services.'),
+            ),
+        ]);
+
+        $this->withAuthentication([$membership])
+            ->get(route('staff.businesses.edit', 10))
+            ->assertOk()
+            ->assertSee('Edit business')
+            ->assertSee('value="Northstar Health"', false)
+            ->assertSee('Community health services.')
+            ->assertSee('action="'.route('staff.businesses.update', 10).'"', false)
+            ->assertDontSee('inert-spring-token');
+    }
+
+    public function test_business_update_uses_bearer_authentication_and_normalizes_blank_description(): void
+    {
+        $membership = $this->membership(10, 'OWNER');
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/auth/me' => Http::response($this->meResponse([$membership])),
+            'http://localhost:8080/api/v1/businesses/10' => Http::response(
+                $this->business(10, 'Updated Northstar'),
+            ),
+        ]);
+
+        $response = $this->withAuthentication([$membership])
+            ->put(route('staff.businesses.update', 10), [
+                'name' => 'Updated Northstar',
+                'description' => '   ',
+            ]);
+
+        $response->assertRedirect(route('staff.businesses.show', 10))
+            ->assertSessionHas('status', 'Business updated successfully.');
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+            && $request->url() === 'http://localhost:8080/api/v1/businesses/10'
+            && $request->hasHeader('Authorization', 'Bearer inert-spring-token')
+            && $request->data() === [
+                'name' => 'Updated Northstar',
+                'description' => null,
+            ]);
+    }
+
+    public function test_business_update_validation_prevents_the_spring_mutation(): void
+    {
+        $membership = $this->membership(10, 'OWNER');
+        $this->fakeCurrentUser([$membership]);
+
+        $this->withAuthentication([$membership])
+            ->from(route('staff.businesses.edit', 10))
+            ->put(route('staff.businesses.update', 10), ['name' => ''])
+            ->assertRedirect(route('staff.businesses.edit', 10))
+            ->assertSessionHasErrors('name');
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_business_update_403_is_safe_and_preserves_authentication(): void
+    {
+        $membership = $this->membership(10, 'MANAGER');
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/auth/me' => Http::response($this->meResponse([$membership])),
+            'http://localhost:8080/api/v1/businesses/10' => Http::response([
+                'message' => 'Internal Spring authorization detail',
+            ], 403),
+        ]);
+
+        $this->withAuthentication([$membership])
+            ->put(route('staff.businesses.update', 10), [
+                'name' => 'Updated Northstar',
+            ])
+            ->assertForbidden()
+            ->assertSee('You are not authorized to access this staff resource.')
+            ->assertSessionHas('queueflow.auth.token', 'inert-spring-token')
+            ->assertDontSee('Internal Spring authorization detail');
+    }
+
+    public function test_business_update_connection_failure_is_safe_and_preserves_authentication(): void
+    {
+        $membership = $this->membership(10, 'OWNER');
+        Exceptions::fake([QueueFlowApiException::class]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/auth/me' => Http::response($this->meResponse([$membership])),
+            'http://localhost:8080/api/v1/businesses/10' => Http::failedConnection('Internal network detail'),
+        ]);
+
+        $this->withAuthentication([$membership])
+            ->put(route('staff.businesses.update', 10), [
+                'name' => 'Updated Northstar',
+            ])
+            ->assertServiceUnavailable()
+            ->assertSee('QueueFlow is temporarily unavailable. Please try again later.')
+            ->assertSessionHas('queueflow.auth.token', 'inert-spring-token')
+            ->assertDontSee('Internal network detail');
+
+        Exceptions::assertReported(
+            fn (QueueFlowApiException $exception): bool => $exception->status === null,
+        );
+    }
+
+    public function test_business_edit_and_update_require_staff_authentication(): void
+    {
+        $this->get(route('staff.businesses.edit', 10))
+            ->assertRedirect(route('staff.login'));
+
+        $this->put(route('staff.businesses.update', 10), ['name' => 'Updated Northstar'])
+            ->assertRedirect(route('staff.login'));
+    }
+
     /**
      * @param  list<array<string, mixed>>  $memberships
      */
@@ -284,6 +420,35 @@ class BusinessManagementTest extends TestCase
             'id' => $id,
             'name' => $name,
             'description' => $description,
+            'createdAt' => '2026-09-30T10:15:30+08:00',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function branch(): array
+    {
+        return [
+            'id' => 101,
+            'businessId' => 10,
+            'name' => 'Riverside Clinic',
+            'address' => '1 River Road',
+            'latitude' => null,
+            'longitude' => null,
+            'timezone' => 'Asia/Singapore',
+            'createdAt' => '2026-09-30T10:15:30+08:00',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function service(int $id, string $name = 'General Consultation'): array
+    {
+        return [
+            'id' => $id,
+            'branchId' => 101,
+            'name' => $name,
+            'description' => 'Standard appointment.',
+            'durationMinutes' => 20,
+            'active' => true,
             'createdAt' => '2026-09-30T10:15:30+08:00',
         ];
     }

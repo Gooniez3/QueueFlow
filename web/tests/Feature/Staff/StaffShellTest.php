@@ -60,13 +60,15 @@ class StaffShellTest extends TestCase
             'http://localhost:8080/api/v1/auth/me' => Http::response($this->meResponse($memberships)),
             'http://localhost:8080/api/v1/businesses/10' => Http::response($this->business(10, 'CapyTech')),
             'http://localhost:8080/api/v1/businesses/20' => Http::response($this->business(20, 'Harbour Dental')),
+            'http://localhost:8080/api/v1/businesses/10/branches' => Http::response([]),
+            'http://localhost:8080/api/v1/businesses/20/branches' => Http::response([]),
         ]);
 
         $response = $this->withAuthentication($memberships)
             ->get(route('staff.businesses.index'));
 
         $response->assertOk()
-            ->assertSee('Businesses you can access with your staff account.')
+            ->assertSee('Everything you can access with your QueueFlow staff account.')
             ->assertSee('CapyTech')
             ->assertSee('Harbour Dental')
             ->assertSee('OWNER')

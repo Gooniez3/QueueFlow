@@ -25,7 +25,11 @@
 
         @case('queues')
             <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
-        @break
+            @break
+        @case('search')
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-4-4" />
+            @break
 
         @case('business')
             <path d="M4 20V5h10v15M14 10h6v10M8 9h2M8 13h2M8 17h2M4 20h16" />
@@ -68,6 +72,19 @@
 
         @case('plus')
             <path d="M12 5v14M5 12h14" />
+        @break
+
+        @case('edit')
+            <path d="M4 20h4L19 9l-4-4L4 16Z" />
+        @break
+
+        @case('check')
+            <path d="m5 12 4.5 4.5L19 7" />
+        @break
+
+        @case('info')
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8h.01" />
         @break
     @endswitch
 </svg>
