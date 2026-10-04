@@ -29,6 +29,10 @@ public interface QueueRepository extends JpaRepository<Queue, Long> {
             LocalDate businessDate
     );
 
+    Optional<Queue> findByPublicCode(
+            String publicCode
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select q

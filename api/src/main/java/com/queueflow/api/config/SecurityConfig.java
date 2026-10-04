@@ -90,7 +90,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/queues/*/entries/*/position",
-                                "/api/v1/queues/{queueId}/board"
+                                "/api/v1/queues/{queueId}/board",
+                                "/api/v1/public/queues/resolve/{publicCode}"
                         ).permitAll()
 
                         // Public queue joining and cancellation.
