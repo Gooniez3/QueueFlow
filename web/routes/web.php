@@ -73,6 +73,12 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
             Route::get('/businesses/{businessId}', [BusinessController::class, 'show'])
                 ->whereNumber('businessId')
                 ->name('businesses.show');
+            Route::get('/businesses/{businessId}/edit', [BusinessController::class, 'edit'])
+                ->whereNumber('businessId')
+                ->name('businesses.edit');
+            Route::put('/businesses/{businessId}', [BusinessController::class, 'update'])
+                ->whereNumber('businessId')
+                ->name('businesses.update');
 
             Route::get('/businesses/{businessId}/branches/create', [BranchController::class, 'create'])
                 ->whereNumber('businessId')
@@ -83,6 +89,12 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
             Route::get('/businesses/{businessId}/branches/{branchId}', [BranchController::class, 'show'])
                 ->whereNumber(['businessId', 'branchId'])
                 ->name('branches.show');
+            Route::get('/businesses/{businessId}/branches/{branchId}/edit', [BranchController::class, 'edit'])
+                ->whereNumber(['businessId', 'branchId'])
+                ->name('branches.edit');
+            Route::put('/businesses/{businessId}/branches/{branchId}', [BranchController::class, 'update'])
+                ->whereNumber(['businessId', 'branchId'])
+                ->name('branches.update');
 
             Route::get('/businesses/{businessId}/branches/{branchId}/services/create', [ServiceController::class, 'create'])
                 ->whereNumber(['businessId', 'branchId'])
@@ -93,6 +105,12 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
             Route::get('/businesses/{businessId}/branches/{branchId}/services/{serviceId}', [ServiceController::class, 'show'])
                 ->whereNumber(['businessId', 'branchId', 'serviceId'])
                 ->name('services.show');
+            Route::get('/businesses/{businessId}/branches/{branchId}/services/{serviceId}/edit', [ServiceController::class, 'edit'])
+                ->whereNumber(['businessId', 'branchId', 'serviceId'])
+                ->name('services.edit');
+            Route::put('/businesses/{businessId}/branches/{branchId}/services/{serviceId}', [ServiceController::class, 'update'])
+                ->whereNumber(['businessId', 'branchId', 'serviceId'])
+                ->name('services.update');
         });
     });
 

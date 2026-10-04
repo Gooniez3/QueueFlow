@@ -1,51 +1,80 @@
 @extends('layouts.staff')
 
-@section('title', 'Staff workspace')
+@section('title', 'Overview')
+@section('staff-area', 'Workspace')
 
 @section('staff-content')
-    <section aria-labelledby="workspace-heading">
-        <header class="border-b border-line/60 pb-6">
-            <p class="staff-eyebrow">STAFF WORKSPACE</p>
-            <h1 id="workspace-heading" class="staff-page-title">Staff workspace</h1>
-            <p class="staff-page-copy">Manage the businesses, branches and services connected to your QueueFlow account.</p>
-        </header>
+    @php
+        $user = $authContext['user'];
+        $memberships = $authContext['memberships'];
+        $businessCount = count(array_unique(array_map(static fn ($membership): int => $membership->businessId, $memberships)));
+        $branchScopeCount = count(array_filter($memberships, static fn ($membership): bool => $membership->branchId !== null));
+    @endphp
 
-        <a class="mt-8 grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-5 rounded-xl border border-line bg-surface p-5 text-ink transition-colors hover:border-brand/30 hover:bg-brand/[0.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:p-7" href="{{ route('staff.businesses.index') }}">
-            <span class="grid size-12 place-items-center rounded-xl bg-brand/7 text-brand" aria-hidden="true">
-                <svg class="size-6" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 20V8.5A1.5 1.5 0 0 1 6.5 7H10v13M10 4.5A1.5 1.5 0 0 1 11.5 3h6A1.5 1.5 0 0 1 19 4.5V20M3 20h18M13 7h3M13 11h3M13 15h3M7 11h.01M7 15h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-            </span>
-            <span class="min-w-0">
-                <span class="block font-editorial text-xl font-semibold tracking-[-0.02em]">Manage businesses</span>
-                <span class="mt-1 block text-sm leading-6 text-muted">View and create businesses, then add branches and services to each location.</span>
-            </span>
-            <span class="grid size-10 shrink-0 place-items-center rounded-full border border-line text-muted" aria-hidden="true">
-                <svg class="size-5" viewBox="0 0 20 20" fill="none">
-                    <path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-            </span>
-        </a>
+    <section class="staff-resource-hero" aria-labelledby="workspace-heading">
+        <div class="staff-resource-hero-content">
+            <div class="staff-resource-identity">
+                <span class="staff-resource-mark" aria-hidden="true">{{ mb_strtoupper(mb_substr($user->firstName, 0, 1).mb_substr($user->lastName, 0, 1)) }}</span>
+                <div class="min-w-0">
+                    <p class="font-staff-display text-[0.68rem] font-bold tracking-[0.14em] text-staff-amber">STAFF WORKSPACE</p>
+                    <h1 id="workspace-heading" class="staff-resource-title mt-2">Welcome back, {{ $user->firstName }}.</h1>
+                    <p class="staff-resource-subtitle">Manage the QueueFlow organizations and locations available to your staff account.</p>
+                </div>
+            </div>
+            <a class="staff-amber-button w-fit" href="{{ route('staff.businesses.index') }}">
+                <x-staff.icon class="size-4.5" name="business" />
+                Manage businesses
+            </a>
+        </div>
 
-        <ul class="mt-8 grid gap-3 md:grid-cols-3" aria-label="Business management structure">
-            <li class="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3.5">
-                <span class="grid size-9 shrink-0 place-items-center rounded-lg border border-line text-brand" aria-hidden="true">
-                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none"><path d="M5 20V8.5A1.5 1.5 0 0 1 6.5 7H10v13M10 4.5A1.5 1.5 0 0 1 11.5 3h6A1.5 1.5 0 0 1 19 4.5V20M3 20h18M13 7h3M13 11h3M13 15h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                </span>
-                <span class="min-w-0"><span class="block text-sm font-semibold">Businesses</span><span class="block text-xs text-muted">Your organizations</span></span>
-            </li>
-            <li class="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3.5">
-                <span class="grid size-9 shrink-0 place-items-center rounded-lg border border-line text-brand" aria-hidden="true">
-                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none"><path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.25" stroke="currentColor" stroke-width="1.6"/></svg>
-                </span>
-                <span class="min-w-0"><span class="block text-sm font-semibold">Branches</span><span class="block text-xs text-muted">Physical locations</span></span>
-            </li>
-            <li class="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3.5">
-                <span class="grid size-9 shrink-0 place-items-center rounded-lg border border-line text-brand" aria-hidden="true">
-                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none"><path d="m14.5 6.5 3-3 3 3-3 3M13 8l-8.5 8.5a2.12 2.12 0 0 0 3 3L16 11M12.5 4.5a5.5 5.5 0 0 0 7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                </span>
-                <span class="min-w-0"><span class="block text-sm font-semibold">Services</span><span class="block text-xs text-muted">What you offer</span></span>
-            </li>
-        </ul>
+        <dl class="staff-hero-metrics">
+            <div class="staff-hero-metric">
+                <dt class="staff-hero-metric-label">BUSINESSES</dt>
+                <dd class="staff-hero-metric-value">{{ $businessCount }}</dd>
+            </div>
+            <div class="staff-hero-metric">
+                <dt class="staff-hero-metric-label">MEMBERSHIPS</dt>
+                <dd class="staff-hero-metric-value">{{ count($memberships) }}</dd>
+            </div>
+            <div class="staff-hero-metric sm:col-span-2 lg:col-span-1">
+                <dt class="staff-hero-metric-label">BRANCH-SCOPED ACCESS</dt>
+                <dd class="staff-hero-metric-value">{{ $branchScopeCount }}</dd>
+            </div>
+        </dl>
     </section>
+
+    <div class="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]">
+        <section class="staff-card p-5.5 sm:p-6" aria-labelledby="management-heading">
+            <div class="staff-section-header">
+                <div>
+                    <p class="staff-eyebrow">MANAGEMENT</p>
+                    <h2 id="management-heading" class="staff-section-title mt-2">Your QueueFlow workspace</h2>
+                </div>
+                <span class="grid size-11 place-items-center rounded-xl bg-staff-indigo-soft text-staff-indigo" aria-hidden="true">
+                    <x-staff.icon class="size-5.5" name="business" />
+                </span>
+            </div>
+            <p class="mt-4 max-w-2xl text-sm leading-6 text-staff-muted">View every business covered by your Spring-authorized memberships, then continue to its real branches and services.</p>
+            <a class="staff-primary-button mt-5" href="{{ route('staff.businesses.index') }}">
+                Open businesses
+                <x-staff.icon class="size-4" name="chevron-right" />
+            </a>
+        </section>
+
+        <aside class="staff-card p-5.5 sm:p-6" aria-labelledby="access-heading">
+            <p class="staff-eyebrow">ACCOUNT</p>
+            <h2 id="access-heading" class="staff-section-title mt-2">Access context</h2>
+            <dl class="mt-4 divide-y divide-[#eeeff8]">
+                <div class="py-3 first:pt-0">
+                    <dt class="staff-information-label">SIGNED IN AS</dt>
+                    <dd class="mt-1 break-words font-semibold">{{ $user->firstName }} {{ $user->lastName }}</dd>
+                </div>
+                <div class="py-3">
+                    <dt class="staff-information-label">EMAIL</dt>
+                    <dd class="mt-1 break-words font-semibold">{{ $user->email }}</dd>
+                </div>
+            </dl>
+            <p class="mt-2 text-xs leading-5 text-staff-muted">Spring Boot remains the authorization authority for every management operation.</p>
+        </aside>
+    </div>
 @endsection

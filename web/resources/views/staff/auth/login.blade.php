@@ -6,17 +6,18 @@
 
 @section('auth-form')
     <div>
-        <h2 class="text-xl font-semibold tracking-[-0.025em]">Sign in</h2>
-        <p class="mt-2 text-sm leading-6 text-muted">Use the staff credentials connected to your QueueFlow account.</p>
+        <p class="staff-eyebrow">STAFF ACCESS</p>
+        <h2 class="mt-2 font-staff-display text-2xl font-extrabold tracking-[-0.03em]">Sign in</h2>
+        <p class="mt-2 text-sm leading-6 text-staff-muted">Use the staff credentials connected to your QueueFlow account.</p>
     </div>
 
     <form class="mt-7 space-y-5" method="POST" action="{{ route('staff.login.store') }}">
         @csrf
 
         <div>
-            <label class="block text-sm font-semibold" for="email">Email address</label>
+            <label class="staff-form-label" for="email">Email address</label>
             <input
-                class="mt-2 block w-full rounded-xl border bg-white px-4 py-3 text-base text-ink outline-none transition placeholder:text-muted/65 focus:border-brand focus:ring-3 focus:ring-brand/10 @error('email') border-red-700 @else border-line @enderror"
+                class="staff-form-input @error('email') staff-form-input-error @enderror"
                 id="email"
                 name="email"
                 type="email"
@@ -28,14 +29,14 @@
                 @error('email') aria-invalid="true" aria-describedby="email-error" @enderror
             >
             @error('email')
-                <p class="mt-2 text-sm text-red-800" id="email-error">{{ $message }}</p>
+                <p class="staff-form-error" id="email-error">{{ $message }}</p>
             @enderror
         </div>
 
         <div>
-            <label class="block text-sm font-semibold" for="password">Password</label>
+            <label class="staff-form-label" for="password">Password</label>
             <input
-                class="mt-2 block w-full rounded-xl border bg-white px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-3 focus:ring-brand/10 @error('password') border-red-700 @else border-line @enderror"
+                class="staff-form-input @error('password') staff-form-input-error @enderror"
                 id="password"
                 name="password"
                 type="password"
@@ -44,17 +45,17 @@
                 @error('password') aria-invalid="true" aria-describedby="password-error" @enderror
             >
             @error('password')
-                <p class="mt-2 text-sm text-red-800" id="password-error">{{ $message }}</p>
+                <p class="staff-form-error" id="password-error">{{ $message }}</p>
             @enderror
         </div>
 
-        <button class="flex w-full items-center justify-center rounded-xl bg-brand px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" type="submit">
+        <button class="staff-primary-button min-h-12 w-full" type="submit">
             Sign in
         </button>
     </form>
 
-    <p class="mt-7 border-t border-line pt-6 text-center text-sm text-muted">
+    <p class="mt-7 border-t border-staff-line pt-6 text-center text-sm text-staff-muted">
         New to QueueFlow?
-        <a class="font-semibold text-brand underline decoration-brand/30 underline-offset-4 hover:decoration-brand" href="{{ route('staff.register') }}">Create a staff account</a>
+        <a class="font-bold text-staff-indigo underline decoration-staff-indigo/25 underline-offset-4 hover:decoration-staff-indigo" href="{{ route('staff.register') }}">Create a staff account</a>
     </p>
 @endsection

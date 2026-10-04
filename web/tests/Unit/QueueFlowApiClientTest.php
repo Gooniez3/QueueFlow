@@ -12,6 +12,7 @@ use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowApiClient;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -122,6 +123,38 @@ class QueueFlowApiClientTest extends TestCase
                     'description' => 'Medical clinic',
                 ]
         );
+    }
+
+    public function test_it_updates_a_business_with_bearer_authentication_and_maps_nullable_description(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10' => Http::response([
+                'id' => 10,
+                'name' => 'Updated Clinic',
+                'description' => null,
+                'createdAt' => '2026-09-30T22:00:00+08:00',
+            ]),
+        ]);
+
+        $business = app(QueueFlowApiClient::class)->updateBusiness(
+            10,
+            'inert-business-token',
+            'Updated Clinic',
+            null,
+        );
+
+        $this->assertInstanceOf(BusinessData::class, $business);
+        $this->assertSame('Updated Clinic', $business->name);
+        $this->assertNull($business->description);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+            && $request->url() === 'http://localhost:8080/api/v1/businesses/10'
+            && $request->hasHeader('Authorization', 'Bearer inert-business-token')
+            && $request->data() === [
+                'name' => 'Updated Clinic',
+                'description' => null,
+            ]);
     }
 
     public function test_it_registers_a_user(): void
@@ -731,6 +764,48 @@ class QueueFlowApiClientTest extends TestCase
         );
     }
 
+    public function test_it_updates_a_branch_with_timezone_and_coordinates(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21' => Http::response([
+                'id' => 21,
+                'businessId' => 10,
+                'name' => 'Updated Branch',
+                'address' => '20 Updated Street',
+                'latitude' => 1.3,
+                'longitude' => 103.8,
+                'timezone' => 'Australia/Perth',
+                'createdAt' => '2030-04-15T10:30:00+08:00',
+            ]),
+        ]);
+
+        $branch = app(QueueFlowApiClient::class)->updateBranch(
+            10,
+            21,
+            'inert-branch-token',
+            'Updated Branch',
+            '20 Updated Street',
+            1.3,
+            103.8,
+            'Australia/Perth',
+        );
+
+        $this->assertInstanceOf(BranchData::class, $branch);
+        $this->assertSame('Australia/Perth', $branch->timezone);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+            && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21'
+            && $request->hasHeader('Authorization', 'Bearer inert-branch-token')
+            && $request->data() === [
+                'name' => 'Updated Branch',
+                'address' => '20 Updated Street',
+                'latitude' => 1.3,
+                'longitude' => 103.8,
+                'timezone' => 'Australia/Perth',
+            ]);
+    }
+
     public function test_it_preserves_branch_validation_errors(): void
     {
         Http::preventStrayRequests();
@@ -894,6 +969,47 @@ class QueueFlowApiClientTest extends TestCase
                     'durationMinutes' => 20,
                 ]
         );
+    }
+
+    public function test_it_updates_a_service_with_nullable_description_and_active_boolean(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services/31' => Http::response([
+                'id' => 31,
+                'branchId' => 21,
+                'name' => 'Updated Consultation',
+                'description' => null,
+                'durationMinutes' => 30,
+                'active' => false,
+                'createdAt' => '2030-04-15T10:30:00+08:00',
+            ]),
+        ]);
+
+        $service = app(QueueFlowApiClient::class)->updateService(
+            10,
+            21,
+            31,
+            'inert-service-token',
+            'Updated Consultation',
+            null,
+            30,
+            false,
+        );
+
+        $this->assertInstanceOf(ServiceData::class, $service);
+        $this->assertFalse($service->active);
+        $this->assertNull($service->description);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+            && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/services/31'
+            && $request->hasHeader('Authorization', 'Bearer inert-service-token')
+            && $request->data() === [
+                'name' => 'Updated Consultation',
+                'description' => null,
+                'durationMinutes' => 30,
+                'active' => false,
+            ]);
     }
 
     public function test_it_preserves_service_api_errors(): void

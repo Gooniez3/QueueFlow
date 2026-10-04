@@ -12,6 +12,7 @@ use App\Data\QueuePositionData;
 use App\Data\QueueStaffEntryData;
 use App\Data\RegisteredUserData;
 use App\Data\ServiceData;
+use App\Data\StaffDashboardData;
 use App\Data\StaffMembershipData;
 use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
@@ -86,6 +87,24 @@ class QueueFlowApiClient
         return BusinessData::fromArray($response->json());
     }
 
+    public function updateBusiness(
+        int $businessId,
+        #[\SensitiveParameter] string $token,
+        string $name,
+        ?string $description,
+    ): BusinessData {
+        $response = $this->sendPut(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}",
+            [
+                'name' => $name,
+                'description' => $description,
+            ],
+        );
+
+        return BusinessData::fromArray($response->json());
+    }
+
     /**
      * @return list<BranchData>
      */
@@ -148,6 +167,31 @@ class QueueFlowApiClient
         }
 
         $this->ensureSuccessful($response);
+
+        return BranchData::fromArray($response->json());
+    }
+
+    public function updateBranch(
+        int $businessId,
+        int $branchId,
+        #[\SensitiveParameter] string $token,
+        string $name,
+        string $address,
+        ?float $latitude,
+        ?float $longitude,
+        string $timezone,
+    ): BranchData {
+        $response = $this->sendPut(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}",
+            [
+                'name' => $name,
+                'address' => $address,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'timezone' => $timezone,
+            ],
+        );
 
         return BranchData::fromArray($response->json());
     }
@@ -285,6 +329,18 @@ class QueueFlowApiClient
         );
     }
 
+    public function recallQueueEntry(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] string $token,
+    ): QueueStaffEntryData {
+        return $this->staffQueueEntryTransition(
+            $queueId,
+            $token,
+            "entries/{$entryId}/recall",
+        );
+    }
+
     public function startServingQueueEntry(
         int $queueId,
         int $entryId,
@@ -342,6 +398,19 @@ class QueueFlowApiClient
         return $this->staffQueueTransition($queueId, $token, 'close');
     }
 
+    public function staffDashboard(
+        int $businessId,
+        int $branchId,
+        #[\SensitiveParameter] string $token,
+    ): StaffDashboardData {
+        $response = $this->sendGet(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}/staff/dashboard",
+        );
+
+        return StaffDashboardData::fromArray($response->json());
+    }
+
     public function createService(
         int $businessId,
         int $branchId,
@@ -363,6 +432,30 @@ class QueueFlowApiClient
         }
 
         $this->ensureSuccessful($response);
+
+        return ServiceData::fromArray($response->json());
+    }
+
+    public function updateService(
+        int $businessId,
+        int $branchId,
+        int $serviceId,
+        #[\SensitiveParameter] string $token,
+        string $name,
+        ?string $description,
+        int $durationMinutes,
+        bool $active,
+    ): ServiceData {
+        $response = $this->sendPut(
+            $this->client()->withToken($token),
+            "/api/v1/businesses/{$businessId}/branches/{$branchId}/services/{$serviceId}",
+            [
+                'name' => $name,
+                'description' => $description,
+                'durationMinutes' => $durationMinutes,
+                'active' => $active,
+            ],
+        );
 
         return ServiceData::fromArray($response->json());
     }
@@ -510,6 +603,25 @@ class QueueFlowApiClient
     ): Response {
         try {
             $response = $request->post($path, $payload);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return $response;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function sendPut(
+        PendingRequest $request,
+        string $path,
+        array $payload,
+    ): Response {
+        try {
+            $response = $request->put($path, $payload);
         } catch (ConnectionException $exception) {
             throw $this->connectionException($exception);
         }

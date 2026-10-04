@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Data\QueueData;
 use App\Data\QueueStaffEntryData;
+use App\Data\StaffDashboardData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowAuthService;
@@ -45,6 +46,21 @@ class QueueFlowQueueServiceTest extends TestCase
         $result = $service->createQueue(10, 21, 31, 'Consultations', 'C');
 
         $this->assertSame($queue, $result);
+    }
+
+    public function test_staff_dashboard_delegates_with_the_server_side_token(): void
+    {
+        $dashboard = $this->staffDashboardData();
+        $apiClient = Mockery::mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('staffDashboard')
+            ->once()
+            ->with(10, 21, 'inert-staff-token')
+            ->andReturn($dashboard);
+        [$service] = $this->authenticatedService($apiClient);
+
+        $result = $service->staffDashboard(10, 21);
+
+        $this->assertSame($dashboard, $result);
     }
 
     #[DataProvider('queueEntryActions')]
@@ -155,6 +171,92 @@ class QueueFlowQueueServiceTest extends TestCase
         }
     }
 
+    public function test_staff_dashboard_401_clears_only_queueflow_authentication_state(): void
+    {
+        $apiException = new QueueFlowApiException('Authentication is required.', 401);
+        $apiClient = Mockery::mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('staffDashboard')
+            ->once()
+            ->with(10, 21, 'inert-staff-token')
+            ->andThrow($apiException);
+        [$service, $session] = $this->authenticatedService($apiClient);
+        $session->put('unrelated', 'preserved');
+
+        try {
+            $service->staffDashboard(10, 21);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame($apiException, $exception);
+            $this->assertNull($session->get('queueflow.auth'));
+            $this->assertSame('preserved', $session->get('unrelated'));
+        }
+    }
+
+    public function test_staff_dashboard_403_preserves_valid_authentication_state(): void
+    {
+        $apiException = new QueueFlowApiException('Internal authorization detail.', 403);
+        $apiClient = Mockery::mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('staffDashboard')
+            ->once()
+            ->with(10, 21, 'inert-staff-token')
+            ->andThrow($apiException);
+        [$service, $session] = $this->authenticatedService($apiClient);
+
+        try {
+            $service->staffDashboard(10, 21);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame($apiException, $exception);
+            $this->assertSame('inert-staff-token', $session->get('queueflow.auth.token'));
+        }
+    }
+
+    public function test_staff_dashboard_500_preserves_valid_authentication_state(): void
+    {
+        $apiException = new QueueFlowApiException('Internal upstream detail.', 500);
+        $apiClient = Mockery::mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('staffDashboard')
+            ->once()
+            ->with(10, 21, 'inert-staff-token')
+            ->andThrow($apiException);
+        [$service, $session] = $this->authenticatedService($apiClient);
+
+        try {
+            $service->staffDashboard(10, 21);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame($apiException, $exception);
+            $this->assertSame('inert-staff-token', $session->get('queueflow.auth.token'));
+        }
+    }
+
+    public function test_staff_dashboard_connection_failure_is_safe_and_preserves_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/staff/dashboard' => Http::failedConnection(
+                'Connection refused with internal details.',
+            ),
+        ]);
+        [$service, $session] = $this->authenticatedService(
+            app(QueueFlowApiClient::class),
+        );
+
+        try {
+            $service->staffDashboard(10, 21);
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertNull($exception->status);
+            $this->assertSame('Unable to connect to the QueueFlow API.', $exception->getMessage());
+            $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
+            $this->assertSame('inert-staff-token', $session->get('queueflow.auth.token'));
+        }
+    }
+
     #[DataProvider('preservedQueueFailures')]
     public function test_queue_failures_remain_distinguishable_for_the_web_layer(
         ?int $status,
@@ -191,6 +293,7 @@ class QueueFlowQueueServiceTest extends TestCase
     {
         return [
             'call next' => ['callNextQueueEntry', false],
+            'recall' => ['recallQueueEntry', true],
             'start serving' => ['startServingQueueEntry', true],
             'complete' => ['completeQueueEntry', true],
             'skip' => ['skipQueueEntry', true],
@@ -278,6 +381,16 @@ class QueueFlowQueueServiceTest extends TestCase
             'servingAt' => null,
             'completedAt' => null,
             'cancelledAt' => null,
+        ]);
+    }
+
+    private function staffDashboardData(): StaffDashboardData
+    {
+        return StaffDashboardData::fromArray([
+            'businessId' => 10,
+            'branchId' => 21,
+            'businessDate' => '2030-04-15',
+            'queues' => [],
         ]);
     }
 }

@@ -1,6 +1,14 @@
 @extends('layouts.staff')
 
 @section('title', 'Create business')
+@section('staff-area', 'Businesses')
+
+@section('staff-topbar-breadcrumbs')
+    <x-staff.topbar-breadcrumbs :items="[
+        ['label' => 'Businesses', 'url' => route('staff.businesses.index')],
+        ['label' => 'Create business'],
+    ]" />
+@endsection
 
 @section('staff-content')
     <div class="staff-form-wrap">
@@ -13,10 +21,13 @@
             ]"
         />
 
-        <header class="mt-6">
+        <header class="mt-6 flex items-start gap-4">
+            <span class="grid size-12 shrink-0 place-items-center rounded-xl bg-staff-indigo-soft text-staff-indigo" aria-hidden="true"><x-staff.icon name="business" /></span>
+            <div>
             <p class="staff-eyebrow">NEW BUSINESS</p>
             <h1 class="staff-page-title">Create a business</h1>
             <p class="staff-page-copy">Add the organization you manage. Your owner membership will be created securely with the business.</p>
+            </div>
         </header>
 
         <form class="staff-form-card" method="POST" action="{{ route('staff.businesses.store') }}">
@@ -61,7 +72,7 @@
                 @enderror
             </div>
 
-            <div class="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center">
+            <div class="flex flex-col-reverse gap-3 border-t border-staff-line pt-6 sm:flex-row sm:items-center">
                 <a class="staff-secondary-button" href="{{ route('staff.businesses.index') }}">Cancel</a>
                 <button class="staff-primary-button" type="submit">Create business</button>
             </div>

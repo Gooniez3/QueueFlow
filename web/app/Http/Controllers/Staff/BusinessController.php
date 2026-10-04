@@ -7,6 +7,7 @@ use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Staff\StoreBusinessRequest;
+use App\Http\Requests\Staff\UpdateBusinessRequest;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowAuthService;
 use Illuminate\Http\RedirectResponse;
@@ -23,6 +24,12 @@ class BusinessController extends Controller
     public function index(Request $request): View
     {
         $authContext = $request->attributes->get('queueflow.auth');
+        $membershipsByBusinessId = [];
+
+        foreach ($authContext['memberships'] as $membership) {
+            $membershipsByBusinessId[$membership->businessId][] = $membership;
+        }
+
         $businessIds = array_values(array_unique(array_map(
             static fn (StaffMembershipData $membership): int => $membership->businessId,
             $authContext['memberships'],
@@ -33,9 +40,47 @@ class BusinessController extends Controller
             $businessIds,
         );
 
+        $businessSummaries = [];
+        $totalBranches = 0;
+        $totalServices = 0;
+
+        foreach ($businesses as $business) {
+            $branches = $this->apiClient->branches($business->id);
+            $serviceCount = 0;
+
+            foreach ($branches as $branch) {
+                $serviceCount += count($this->apiClient->services($business->id, $branch->id));
+            }
+
+            $businessSummaries[$business->id] = [
+                'branches' => $branches,
+                'branchCount' => count($branches),
+                'serviceCount' => $serviceCount,
+            ];
+            $totalBranches += count($branches);
+            $totalServices += $serviceCount;
+        }
+
+        $roleCounts = [];
+
+        foreach (['OWNER', 'MANAGER', 'STAFF'] as $role) {
+            $roleCounts[$role] = count(array_filter(
+                $businessIds,
+                static fn (int $businessId): bool => count(array_filter(
+                    $membershipsByBusinessId[$businessId] ?? [],
+                    static fn (StaffMembershipData $membership): bool => $membership->role === $role,
+                )) > 0,
+            ));
+        }
+
         return view('staff.businesses.index', [
             'authContext' => $authContext,
             'businesses' => $businesses,
+            'membershipsByBusinessId' => $membershipsByBusinessId,
+            'businessSummaries' => $businessSummaries,
+            'totalBranches' => $totalBranches,
+            'totalServices' => $totalServices,
+            'roleCounts' => $roleCounts,
         ]);
     }
 
@@ -75,12 +120,71 @@ class BusinessController extends Controller
             ->with('status', 'Business created successfully.');
     }
 
-    public function show(Request $request, int $businessId): View
+    public function edit(Request $request, int $businessId): View
     {
-        return view('staff.businesses.show', [
+        return view('staff.businesses.edit', [
             'authContext' => $request->attributes->get('queueflow.auth'),
             'business' => $this->apiClient->business($businessId),
-            'branches' => $this->apiClient->branches($businessId),
+        ]);
+    }
+
+    public function update(UpdateBusinessRequest $request, int $businessId): RedirectResponse
+    {
+        $data = $request->validated();
+
+        try {
+            $business = $this->authService->authenticatedRequest(
+                fn (#[\SensitiveParameter] string $token): BusinessData => $this->apiClient->updateBusiness(
+                    $businessId,
+                    $token,
+                    $data['name'],
+                    $this->normalizeNullableDescription($data['description'] ?? null),
+                ),
+            );
+        } catch (QueueFlowApiException $exception) {
+            if ($exception->status === 400) {
+                return back()
+                    ->withErrors($this->updateValidationErrors($exception))
+                    ->withInput();
+            }
+
+            throw $exception;
+        }
+
+        return redirect()
+            ->route('staff.businesses.show', $business->id)
+            ->with('status', 'Business updated successfully.');
+    }
+
+    public function show(Request $request, int $businessId): View
+    {
+        $authContext = $request->attributes->get('queueflow.auth');
+        $business = $this->apiClient->business($businessId);
+        $businessRoles = array_values(array_unique(array_map(
+            static fn (StaffMembershipData $membership): string => $membership->role,
+            array_filter(
+                $authContext['memberships'],
+                static fn (StaffMembershipData $membership): bool => $membership->belongsToBusiness($businessId),
+            ),
+        )));
+
+        $branches = $this->apiClient->branches($businessId);
+        $servicesByBranchId = [];
+        $serviceCount = 0;
+
+        foreach ($branches as $branch) {
+            $services = $this->apiClient->services($businessId, $branch->id);
+            $servicesByBranchId[$branch->id] = $services;
+            $serviceCount += count($services);
+        }
+
+        return view('staff.businesses.show', [
+            'authContext' => $authContext,
+            'business' => $business,
+            'branches' => $branches,
+            'servicesByBranchId' => $servicesByBranchId,
+            'serviceCount' => $serviceCount,
+            'businessRoles' => $businessRoles,
         ]);
     }
 
@@ -94,5 +198,32 @@ class BusinessController extends Controller
         return is_string($name) && $name !== ''
             ? ['name' => $name]
             : ['business' => 'We could not create the business. Please review the details and try again.'];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function updateValidationErrors(QueueFlowApiException $exception): array
+    {
+        $errors = [];
+
+        foreach (['name', 'description'] as $field) {
+            $message = $exception->validationErrors[$field] ?? null;
+
+            if (is_string($message) && $message !== '') {
+                $errors[$field] = $message;
+            }
+        }
+
+        return $errors !== []
+            ? $errors
+            : ['business' => 'We could not update the business. Please review the details and try again.'];
+    }
+
+    private function normalizeNullableDescription(?string $description): ?string
+    {
+        return $description === null || trim($description) === ''
+            ? null
+            : $description;
     }
 }

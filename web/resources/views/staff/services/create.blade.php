@@ -1,6 +1,16 @@
 @extends('layouts.staff')
 
 @section('title', 'Add service')
+@section('staff-area', 'Businesses')
+
+@section('staff-topbar-breadcrumbs')
+    <x-staff.topbar-breadcrumbs :items="[
+        ['label' => 'Businesses', 'url' => route('staff.businesses.index')],
+        ['label' => $business->name, 'url' => route('staff.businesses.show', $business->id)],
+        ['label' => $branch->name, 'url' => route('staff.branches.show', [$business->id, $branch->id])],
+        ['label' => 'Add service'],
+    ]" />
+@endsection
 
 @section('staff-content')
     <div class="staff-form-wrap">
@@ -15,10 +25,13 @@
             ]"
         />
 
-        <header class="mt-6">
+        <header class="mt-6 flex items-start gap-4">
+            <span class="grid size-12 shrink-0 place-items-center rounded-xl bg-staff-indigo-soft text-staff-indigo" aria-hidden="true"><x-staff.icon name="service" /></span>
+            <div>
             <p class="staff-eyebrow">NEW SERVICE</p>
             <h1 class="staff-page-title">Add a service</h1>
             <p class="staff-page-copy">Define a service available at {{ $branch->name }}, including the typical time needed to provide it.</p>
+            </div>
         </header>
 
         <form class="staff-form-card" method="POST" action="{{ route('staff.services.store', [$business->id, $branch->id]) }}">
@@ -49,16 +62,16 @@
 
             <div class="staff-field max-w-xs">
                 <label class="staff-field-label" for="durationMinutes">Duration</label>
-                <div class="flex rounded-xl border border-line bg-white transition hover:border-brand/35 focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/10 @error('durationMinutes') border-red-700 focus-within:border-red-700 focus-within:ring-red-700/10 @enderror">
-                    <input class="min-w-0 flex-1 rounded-l-xl bg-transparent px-4 py-3 text-base text-ink outline-none" id="durationMinutes" name="durationMinutes" type="number" min="1" step="1" inputmode="numeric" required value="{{ old('durationMinutes') }}" aria-describedby="duration-unit @error('durationMinutes') durationMinutes-error @enderror" @error('durationMinutes') aria-invalid="true" @enderror>
-                    <span class="flex items-center border-l border-line px-4 text-sm text-muted" id="duration-unit">minutes</span>
+                <div class="flex rounded-xl border border-staff-line bg-white transition hover:border-staff-indigo/35 focus-within:border-staff-indigo focus-within:ring-3 focus-within:ring-staff-indigo/10 @error('durationMinutes') border-red-700 focus-within:border-red-700 focus-within:ring-red-700/10 @enderror">
+                    <input class="min-w-0 flex-1 rounded-l-xl bg-transparent px-4 py-3 text-base text-staff-ink outline-none" id="durationMinutes" name="durationMinutes" type="number" min="1" step="1" inputmode="numeric" required value="{{ old('durationMinutes') }}" aria-describedby="duration-unit @error('durationMinutes') durationMinutes-error @enderror" @error('durationMinutes') aria-invalid="true" @enderror>
+                    <span class="flex items-center border-l border-staff-line px-4 text-sm text-staff-muted" id="duration-unit">minutes</span>
                 </div>
                 @error('durationMinutes')
                     <p class="staff-field-error" id="durationMinutes-error">{{ $message }}</p>
                 @enderror
             </div>
 
-            <div class="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center">
+            <div class="flex flex-col-reverse gap-3 border-t border-staff-line pt-6 sm:flex-row sm:items-center">
                 <a class="staff-secondary-button" href="{{ route('staff.branches.show', [$business->id, $branch->id]) }}">Cancel</a>
                 <button class="staff-primary-button" type="submit">Create service</button>
             </div>

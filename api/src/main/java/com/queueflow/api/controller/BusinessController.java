@@ -3,6 +3,7 @@ package com.queueflow.api.controller;
 import java.util.List;
 
 import com.queueflow.api.request.CreateBusinessRequest;
+import com.queueflow.api.request.UpdateBusinessRequest;
 import com.queueflow.api.response.BusinessResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.BusinessService;
@@ -57,5 +58,21 @@ public class BusinessController {
                 businessService.getAllBusinesses();
 
         return ResponseEntity.ok(businesses);
+    }
+
+    @PutMapping("/{businessId}")
+    public ResponseEntity<BusinessResponse> updateBusiness(
+            @PathVariable Long businessId,
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @Valid @RequestBody UpdateBusinessRequest request
+    ) {
+        BusinessResponse response =
+                businessService.updateBusiness(
+                        principal.userId(),
+                        businessId,
+                        request
+                );
+
+        return ResponseEntity.ok(response);
     }
 }

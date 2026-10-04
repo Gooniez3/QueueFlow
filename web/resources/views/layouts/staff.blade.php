@@ -1,72 +1,131 @@
 @extends('layouts.app')
 
-@section('body-class', 'bg-cream text-ink')
+@section('body-class', 'bg-staff-canvas text-staff-ink')
 
 @section('content')
-    <div class="min-h-screen">
-        <header class="border-b border-line/70 bg-surface" aria-label="Staff application header">
-            <div class="staff-container flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 sm:min-h-16 sm:flex-nowrap sm:py-0">
-                <div class="flex min-w-0 items-center gap-4 sm:gap-7">
-                    <a class="inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" href="{{ route('staff.home') }}" aria-label="QueueFlow staff workspace">
-                        <span class="grid size-9 place-items-center rounded-lg bg-brand text-white" aria-hidden="true">
-                            <svg class="size-5" viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="6.75" stroke="currentColor" stroke-width="1.7" />
-                                <path d="M12 8.5v4l2.75 1.65" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        </span>
-                        <span class="font-editorial text-xl font-semibold tracking-[-0.025em]">QueueFlow</span>
-                    </a>
+    @php
+        $staffUser = $authContext['user'] ?? null;
+        $staffMemberships = $authContext['memberships'] ?? [];
+        $staffName = $staffUser === null
+            ? 'Staff member'
+            : trim($staffUser->firstName.' '.$staffUser->lastName);
+        $staffEmail = $staffUser?->email;
+        $staffInitials = $staffUser === null
+            ? 'QF'
+            : mb_strtoupper(mb_substr($staffUser->firstName, 0, 1).mb_substr($staffUser->lastName, 0, 1));
+        $staffRole = count($staffMemberships) === 1
+            ? $staffMemberships[0]->role
+            : null;
+    @endphp
 
-                    <nav class="hidden self-stretch sm:flex sm:items-center sm:gap-1" aria-label="Staff navigation">
-                        <a
-                            class="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand {{ request()->routeIs('staff.home') ? 'bg-brand/7 text-brand' : 'text-muted hover:bg-cream hover:text-ink' }}"
-                            href="{{ route('staff.home') }}"
-                            @if (request()->routeIs('staff.home')) aria-current="page" @endif
-                        >Workspace</a>
-                        <a
-                            class="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand {{ request()->routeIs('staff.businesses.*') ? 'bg-brand/7 text-brand' : 'text-muted hover:bg-cream hover:text-ink' }}"
-                            href="{{ route('staff.businesses.index') }}"
-                            @if (request()->routeIs('staff.businesses.*')) aria-current="page" @endif
-                        >Businesses</a>
-                    </nav>
-                </div>
+    <div class="staff-app">
+        <aside class="staff-sidebar" aria-label="QueueFlow staff portal">
+            <a class="staff-brand" href="{{ route('staff.home') }}" aria-label="QueueFlow staff portal overview">
+                <span class="staff-brand-mark"><x-staff.icon class="size-5.5" name="clock" /></span>
+                <span>
+                    <span class="staff-brand-name">QueueFlow</span>
+                    <span class="staff-brand-caption">STAFF PORTAL</span>
+                </span>
+            </a>
 
-                <form class="shrink-0" method="POST" action="{{ route('staff.logout') }}">
+            <x-staff.navigation class="min-h-0 flex-1 overflow-y-auto" />
+
+            <div class="staff-sidebar-account">
+                <span class="staff-avatar">{{ $staffInitials }}</span>
+                <span class="min-w-0 flex-1">
+                    <span class="block truncate text-[0.8rem] font-bold text-white">{{ $staffName }}</span>
+                    <span class="mt-0.5 block truncate text-xs text-staff-sidebar-muted">{{ $staffEmail }}</span>
+                    @if ($staffRole)
+                        <span class="mt-1 block text-[0.65rem] font-bold tracking-[0.08em] text-staff-amber">{{ $staffRole }}</span>
+                    @endif
+                </span>
+                <form method="POST" action="{{ route('staff.logout') }}">
                     @csrf
-                    <button class="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-medium text-muted transition-colors hover:bg-cream hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" type="submit">
-                        <svg class="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <path d="M8 4H4.5A1.5 1.5 0 0 0 3 5.5v9A1.5 1.5 0 0 0 4.5 16H8m4-3 3-3-3-3m3 3H7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        <span>Sign out</span>
+                    <button class="staff-sidebar-logout" type="submit" aria-label="Sign out">
+                        <x-staff.icon name="logout" />
                     </button>
                 </form>
-
-                <nav class="order-3 flex w-full min-w-0 gap-1 border-t border-line/70 pt-1 sm:hidden" aria-label="Staff navigation">
-                    <a
-                        class="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand {{ request()->routeIs('staff.home') ? 'bg-brand/7 text-brand' : 'text-muted' }}"
-                        href="{{ route('staff.home') }}"
-                        @if (request()->routeIs('staff.home')) aria-current="page" @endif
-                    >Workspace</a>
-                    <a
-                        class="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand {{ request()->routeIs('staff.businesses.*') ? 'bg-brand/7 text-brand' : 'text-muted' }}"
-                        href="{{ route('staff.businesses.index') }}"
-                        @if (request()->routeIs('staff.businesses.*')) aria-current="page" @endif
-                    >Businesses</a>
-                </nav>
             </div>
-        </header>
+        </aside>
 
-        <div class="staff-container staff-page">
-            @if (session('status') && ! request()->routeIs('staff.home'))
-                <div class="staff-alert-success" role="status">
-                    <svg class="mt-1 size-4 shrink-0 text-brand" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="m4.5 10.5 3.25 3.25L15.5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                    <span>{{ session('status') }}</span>
+        <div class="staff-workspace">
+            <header class="staff-mobile-header">
+                <details class="staff-mobile-nav">
+                    <summary class="staff-mobile-menu-button" aria-label="Open staff navigation">
+                        <x-staff.icon class="size-6" name="menu" />
+                    </summary>
+                    <div class="staff-mobile-menu-panel">
+                        <div class="flex items-center gap-3 border-b border-white/10 px-4 py-4">
+                            <span class="staff-brand-mark"><x-staff.icon name="clock" /></span>
+                            <span>
+                                <span class="staff-brand-name">QueueFlow</span>
+                                <span class="staff-brand-caption">STAFF PORTAL</span>
+                            </span>
+                        </div>
+                        <x-staff.navigation class="max-h-[calc(100dvh-13rem)] overflow-y-auto px-3 py-3" label="Mobile staff navigation" />
+                        <div class="staff-mobile-account">
+                            <span class="staff-avatar">{{ $staffInitials }}</span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-bold text-white">{{ $staffName }}</span>
+                                <span class="block truncate text-xs text-staff-sidebar-muted">{{ $staffEmail }}</span>
+                            </span>
+                            @if ($staffRole)
+                                <span class="staff-role-badge staff-role-badge-dark">{{ $staffRole }}</span>
+                            @endif
+                            <form method="POST" action="{{ route('staff.logout') }}">
+                                @csrf
+                                <button class="staff-sidebar-logout" type="submit" aria-label="Sign out">
+                                    <x-staff.icon name="logout" />
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </details>
+
+                <span class="staff-mobile-title">@yield('title', 'QueueFlow')</span>
+                <span class="staff-avatar staff-avatar-small" aria-label="Signed in as {{ $staffName }}">{{ $staffInitials }}</span>
+            </header>
+
+            <header class="staff-topbar" aria-label="Staff page context">
+                @hasSection('staff-topbar-breadcrumbs')
+                    @yield('staff-topbar-breadcrumbs')
+                @else
+                    <div class="staff-breadcrumb">
+                        <span>@yield('staff-area', 'Workspace')</span>
+                        <x-staff.icon class="size-3.5 opacity-50" name="chevron-right" />
+                        <strong>@yield('title', 'QueueFlow')</strong>
+                    </div>
+                @endif
+                <div class="flex min-w-0 items-center gap-2.5">
+                    @hasSection('staff-context')
+                        @yield('staff-context')
+                    @endif
+                    <div class="staff-context-chip border-0 bg-staff-canvas" aria-label="Current date">
+                        <x-staff.icon class="size-4.5 text-staff-muted" name="calendar" />
+                        <time datetime="{{ now()->toDateString() }}">{{ now()->format('D, j M Y') }}</time>
+                    </div>
+                    <div class="staff-account-chip" aria-label="Signed in staff member">
+                        <span class="staff-avatar staff-avatar-small">{{ $staffInitials }}</span>
+                        <span class="max-w-48 truncate font-semibold">{{ $staffName }}</span>
+                        @if ($staffRole)
+                            <span class="staff-role-badge staff-role-badge-dark">{{ $staffRole }}</span>
+                        @endif
+                    </div>
                 </div>
-            @endif
+            </header>
 
-            @yield('staff-content')
+            <div class="staff-content">
+                @if (session('status') && ! request()->routeIs('staff.home'))
+                    <div class="staff-alert-success" role="status">
+                        <svg class="mt-0.5 size-4 shrink-0 text-staff-success" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="m4.5 10.5 3.25 3.25L15.5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <span>{{ session('status') }}</span>
+                    </div>
+                @endif
+
+                @yield('staff-content')
+            </div>
         </div>
     </div>
 @endsection

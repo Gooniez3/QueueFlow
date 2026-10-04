@@ -6,6 +6,7 @@ use App\Data\QueueData;
 use App\Data\QueueEntryData;
 use App\Data\QueuePositionData;
 use App\Data\QueueStaffEntryData;
+use App\Data\StaffDashboardData;
 use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowApiClient;
@@ -292,6 +293,37 @@ class QueueFlowQueueApiClientTest extends TestCase
         ) && ! $request->hasHeader('X-Guest-Token'));
     }
 
+    public function test_staff_dashboard_uses_bearer_authentication_and_maps_response(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/staff/dashboard' => Http::response(
+                $this->staffDashboardResponse(),
+            ),
+        ]);
+
+        $dashboard = app(QueueFlowApiClient::class)->staffDashboard(
+            10,
+            21,
+            'inert-staff-token',
+        );
+
+        $this->assertInstanceOf(StaffDashboardData::class, $dashboard);
+        $this->assertSame('2030-04-15', $dashboard->businessDate);
+        $this->assertCount(2, $dashboard->queues);
+        $this->assertSame([301, 302], array_map(
+            static fn (QueueStaffEntryData $entry): int => $entry->entryId,
+            $dashboard->queues[0]->waiting,
+        ));
+        $this->assertNull($dashboard->queues[1]->service);
+        $this->assertNull($dashboard->queues[1]->called);
+        $this->assertNull($dashboard->queues[1]->serving);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+            && $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/staff/dashboard'
+            && $request->hasHeader('Authorization', 'Bearer inert-staff-token'));
+    }
+
     #[DataProvider('staffEntryTransitions')]
     public function test_staff_entry_transitions_use_bearer_authentication(
         string $method,
@@ -352,6 +384,71 @@ class QueueFlowQueueApiClientTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
             && $request->url() === "http://localhost:8080/api/v1/queues/91/staff/{$path}"
             && $request->hasHeader('Authorization', 'Bearer inert-staff-token'));
+    }
+
+    public function test_recall_conflict_remains_distinguishable(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/staff/entries/301/recall' => Http::response([
+                'message' => 'Only a called entry can be recalled',
+            ], 409),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->recallQueueEntry(
+                91,
+                301,
+                'inert-staff-token',
+            );
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame(409, $exception->status);
+            $this->assertSame('Only a called entry can be recalled', $exception->getMessage());
+        }
+    }
+
+    #[DataProvider('dashboardApiFailures')]
+    public function test_staff_dashboard_api_failures_are_preserved(
+        int $status,
+        string $message,
+    ): void {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/staff/dashboard' => Http::response([
+                'message' => $message,
+            ], $status),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->staffDashboard(10, 21, 'inert-staff-token');
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertSame($status, $exception->status);
+            $this->assertSame($message, $exception->getMessage());
+        }
+    }
+
+    public function test_staff_dashboard_connection_failure_uses_existing_safe_exception(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/staff/dashboard' => Http::failedConnection(
+                'Connection refused with internal details',
+            ),
+        ]);
+
+        try {
+            app(QueueFlowApiClient::class)->staffDashboard(10, 21, 'inert-staff-token');
+
+            $this->fail('Expected QueueFlowApiException was not thrown.');
+        } catch (QueueFlowApiException $exception) {
+            $this->assertNull($exception->status);
+            $this->assertSame('Unable to connect to the QueueFlow API.', $exception->getMessage());
+            $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
+        }
     }
 
     /**
@@ -416,6 +513,7 @@ class QueueFlowQueueApiClientTest extends TestCase
     {
         return [
             'call next' => ['callNextQueueEntry', 'call-next'],
+            'recall' => ['recallQueueEntry', 'entries/301/recall'],
             'start serving' => ['startServingQueueEntry', 'entries/301/start'],
             'complete' => ['completeQueueEntry', 'entries/301/complete'],
             'skip' => ['skipQueueEntry', 'entries/301/skip'],
@@ -446,6 +544,16 @@ class QueueFlowQueueApiClientTest extends TestCase
             'not found' => [404, 'Branch not found', []],
             'state conflict' => [409, 'Queue already exists for this service today', []],
             'server failure' => [500, 'Internal server error', []],
+        ];
+    }
+
+    /** @return array<string, array{int, string}> */
+    public static function dashboardApiFailures(): array
+    {
+        return [
+            'unauthenticated' => [401, 'Authentication is required'],
+            'forbidden' => [403, 'Access is denied'],
+            'server failure' => [500, 'Internal server error'],
         ];
     }
 
@@ -504,22 +612,98 @@ class QueueFlowQueueApiClientTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function staffEntryResponse(): array
-    {
+    private function staffEntryResponse(
+        int $entryId = 301,
+        int $ticketSequence = 23,
+        string $ticketNumber = 'A023',
+        string $status = 'CALLED',
+    ): array {
         return [
-            'entryId' => 301,
+            'entryId' => $entryId,
             'queueId' => 91,
             'serviceId' => 31,
             'userId' => null,
             'counterId' => null,
-            'ticketSequence' => 23,
-            'ticketNumber' => 'A023',
-            'status' => 'CALLED',
+            'ticketSequence' => $ticketSequence,
+            'ticketNumber' => $ticketNumber,
+            'status' => $status,
             'joinedAt' => '2030-04-15T10:30:00+08:00',
-            'calledAt' => '2030-04-15T10:40:00+08:00',
-            'servingAt' => null,
+            'calledAt' => in_array($status, ['CALLED', 'SERVING'], true)
+                ? '2030-04-15T10:40:00+08:00'
+                : null,
+            'servingAt' => $status === 'SERVING'
+                ? '2030-04-15T10:45:00+08:00'
+                : null,
             'completedAt' => null,
             'cancelledAt' => null,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function staffDashboardResponse(): array
+    {
+        return [
+            'businessId' => 10,
+            'branchId' => 21,
+            'businessDate' => '2030-04-15',
+            'queues' => [
+                [
+                    'queueId' => 91,
+                    'name' => 'Consultation Queue',
+                    'status' => 'OPEN',
+                    'ticketPrefix' => 'A',
+                    'service' => [
+                        'id' => 31,
+                        'name' => 'General Consultation',
+                        'durationMinutes' => 20,
+                    ],
+                    'counts' => [
+                        'waiting' => 2,
+                        'called' => 1,
+                        'serving' => 1,
+                    ],
+                    'serving' => $this->staffEntryResponse(
+                        entryId: 304,
+                        ticketSequence: 4,
+                        ticketNumber: 'A004',
+                        status: 'SERVING',
+                    ),
+                    'called' => $this->staffEntryResponse(
+                        entryId: 303,
+                        ticketSequence: 3,
+                        ticketNumber: 'A003',
+                    ),
+                    'waiting' => [
+                        $this->staffEntryResponse(
+                            entryId: 301,
+                            ticketSequence: 1,
+                            ticketNumber: 'A001',
+                            status: 'WAITING',
+                        ),
+                        $this->staffEntryResponse(
+                            entryId: 302,
+                            ticketSequence: 2,
+                            ticketNumber: 'A002',
+                            status: 'WAITING',
+                        ),
+                    ],
+                ],
+                [
+                    'queueId' => 92,
+                    'name' => 'Shared Queue',
+                    'status' => 'PAUSED',
+                    'ticketPrefix' => 'S',
+                    'service' => null,
+                    'counts' => [
+                        'waiting' => 0,
+                        'called' => 0,
+                        'serving' => 0,
+                    ],
+                    'serving' => null,
+                    'called' => null,
+                    'waiting' => [],
+                ],
+            ],
         ];
     }
 }

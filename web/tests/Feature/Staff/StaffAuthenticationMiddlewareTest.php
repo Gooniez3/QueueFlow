@@ -64,7 +64,7 @@ class StaffAuthenticationMiddlewareTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('Staff workspace')
+            ->assertSee('Welcome back, Queue.')
             ->assertDontSee('Signed in successfully.')
             ->assertSee('Sign out')
             ->assertSee(
