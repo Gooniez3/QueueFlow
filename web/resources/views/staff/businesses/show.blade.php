@@ -24,15 +24,11 @@
 
     <div class="mt-7 grid gap-5 xl:grid-cols-[minmax(0,1fr)_21.25rem] xl:items-start">
         <section class="staff-card overflow-hidden" aria-labelledby="branches-heading">
-            <header class="flex min-h-18 flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-5.5">
+            <header class="flex min-h-18 items-center px-5 py-4 sm:px-5.5">
                 <h2 id="branches-heading" class="staff-card-title">
                     Branches
                     <span class="font-staff-sans font-medium text-staff-muted">&middot; {{ count($branches) }}</span>
                 </h2>
-                <a class="staff-primary-button staff-button-small" href="{{ route('staff.branches.create', $business->id) }}">
-                    <x-staff.icon class="size-4" name="plus" />
-                    Create branch
-                </a>
             </header>
 
             @if ($branches === [])

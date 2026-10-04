@@ -240,6 +240,10 @@
         @apply cursor-not-allowed text-staff-sidebar-label opacity-80;
     }
 
+    .staff-nav-item-disabled.staff-nav-item-active {
+        @apply bg-staff-indigo text-white opacity-100;
+    }
+
     .staff-soon-badge {
         @apply ml-auto rounded-full bg-staff-amber/15 px-2 py-0.5 text-[0.625rem] font-bold text-staff-amber;
     }

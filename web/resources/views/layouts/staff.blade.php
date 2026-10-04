@@ -87,11 +87,15 @@
             </header>
 
             <header class="staff-topbar" aria-label="Staff page context">
-                <div class="staff-breadcrumb">
-                    <span>@yield('staff-area', 'Workspace')</span>
-                    <x-staff.icon class="size-3.5 opacity-50" name="chevron-right" />
-                    <strong>@yield('title', 'QueueFlow')</strong>
-                </div>
+                @hasSection('staff-topbar-breadcrumbs')
+                    @yield('staff-topbar-breadcrumbs')
+                @else
+                    <div class="staff-breadcrumb">
+                        <span>@yield('staff-area', 'Workspace')</span>
+                        <x-staff.icon class="size-3.5 opacity-50" name="chevron-right" />
+                        <strong>@yield('title', 'QueueFlow')</strong>
+                    </div>
+                @endif
                 <div class="flex min-w-0 items-center gap-2.5">
                     @hasSection('staff-context')
                         @yield('staff-context')

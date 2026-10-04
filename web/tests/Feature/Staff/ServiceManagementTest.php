@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Staff;
 
+use App\Exceptions\QueueFlowApiException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -27,12 +29,23 @@ class ServiceManagementTest extends TestCase
             ->assertSee('Follow-up Consultation')
             ->assertSee('Active')
             ->assertSee('Inactive')
-            ->assertSee('Add service')
-            ->assertSee('Back to Northstar Health')
-            ->assertSee('2 services')
-            ->assertDontSee('2 total')
-            ->assertSee('aria-label="Breadcrumb"', false)
+            ->assertSee('Create service')
+            ->assertSee('Branch of Northstar Health')
+            ->assertSee('&middot; 2', false)
+            ->assertSee('href="'.route('staff.services.show', [10, 101, 501]).'"', false)
+            ->assertSee('href="'.route('staff.services.show', [10, 101, 502]).'"', false)
+            ->assertSee('aria-label="Staff page context"', false)
+            ->assertSeeInOrder([
+                'staff-nav-item staff-nav-item-disabled staff-nav-item-active',
+                '<span>Branches</span>',
+            ], false)
+            ->assertDontSee('Edit branch')
             ->assertDontSee('inert-spring-token');
+
+        $this->assertSame(
+            1,
+            substr_count($response->getContent(), 'href="'.route('staff.services.create', [10, 101]).'"'),
+        );
 
         Http::assertSent(fn (Request $request): bool => $request->url() !== 'http://localhost:8080/api/v1/auth/me'
             && ! $request->hasHeader('Authorization'));
@@ -127,9 +140,38 @@ class ServiceManagementTest extends TestCase
             ->assertSee('General Consultation')
             ->assertSee('Inactive')
             ->assertSee('20 minutes')
-            ->assertSee('Back to Riverside Clinic')
-            ->assertSee('aria-label="Breadcrumb"', false)
+            ->assertSee('Standard appointment.')
+            ->assertSee('Service at Riverside Clinic')
+            ->assertSee('Northstar Health')
+            ->assertSee('href="'.route('staff.businesses.show', 10).'"', false)
+            ->assertSee('href="'.route('staff.branches.show', [10, 101]).'"', false)
+            ->assertSee('aria-label="Staff page context"', false)
+            ->assertSeeInOrder([
+                'staff-nav-item staff-nav-item-disabled staff-nav-item-active',
+                '<span>Services</span>',
+            ], false)
+            ->assertDontSee('Edit service')
+            ->assertDontSee('Queue context')
+            ->assertDontSee('Open in live queues')
+            ->assertDontSee('waiting')
+            ->assertDontSee('ticket prefix')
             ->assertDontSee('inert-spring-token');
+    }
+
+    public function test_service_detail_displays_the_active_state_from_spring(): void
+    {
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101' => Http::response($this->branch()),
+            'http://localhost:8080/api/v1/businesses/10/branches/101/services/501' => Http::response($this->service()),
+            'http://localhost:8080/api/v1/businesses/10' => Http::response($this->business()),
+        ]);
+
+        $this->authenticated()
+            ->get(route('staff.services.show', [10, 101, 501]))
+            ->assertOk()
+            ->assertSee('ACTIVE')
+            ->assertSee('>Active<', false)
+            ->assertDontSee('INACTIVE');
     }
 
     public function test_service_detail_rejects_a_response_for_another_branch(): void
@@ -168,29 +210,70 @@ class ServiceManagementTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_service_detail_rejects_staff_without_business_membership(): void
+    {
+        $otherMembership = ['businessId' => 99, 'branchId' => null, 'role' => 'STAFF'];
+        $this->fake([], $otherMembership);
+
+        $this->authenticated($otherMembership)
+            ->get(route('staff.services.show', [10, 101, 501]))
+            ->assertForbidden()
+            ->assertSee('You are not authorized to manage this business.')
+            ->assertSessionHas('queueflow.auth.token', 'inert-spring-token');
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_service_detail_upstream_failure_is_safe(): void
+    {
+        Exceptions::fake([QueueFlowApiException::class]);
+
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/services/501' => Http::response([
+                'message' => 'Internal Spring service failure',
+            ], 500),
+        ]);
+
+        $this->authenticated()
+            ->get(route('staff.services.show', [10, 101, 501]))
+            ->assertServiceUnavailable()
+            ->assertSee('QueueFlow is temporarily unavailable. Please try again later.')
+            ->assertDontSee('Internal Spring service failure')
+            ->assertSessionHas('queueflow.auth.token', 'inert-spring-token');
+
+        Exceptions::assertReported(
+            fn (QueueFlowApiException $exception): bool => $exception->status === 500,
+        );
+    }
+
     /**
      * @param  array<string, mixed>  $responses
      */
-    private function fake(array $responses = []): void
+    private function fake(array $responses = [], ?array $membership = null): void
     {
+        $membership ??= $this->membership();
+
         Http::preventStrayRequests();
         Http::fake([
             'http://localhost:8080/api/v1/auth/me' => Http::response([
                 'user' => $this->user(),
-                'memberships' => [$this->membership()],
+                'memberships' => [$membership],
             ]),
             'http://localhost:8080/api/v1/businesses/10/branches/101' => Http::response($this->branch()),
             ...$responses,
         ]);
     }
 
-    private function authenticated(): static
+    /** @param array<string, mixed>|null $membership */
+    private function authenticated(?array $membership = null): static
     {
+        $membership ??= $this->membership();
+
         return $this->withSession([
             'queueflow.auth' => [
                 'token' => 'inert-spring-token',
                 'user' => $this->user(),
-                'memberships' => [$this->membership()],
+                'memberships' => [$membership],
             ],
         ]);
     }
