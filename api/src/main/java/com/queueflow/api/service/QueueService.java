@@ -603,15 +603,37 @@ public class QueueService {
                 );
 
         return new QueuePositionResponse(
-                entry.getId(),
-                entry.getQueue().getId(),
-                entry.getService().getId(),
-                entry.getTicketSequence(),
-                ticketNumber,
-                entry.getStatus(),
-                peopleAhead,
-                estimatedWaitMinutes
-        );
+        entry.getId(),
+        entry.getQueue().getId(),
+        entry.getQueue().getName(),
+
+        entry.getQueue()
+                .getBranch()
+                .getBusiness()
+                .getId(),
+
+        entry.getQueue()
+                .getBranch()
+                .getBusiness()
+                .getName(),
+
+        entry.getQueue()
+                .getBranch()
+                .getId(),
+
+        entry.getQueue()
+                .getBranch()
+                .getName(),
+
+        entry.getService().getId(),
+        entry.getService().getName(),
+
+        entry.getTicketSequence(),
+        ticketNumber,
+        entry.getStatus(),
+        peopleAhead,
+        estimatedWaitMinutes
+   );
     }
 
     @Transactional(readOnly = true)
