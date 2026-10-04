@@ -208,7 +208,7 @@ class LiveQueueTest extends TestCase
             ->assertSee('No tickets waiting');
     }
 
-    public function test_refresh_preserves_selection_and_phase_10_5_controls_are_disabled(): void
+    public function test_refresh_preserves_selection_and_phase_10_5_controls_are_enabled(): void
     {
         $this->fakeWorkspace($this->dashboard([
             $this->dashboardQueue(91, 'Walk-in Support', 'OPEN', 'W'),
@@ -239,18 +239,64 @@ class LiveQueueTest extends TestCase
             ]).'"', false)
             ->assertSee('Pause')
             ->assertSee('Close queue')
-            ->assertSee('Call next')
             ->assertSee('Complete')
             ->assertSee('Start serving')
             ->assertSee('Recall')
             ->assertSee('Skip')
-            ->assertSee('disabled', false);
-
-        $this->assertSame(2, substr_count($response->getContent(), '<form'));
-        $this->assertSame(2, substr_count(
-            $response->getContent(),
-            'action="'.route('staff.logout').'"',
-        ));
+            ->assertSee(
+                'action="'.route('staff.live-queues.pause', [
+                    'businessId' => 10,
+                    'branchId' => 101,
+                    'queueId' => 92,
+                ]).'"',
+                false,
+            )
+            ->assertSee(
+                'action="'.route('staff.live-queues.close', [
+                    'businessId' => 10,
+                    'branchId' => 101,
+                    'queueId' => 92,
+                ]).'"',
+                false,
+            )
+            ->assertSee(
+                'action="'.route('staff.live-queues.complete', [
+                    'businessId' => 10,
+                    'branchId' => 101,
+                    'queueId' => 92,
+                    'entryId' => 901,
+                ]).'"',
+                false,
+            )
+            ->assertSee(
+                'action="'.route('staff.live-queues.start', [
+                    'businessId' => 10,
+                    'branchId' => 101,
+                    'queueId' => 92,
+                    'entryId' => 902,
+                ]).'"',
+                false,
+            )
+            ->assertSee(
+                'action="'.route('staff.live-queues.recall', [
+                    'businessId' => 10,
+                    'branchId' => 101,
+                    'queueId' => 92,
+                    'entryId' => 902,
+                ]).'"',
+                false,
+            )
+            ->assertSee(
+                'action="'.route('staff.live-queues.skip', [
+                    'businessId' => 10,
+                    'branchId' => 101,
+                    'queueId' => 92,
+                    'entryId' => 902,
+                ]).'"',
+                false,
+            )
+            ->assertDontSee('Queue controls unavailable until Phase 10.5')
+            ->assertDontSee('Called ticket controls unavailable until Phase 10.5');
     }
 
     public function test_live_queues_is_the_only_active_staff_navigation_item(): void

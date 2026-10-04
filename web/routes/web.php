@@ -104,6 +104,38 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
                 ->whereNumber(['businessId', 'branchId'])
                 ->name('live-queues.index');
 
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/pause', [LiveQueueController::class, 'pause'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->name('live-queues.pause');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/resume', [LiveQueueController::class, 'resume'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->name('live-queues.resume');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/close', [LiveQueueController::class, 'close'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->name('live-queues.close');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/call-next', [LiveQueueController::class, 'callNext'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->name('live-queues.call-next');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entries/{entryId}/start', [LiveQueueController::class, 'startServing'])
+                ->whereNumber(['businessId', 'branchId', 'queueId', 'entryId'])
+                ->name('live-queues.start');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entries/{entryId}/recall', [LiveQueueController::class, 'recall'])
+                ->whereNumber(['businessId', 'branchId', 'queueId', 'entryId'])
+                ->name('live-queues.recall');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entries/{entryId}/skip', [LiveQueueController::class, 'skip'])
+                ->whereNumber(['businessId', 'branchId', 'queueId', 'entryId'])
+                ->name('live-queues.skip');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entries/{entryId}/complete', [LiveQueueController::class, 'complete'])
+                ->whereNumber(['businessId', 'branchId', 'queueId', 'entryId'])
+                ->name('live-queues.complete');
+
             Route::get('/businesses/{businessId}/branches/{branchId}/services/create', [ServiceController::class, 'create'])
                 ->whereNumber(['businessId', 'branchId'])
                 ->name('services.create');

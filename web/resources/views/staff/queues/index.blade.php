@@ -34,6 +34,12 @@
         </div>
     </header>
 
+    @if (session('status'))
+        <div class="mb-4 rounded-xl border border-[#e3e5f2] bg-white px-4 py-3 text-sm font-semibold">
+            {{ session('status') }}
+        </div>
+    @endif
+
     @if ($dashboard->queues === [])
         <section class="staff-live-empty" aria-labelledby="no-queues-heading">
             <span class="grid size-12 place-items-center rounded-xl bg-staff-indigo-soft text-staff-indigo" aria-hidden="true"><x-staff.icon name="queues" /></span>
@@ -74,11 +80,29 @@
                                 <span class="staff-live-meta">Prefix {{ $selectedQueue->ticketPrefix }}</span>
                             </div>
                         </div>
-                        <div class="flex flex-wrap gap-2" aria-label="Queue controls unavailable until Phase 10.5">
-                            <button class="staff-live-disabled-button" type="button" disabled><x-staff.icon class="size-4" name="pause" />Pause</button>
-                            <button class="staff-live-disabled-button staff-live-disabled-danger" type="button" disabled><x-staff.icon class="size-4" name="close" />Close queue</button>
+
+                        <div class="flex flex-wrap gap-2" aria-label="Queue controls">
+                            @if ($selectedQueue->status === 'OPEN')
+                                <form method="POST" action="{{ route('staff.live-queues.pause', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
+                                    @csrf
+                                    <button class="staff-live-disabled-button" type="submit"><x-staff.icon class="size-4" name="pause" />Pause</button>
+                                </form>
+                            @elseif ($selectedQueue->status === 'PAUSED')
+                                <form method="POST" action="{{ route('staff.live-queues.resume', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
+                                    @csrf
+                                    <button class="staff-live-disabled-button" type="submit"><x-staff.icon class="size-4" name="play" />Resume</button>
+                                </form>
+                            @endif
+
+                            @if ($selectedQueue->status !== 'CLOSED')
+                                <form method="POST" action="{{ route('staff.live-queues.close', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
+                                    @csrf
+                                    <button class="staff-live-disabled-button staff-live-disabled-danger" type="submit"><x-staff.icon class="size-4" name="close" />Close queue</button>
+                                </form>
+                            @endif
                         </div>
                     </div>
+
                     <dl class="mt-4 grid gap-3 sm:grid-cols-3">
                         <div class="staff-live-metric"><dt class="staff-information-label">WAITING</dt><dd class="staff-live-metric-value text-staff-indigo">{{ $selectedQueue->counts->waiting }}</dd></div>
                         <div class="staff-live-metric"><dt class="staff-information-label">CALLED</dt><dd class="staff-live-metric-value text-staff-warning">{{ $selectedQueue->counts->called }}</dd></div>
@@ -98,8 +122,12 @@
                             @endif
                         </div>
                     </div>
-                    @if ($selectedQueue->waiting !== [])
-                        <button class="staff-live-call-next" type="button" disabled><x-staff.icon class="size-5" name="megaphone" />Call next &middot; {{ $selectedQueue->waiting[0]->ticketNumber }}</button>
+
+                    @if ($selectedQueue->waiting !== [] && $selectedQueue->status === 'OPEN' && $selectedQueue->called === null)
+                        <form method="POST" action="{{ route('staff.live-queues.call-next', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
+                            @csrf
+                            <button class="staff-live-call-next" type="submit"><x-staff.icon class="size-5" name="megaphone" />Call next &middot; {{ $selectedQueue->waiting[0]->ticketNumber }}</button>
+                        </form>
                     @endif
                 </section>
 
@@ -111,9 +139,15 @@
                                 <span class="staff-live-status bg-staff-indigo text-white"><span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>SERVING</span>
                             @endif
                         </div>
+
                         @if ($selectedQueue->serving)
                             <p class="staff-live-ticket text-staff-amber">{{ $selectedQueue->serving->ticketNumber }}</p>
-                            <button class="staff-live-disabled-button border-0 bg-staff-amber text-staff-ink" type="button" disabled><x-staff.icon class="size-4" name="check" />Complete</button>
+
+                            <form method="POST" action="{{ route('staff.live-queues.complete', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->serving->entryId]) }}">
+                                @csrf
+                                <button class="staff-live-disabled-button border-0 bg-staff-amber text-staff-ink" type="submit"><x-staff.icon class="size-4" name="check" />Complete</button>
+                            </form>
+
                             <p class="mt-3 text-xs leading-5 text-staff-sidebar-muted">Complete when the customer has been served.</p>
                         @else
                             <div class="staff-live-ticket-empty"><p class="font-semibold text-white">No ticket is currently being served.</p><p class="mt-2 text-xs leading-5 text-staff-sidebar-muted">Called tickets will appear here after service begins.</p></div>
@@ -127,13 +161,27 @@
                                 <span class="staff-live-status staff-live-status-paused"><span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>CALLED</span>
                             @endif
                         </div>
+
                         @if ($selectedQueue->called)
                             <p class="staff-live-ticket">{{ $selectedQueue->called->ticketNumber }}</p>
-                            <div class="flex flex-wrap gap-2" aria-label="Called ticket controls unavailable until Phase 10.5">
-                                <button class="staff-live-disabled-button border-0 bg-staff-indigo text-white" type="button" disabled><x-staff.icon class="size-4" name="play" />Start serving</button>
-                                <button class="staff-live-disabled-button" type="button" disabled><x-staff.icon class="size-4" name="megaphone" />Recall</button>
-                                <button class="staff-live-disabled-button staff-live-disabled-danger" type="button" disabled><x-staff.icon class="size-4" name="skip" />Skip</button>
+
+                            <div class="flex flex-wrap gap-2" aria-label="Called ticket controls">
+                                <form method="POST" action="{{ route('staff.live-queues.start', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
+                                    @csrf
+                                    <button class="staff-live-disabled-button border-0 bg-staff-indigo text-white" type="submit"><x-staff.icon class="size-4" name="play" />Start serving</button>
+                                </form>
+
+                                <form method="POST" action="{{ route('staff.live-queues.recall', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
+                                    @csrf
+                                    <button class="staff-live-disabled-button" type="submit"><x-staff.icon class="size-4" name="megaphone" />Recall</button>
+                                </form>
+
+                                <form method="POST" action="{{ route('staff.live-queues.skip', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
+                                    @csrf
+                                    <button class="staff-live-disabled-button staff-live-disabled-danger" type="submit"><x-staff.icon class="size-4" name="skip" />Skip</button>
+                                </form>
                             </div>
+
                             <p class="mt-3 text-xs leading-5 text-staff-muted">The customer has been called and service has not started.</p>
                         @else
                             <div class="staff-live-ticket-empty"><p class="font-semibold">No ticket is currently called.</p><p class="mt-2 text-xs leading-5 text-staff-muted">The next called ticket will appear here.</p></div>
@@ -150,6 +198,7 @@
                     </div>
                     <span class="font-staff-display text-2xl font-extrabold text-staff-indigo">{{ $selectedQueue->counts->waiting }}</span>
                 </header>
+
                 @if ($selectedQueue->waiting === [])
                     <div class="border-t border-[#eeeff8] px-5 py-8 text-center">
                         <p class="font-semibold">No tickets waiting</p>
