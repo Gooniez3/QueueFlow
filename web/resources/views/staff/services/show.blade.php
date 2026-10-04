@@ -32,7 +32,11 @@
             </div>
             <div class="staff-resource-actions">
                 <a class="staff-hero-secondary-button" href="{{ route('staff.services.edit', [$business->id, $branch->id, $service->id]) }}"><x-staff.icon class="size-4" name="edit" />Edit service</a>
-                <span class="staff-amber-button cursor-not-allowed opacity-60" aria-disabled="true"><x-staff.icon class="size-4" name="queues" />Open in live queues</span>
+                @if ($serviceQueue)
+                    <a class="staff-amber-button" href="{{ route('staff.live-queues.index', ['businessId' => $business->id, 'branchId' => $branch->id, 'queue' => $serviceQueue->queueId]) }}"><x-staff.icon class="size-4" name="queues" />Open in live queues</a>
+                @else
+                    <span class="staff-amber-button cursor-not-allowed opacity-60" aria-disabled="true"><x-staff.icon class="size-4" name="queues" />Open in live queues</span>
+                @endif
             </div>
         </div>
         <dl class="staff-hero-metrics lg:grid-cols-4">
@@ -67,7 +71,7 @@
                             @endif
                         </div>
                     @endif
-                    <span class="mt-4 inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-xl bg-staff-canvas px-4 text-sm font-bold text-staff-muted" aria-disabled="true"><x-staff.icon class="size-4" name="queues" />Open in live queues</span>
+                    <a class="staff-secondary-button staff-button-small mt-4" href="{{ route('staff.live-queues.index', ['businessId' => $business->id, 'branchId' => $branch->id, 'queue' => $serviceQueue->queueId]) }}"><x-staff.icon class="size-4" name="queues" />Open in live queues</a>
                 </section>
             @else
                 <section class="staff-card p-5.5 sm:p-6" aria-labelledby="queue-heading"><div class="flex items-start gap-3.5"><span class="grid size-11 shrink-0 place-items-center rounded-xl bg-staff-indigo-soft text-staff-indigo" aria-hidden="true"><x-staff.icon name="queues" /></span><div><h2 id="queue-heading" class="staff-section-title">{{ $dashboardUnavailable ? 'Queue data unavailable' : ($serviceQueueAmbiguous ? 'Multiple queues need review' : 'No live queue today') }}</h2><p class="mt-2 max-w-2xl text-sm leading-6 text-staff-muted">{{ $dashboardUnavailable ? 'Queue information could not be loaded. Service details remain available.' : ($serviceQueueAmbiguous ? 'More than one service-specific queue was returned, so QueueFlow did not choose one automatically.' : 'No service-specific queue is open for this service today.') }}</p></div></div></section>

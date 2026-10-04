@@ -35,7 +35,7 @@
             <div class="staff-resource-actions">
                 <a class="staff-hero-secondary-button" href="{{ route('staff.branches.edit', [$business->id, $branch->id]) }}"><x-staff.icon class="size-4" name="edit" />Edit branch</a>
                 <a class="staff-amber-button" href="{{ route('staff.services.create', [$business->id, $branch->id]) }}"><x-staff.icon class="size-4" name="plus" />Create service</a>
-                <span class="staff-hero-secondary-button cursor-not-allowed opacity-60" aria-disabled="true"><x-staff.icon class="size-4" name="queues" />Open live queues</span>
+                <a class="staff-hero-secondary-button" href="{{ route('staff.live-queues.index', [$business->id, $branch->id]) }}"><x-staff.icon class="size-4" name="queues" />Open live queues</a>
             </div>
         </div>
         <dl class="staff-hero-metrics lg:grid-cols-4">
@@ -88,7 +88,7 @@
                     @else
                         <p class="mt-2 text-sm leading-6 text-staff-sidebar-muted">{{ $dashboardUnavailable ? 'Queue information could not be loaded. Management details remain available.' : 'No queue has been opened for this branch today.' }}</p>
                     @endif
-                    <span class="mt-4 inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-bold text-staff-sidebar-muted" aria-disabled="true"><x-staff.icon class="size-4" name="queues" />Open live queues</span>
+                    <a class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-bold text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" href="{{ route('staff.live-queues.index', [$business->id, $branch->id]) }}"><x-staff.icon class="size-4" name="queues" />Open live queues</a>
                 </div>
                 @if ($dashboardQueues !== [])
                     <div class="divide-y divide-[#eeeff8]">

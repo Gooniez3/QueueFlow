@@ -1,6 +1,7 @@
 @props(['label' => 'Staff navigation'])
 
 @php
+    $liveQueuesActive = request()->routeIs('staff.live-queues.*');
     $activeManagementSection = match (true) {
         request()->routeIs('staff.services.*') => 'services',
         request()->routeIs('staff.branches.*') => 'branches',
@@ -20,10 +21,14 @@
     </a>
 
     <p class="staff-nav-section">OPERATIONS</p>
-    <span class="staff-nav-item staff-nav-item-disabled" aria-disabled="true">
+    <a
+        class="staff-nav-item {{ $liveQueuesActive ? 'staff-nav-item-active' : '' }}"
+        href="{{ route('staff.live-queues.gateway') }}"
+        @if ($liveQueuesActive) aria-current="page" @endif
+    >
         <x-staff.icon name="queues" />
         <span>Live Queues</span>
-    </span>
+    </a>
 
     <p class="staff-nav-section">MANAGEMENT</p>
     <a

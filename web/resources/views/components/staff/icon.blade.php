@@ -86,5 +86,30 @@
             <circle cx="12" cy="12" r="9" />
             <path d="M12 11v5M12 8h.01" />
         @break
+
+        @case('refresh')
+            <path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7" />
+        @break
+
+        @case('megaphone')
+            <path d="M3 11v2l11 4V7L3 11Z" />
+            <path d="M14 8a4 4 0 0 1 0 8M6 14l1.5 5h3" />
+        @break
+
+        @case('pause')
+            <path d="M8 5v14M16 5v14" />
+        @break
+
+        @case('close')
+            <path d="m6 6 12 12M18 6 6 18" />
+        @break
+
+        @case('play')
+            <path d="m7 4 13 8-13 8V4Z" />
+        @break
+
+        @case('skip')
+            <path d="m5 5 9 7-9 7V5ZM17 5v14" />
+        @break
     @endswitch
 </svg>

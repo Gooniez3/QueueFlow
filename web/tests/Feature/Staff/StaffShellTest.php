@@ -25,6 +25,7 @@ class StaffShellTest extends TestCase
             ->assertSee('MANAGER')
             ->assertSee('href="'.route('staff.home').'"', false)
             ->assertSee('href="'.route('staff.businesses.index').'"', false)
+            ->assertSee('href="'.route('staff.live-queues.gateway').'"', false)
             ->assertSee('action="'.route('staff.logout').'"', false)
             ->assertSee('aria-disabled="true"', false)
             ->assertSee('Soon')
