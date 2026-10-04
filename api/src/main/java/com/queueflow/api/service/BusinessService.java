@@ -11,6 +11,7 @@ import com.queueflow.api.repository.BusinessRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
 import com.queueflow.api.repository.UserAccountRepository;
 import com.queueflow.api.request.CreateBusinessRequest;
+import com.queueflow.api.request.UpdateBusinessRequest;
 import com.queueflow.api.response.BusinessResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,15 +22,18 @@ public class BusinessService {
     private final BusinessRepository businessRepository;
     private final UserAccountRepository userAccountRepository;
     private final StaffMembershipRepository staffMembershipRepository;
+    private final BusinessAuthorizationService businessAuthorizationService;
 
     public BusinessService(
             BusinessRepository businessRepository,
             UserAccountRepository userAccountRepository,
-            StaffMembershipRepository staffMembershipRepository
+            StaffMembershipRepository staffMembershipRepository,
+            BusinessAuthorizationService businessAuthorizationService
     ) {
         this.businessRepository = businessRepository;
         this.userAccountRepository = userAccountRepository;
         this.staffMembershipRepository = staffMembershipRepository;
+        this.businessAuthorizationService = businessAuthorizationService;
     }
 
     @Transactional
@@ -89,6 +93,39 @@ public class BusinessService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public BusinessResponse updateBusiness(
+            Long userId,
+            Long businessId,
+            UpdateBusinessRequest request
+    ) {
+        Business business = businessRepository
+                .findById(businessId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Business not found with id: " + businessId
+                        )
+                );
+
+        businessAuthorizationService.requireBusinessOwner(
+                userId,
+                businessId
+        );
+
+        business.setName(request.name());
+        business.setDescription(
+                normalizeNullableDescription(request.description())
+        );
+
+        return toResponse(businessRepository.save(business));
+    }
+
+    private String normalizeNullableDescription(String description) {
+        return description == null || description.isBlank()
+                ? null
+                : description;
     }
 
     private BusinessResponse toResponse(Business business) {

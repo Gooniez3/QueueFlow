@@ -1,6 +1,7 @@
 package com.queueflow.api.controller;
 
 import com.queueflow.api.request.CreateBranchRequest;
+import com.queueflow.api.request.UpdateBranchRequest;
 import com.queueflow.api.response.BranchResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.BranchService;
@@ -78,6 +79,24 @@ public class BranchController {
                 branchService.getBranchById(
                         businessId,
                         branchId
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{branchId}")
+    public ResponseEntity<BranchResponse> updateBranch(
+            @PathVariable Long businessId,
+            @PathVariable Long branchId,
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @Valid @RequestBody UpdateBranchRequest request
+    ) {
+        BranchResponse response =
+                branchService.updateBranch(
+                        principal.userId(),
+                        businessId,
+                        branchId,
+                        request
                 );
 
         return ResponseEntity.ok(response);

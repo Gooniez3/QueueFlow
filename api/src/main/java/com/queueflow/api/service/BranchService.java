@@ -6,6 +6,7 @@ import com.queueflow.api.exception.ResourceNotFoundException;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
 import com.queueflow.api.request.CreateBranchRequest;
+import com.queueflow.api.request.UpdateBranchRequest;
 import com.queueflow.api.response.BranchResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,13 +20,16 @@ public class BranchService {
 
     private final BranchRepository branchRepository;
     private final BusinessRepository businessRepository;
+    private final BusinessAuthorizationService businessAuthorizationService;
 
     public BranchService(
             BranchRepository branchRepository,
-            BusinessRepository businessRepository
+            BusinessRepository businessRepository,
+            BusinessAuthorizationService businessAuthorizationService
     ) {
         this.branchRepository = branchRepository;
         this.businessRepository = businessRepository;
+        this.businessAuthorizationService = businessAuthorizationService;
     }
 
     @Transactional
@@ -43,13 +47,7 @@ public class BranchService {
                         )
                 );
 
-         String timezone =
-           request.timezone() == null
-                || request.timezone().isBlank()
-                ? "Asia/Singapore"
-                : request.timezone().trim();
-
-          timezone = validateTimezone(timezone);
+        String timezone = normalizeTimezone(request.timezone());
 
         Branch branch = new Branch(
                 business,
@@ -112,6 +110,59 @@ public class BranchService {
         }
 
         return toResponse(branch);
+    }
+
+    @Transactional
+    public BranchResponse updateBranch(
+            Long userId,
+            Long businessId,
+            Long branchId,
+            UpdateBranchRequest request
+    ) {
+        Branch branch = requireBranch(businessId, branchId);
+
+        businessAuthorizationService.requireBranchManagementAccess(
+                userId,
+                businessId,
+                branchId
+        );
+
+        String timezone = normalizeTimezone(request.timezone());
+
+        branch.setName(request.name().trim());
+        branch.setAddress(request.address().trim());
+        branch.setLatitude(request.latitude());
+        branch.setLongitude(request.longitude());
+        branch.setTimezone(timezone);
+
+        return toResponse(branchRepository.save(branch));
+    }
+
+    private Branch requireBranch(Long businessId, Long branchId) {
+        Branch branch = branchRepository
+                .findById(branchId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Branch not found with id: " + branchId
+                        )
+                );
+
+        if (!branch.getBusiness().getId().equals(businessId)) {
+            throw new ResourceNotFoundException(
+                    "Branch not found with id: " + branchId
+            );
+        }
+
+        return branch;
+    }
+
+    private String normalizeTimezone(String timezone) {
+        String normalizedTimezone =
+                timezone == null || timezone.isBlank()
+                        ? "Asia/Singapore"
+                        : timezone.trim();
+
+        return validateTimezone(normalizedTimezone);
     }
 
     private String validateTimezone(

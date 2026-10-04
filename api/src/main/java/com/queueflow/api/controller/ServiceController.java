@@ -1,6 +1,7 @@
 package com.queueflow.api.controller;
 
 import com.queueflow.api.request.CreateServiceRequest;
+import com.queueflow.api.request.UpdateServiceRequest;
 import com.queueflow.api.response.ServiceResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.BusinessAuthorizationService;
@@ -86,6 +87,26 @@ public class ServiceController {
                         businessId,
                         branchId,
                         serviceId
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{serviceId}")
+    public ResponseEntity<ServiceResponse> updateService(
+            @PathVariable Long businessId,
+            @PathVariable Long branchId,
+            @PathVariable Long serviceId,
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @Valid @RequestBody UpdateServiceRequest request
+    ) {
+        ServiceResponse response =
+                serviceService.updateService(
+                        principal.userId(),
+                        businessId,
+                        branchId,
+                        serviceId,
+                        request
                 );
 
         return ResponseEntity.ok(response);
