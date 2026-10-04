@@ -192,12 +192,14 @@ class BranchManagementTest extends TestCase
                 '<span>Branches</span>',
             ], false)
             ->assertSee('Open live queues')
+            ->assertSee('href="'.route('staff.live-queues.index', [10, 101]).'"', false)
             ->assertSee('QUEUES TODAY')
             ->assertSee('aria-disabled="true"', false)
             ->assertDontSee('waiting today')
             ->assertDontSee('inert-spring-token');
 
         $this->assertSame(1, substr_count($response->getContent(), 'href="'.route('staff.services.create', [10, 101]).'"'));
+        $this->assertSame(2, substr_count($response->getContent(), 'href="'.route('staff.live-queues.index', [10, 101]).'"'));
         $this->assertSame(2, substr_count($response->getContent(), 'staff-nav-item-active'));
 
     }

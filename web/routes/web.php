@@ -11,6 +11,7 @@ use App\Http\Controllers\QueueBoardController;
 use App\Http\Controllers\Staff\AuthenticatedSessionController;
 use App\Http\Controllers\Staff\BranchController;
 use App\Http\Controllers\Staff\BusinessController;
+use App\Http\Controllers\Staff\LiveQueueController;
 use App\Http\Controllers\Staff\RegisteredStaffController;
 use App\Http\Controllers\Staff\ServiceController;
 use App\Http\Controllers\Staff\StaffHomeController;
@@ -62,6 +63,9 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
         Route::get('/', StaffHomeController::class)
             ->name('home');
 
+        Route::get('/live-queues', [LiveQueueController::class, 'gateway'])
+            ->name('live-queues.gateway');
+
         Route::get('/businesses', [BusinessController::class, 'index'])
             ->name('businesses.index');
         Route::get('/businesses/create', [BusinessController::class, 'create'])
@@ -95,6 +99,10 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
             Route::put('/businesses/{businessId}/branches/{branchId}', [BranchController::class, 'update'])
                 ->whereNumber(['businessId', 'branchId'])
                 ->name('branches.update');
+
+            Route::get('/businesses/{businessId}/branches/{branchId}/queues', [LiveQueueController::class, 'index'])
+                ->whereNumber(['businessId', 'branchId'])
+                ->name('live-queues.index');
 
             Route::get('/businesses/{businessId}/branches/{branchId}/services/create', [ServiceController::class, 'create'])
                 ->whereNumber(['businessId', 'branchId'])

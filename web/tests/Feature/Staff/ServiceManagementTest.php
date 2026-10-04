@@ -185,7 +185,7 @@ class ServiceManagementTest extends TestCase
             'http://localhost:8080/api/v1/businesses/10/branches/101/staff/dashboard' => Http::response($this->dashboard([$queue])),
         ]);
 
-        $this->authenticated()
+        $response = $this->authenticated()
             ->get(route('staff.services.show', [10, 101, 501]))
             ->assertOk()
             ->assertSee('Consultation Queue')
@@ -198,7 +198,21 @@ class ServiceManagementTest extends TestCase
             ->assertSee('NOW SERVING')
             ->assertSee('A004')
             ->assertSee('CALLED')
-            ->assertSee('A003');
+            ->assertSee('A003')
+            ->assertSee('href="'.route('staff.live-queues.index', [
+                'businessId' => 10,
+                'branchId' => 101,
+                'queue' => 91,
+            ]).'"', false);
+
+        $this->assertSame(2, substr_count(
+            $response->getContent(),
+            'href="'.route('staff.live-queues.index', [
+                'businessId' => 10,
+                'branchId' => 101,
+                'queue' => 91,
+            ]).'"',
+        ));
     }
 
     public function test_service_detail_does_not_match_a_shared_branch_queue(): void
@@ -211,12 +225,18 @@ class ServiceManagementTest extends TestCase
             ])),
         ]);
 
-        $this->authenticated()
+        $response = $this->authenticated()
             ->get(route('staff.services.show', [10, 101, 501]))
             ->assertOk()
             ->assertSee('No live queue today')
             ->assertSee('No service-specific queue is open for this service today.')
             ->assertDontSee('A004');
+
+        $response->assertDontSee('href="'.route('staff.live-queues.index', [
+            'businessId' => 10,
+            'branchId' => 101,
+            'queue' => 91,
+        ]).'"', false);
     }
 
     public function test_service_detail_keeps_service_data_when_dashboard_is_unavailable(): void
