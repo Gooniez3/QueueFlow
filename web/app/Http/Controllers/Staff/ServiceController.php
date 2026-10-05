@@ -10,6 +10,7 @@ use App\Http\Requests\Staff\StoreServiceRequest;
 use App\Http\Requests\Staff\UpdateServiceRequest;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowAuthService;
+use App\Services\StaffCatalogService;
 use App\Services\StaffDashboardPresentationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,31 @@ class ServiceController extends Controller
         private readonly QueueFlowApiClient $apiClient,
         private readonly QueueFlowAuthService $authService,
         private readonly StaffDashboardPresentationService $dashboardService,
+        private readonly StaffCatalogService $catalogService,
     ) {}
+
+    public function index(Request $request): View
+    {
+        $authContext = $request->attributes->get('queueflow.auth');
+        $businesses = $this->catalogService->accessibleBusinessesWithServices(
+            $authContext['memberships'],
+        );
+        $services = collect($businesses)
+            ->flatMap(static fn (array $businessContext): array => $businessContext['servicesByBranchId'])
+            ->flatten(1);
+
+        return view('staff.services.index', [
+            'authContext' => $authContext,
+            'businesses' => $businesses,
+            'serviceCount' => $services->count(),
+            'activeServiceCount' => $services
+                ->filter(static fn (ServiceData $service): bool => $service->active)
+                ->count(),
+            'inactiveServiceCount' => $services
+                ->reject(static fn (ServiceData $service): bool => $service->active)
+                ->count(),
+        ]);
+    }
 
     public function create(Request $request, int $businessId, int $branchId): View
     {

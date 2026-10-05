@@ -41,11 +41,13 @@ class StoreQueueRequestTest extends TestCase
     {
         return [
             'shared branch queue' => [[
-                'serviceId' => null,
+                'queueType' => 'shared',
+                'serviceId' => '',
                 'name' => 'Walk-in Queue',
                 'ticketPrefix' => 'A',
             ]],
             'service-specific queue' => [[
+                'queueType' => 'service',
                 'serviceId' => 31,
                 'name' => 'General Consultation',
                 'ticketPrefix' => 'GC',
@@ -60,25 +62,47 @@ class StoreQueueRequestTest extends TestCase
     {
         return [
             'non-integer service' => [[
+                'queueType' => 'service',
                 'serviceId' => 'general',
                 'name' => 'Walk-in Queue',
                 'ticketPrefix' => 'A',
             ], 'serviceId'],
+            'missing queue type' => [[
+                'serviceId' => 31,
+                'name' => 'Walk-in Queue',
+                'ticketPrefix' => 'A',
+            ], 'queueType'],
+            'invalid queue type' => [[
+                'queueType' => 'automatic',
+                'name' => 'Walk-in Queue',
+                'ticketPrefix' => 'A',
+            ], 'queueType'],
+            'service queue without service' => [[
+                'queueType' => 'service',
+                'name' => 'Walk-in Queue',
+                'ticketPrefix' => 'A',
+            ], 'serviceId'],
+            'shared queue with service' => [[
+                'queueType' => 'shared',
+                'serviceId' => 31,
+                'name' => 'Walk-in Queue',
+                'ticketPrefix' => 'A',
+            ], 'serviceId'],
             'missing name' => [[
-                'serviceId' => null,
+                'queueType' => 'shared',
                 'ticketPrefix' => 'A',
             ], 'name'],
             'name over 150 characters' => [[
-                'serviceId' => null,
+                'queueType' => 'shared',
                 'name' => str_repeat('Q', 151),
                 'ticketPrefix' => 'A',
             ], 'name'],
             'missing ticket prefix' => [[
-                'serviceId' => null,
+                'queueType' => 'shared',
                 'name' => 'Walk-in Queue',
             ], 'ticketPrefix'],
             'ticket prefix over 10 characters' => [[
-                'serviceId' => null,
+                'queueType' => 'shared',
                 'name' => 'Walk-in Queue',
                 'ticketPrefix' => 'ABCDEFGHIJK',
             ], 'ticketPrefix'],

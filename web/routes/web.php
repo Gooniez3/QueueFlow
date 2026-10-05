@@ -12,6 +12,7 @@ use App\Http\Controllers\Staff\AuthenticatedSessionController;
 use App\Http\Controllers\Staff\BranchController;
 use App\Http\Controllers\Staff\BusinessController;
 use App\Http\Controllers\Staff\LiveQueueController;
+use App\Http\Controllers\Staff\QueueController as StaffQueueController;
 use App\Http\Controllers\Staff\RegisteredStaffController;
 use App\Http\Controllers\Staff\ServiceController;
 use App\Http\Controllers\Staff\StaffHomeController;
@@ -66,6 +67,12 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
         Route::get('/live-queues', [LiveQueueController::class, 'gateway'])
             ->name('live-queues.gateway');
 
+        Route::get('/branches', [BranchController::class, 'index'])
+            ->name('branches.index');
+
+        Route::get('/services', [ServiceController::class, 'index'])
+            ->name('services.index');
+
         Route::get('/businesses', [BusinessController::class, 'index'])
             ->name('businesses.index');
         Route::get('/businesses/create', [BusinessController::class, 'create'])
@@ -104,6 +111,14 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
                 ->whereNumber(['businessId', 'branchId'])
                 ->name('live-queues.index');
 
+            Route::get('/businesses/{businessId}/branches/{branchId}/queues/create', [StaffQueueController::class, 'create'])
+                ->whereNumber(['businessId', 'branchId'])
+                ->name('live-queues.create');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues', [StaffQueueController::class, 'store'])
+                ->whereNumber(['businessId', 'branchId'])
+                ->name('live-queues.store');
+
             Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/pause', [LiveQueueController::class, 'pause'])
                 ->whereNumber(['businessId', 'branchId', 'queueId'])
                 ->name('live-queues.pause');
@@ -115,6 +130,10 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
             Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/close', [LiveQueueController::class, 'close'])
                 ->whereNumber(['businessId', 'branchId', 'queueId'])
                 ->name('live-queues.close');
+
+            Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/reopen', [LiveQueueController::class, 'reopen'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->name('live-queues.reopen');
 
             Route::post('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/call-next', [LiveQueueController::class, 'callNext'])
                 ->whereNumber(['businessId', 'branchId', 'queueId'])

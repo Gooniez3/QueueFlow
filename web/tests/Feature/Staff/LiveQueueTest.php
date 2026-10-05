@@ -111,6 +111,23 @@ class LiveQueueTest extends TestCase
             && $request->hasHeader('Authorization', 'Bearer inert-spring-token'));
     }
 
+    public function test_workspace_with_existing_queues_keeps_open_queue_action_available(): void
+    {
+        $queues = [
+            $this->dashboardQueue(91, 'General Consultation Queue', 'OPEN', 'GC', serviceId: 501),
+            $this->dashboardQueue(92, 'Health Screening Queue', 'OPEN', 'HS', serviceId: 502),
+        ];
+        $this->fakeWorkspace($this->dashboard($queues));
+
+        $this->authenticated()
+            ->get(route('staff.live-queues.index', [10, 101]))
+            ->assertOk()
+            ->assertSee('General Consultation Queue')
+            ->assertSee('Health Screening Queue')
+            ->assertSee('href="'.route('staff.live-queues.create', [10, 101]).'"', false)
+            ->assertSee('Open queue');
+    }
+
     public function test_explicit_queue_selection_uses_existing_dashboard_data_without_another_queue_request(): void
     {
         $queues = [
@@ -190,6 +207,8 @@ class LiveQueueTest extends TestCase
             ->assertOk()
             ->assertSee('No queues today')
             ->assertSee('No queue has been opened for Riverside Clinic on this business date.')
+            ->assertSee('href="'.route('staff.live-queues.create', [10, 101]).'"', false)
+            ->assertSee('Open queue')
             ->assertDontSee('Call next');
     }
 
@@ -296,7 +315,48 @@ class LiveQueueTest extends TestCase
                 false,
             )
             ->assertDontSee('Queue controls unavailable until Phase 10.5')
-            ->assertDontSee('Called ticket controls unavailable until Phase 10.5');
+            ->assertDontSee('Called ticket controls unavailable until Phase 10.5')
+            ->assertDontSee('action="'.route('staff.live-queues.call-next', [
+                'businessId' => 10,
+                'branchId' => 101,
+                'queueId' => 92,
+            ]).'"', false)
+            ->assertDontSee('staff-live-disabled-button');
+
+        $content = $response->getContent();
+
+        foreach (['Pause', 'Close queue', 'Complete', 'Start serving', 'Recall', 'Skip'] as $label) {
+            $this->assertEnabledSubmitButton($content, $label);
+        }
+    }
+
+    public function test_call_next_action_is_enabled_when_waiting_and_no_ticket_is_called(): void
+    {
+        $this->fakeWorkspace($this->dashboard([
+            $this->dashboardQueue(
+                91,
+                'Walk-in Support',
+                'OPEN',
+                'W',
+                [$this->entry(903, 'W003', 'WAITING')],
+            ),
+        ]));
+
+        $response = $this->authenticated()
+            ->get(route('staff.live-queues.index', [10, 101]));
+
+        $response->assertOk()
+            ->assertSee(
+                'action="'.route('staff.live-queues.call-next', [
+                    'businessId' => 10,
+                    'branchId' => 101,
+                    'queueId' => 91,
+                ]).'"',
+                false,
+            )
+            ->assertDontSee('staff-live-disabled-button');
+
+        $this->assertEnabledSubmitButton($response->getContent(), 'Call next');
     }
 
     public function test_live_queues_is_the_only_active_staff_navigation_item(): void
@@ -571,5 +631,25 @@ class LiveQueueTest extends TestCase
             'completedAt' => null,
             'cancelledAt' => null,
         ];
+    }
+
+    private function assertEnabledSubmitButton(string $content, string $label): void
+    {
+        $this->assertMatchesRegularExpression(
+            '/<button\b(?=[^>]*type="submit")[^>]*>.*?'.preg_quote($label, '/').'.*?<\/button>/s',
+            $content,
+            "Expected {$label} to render as a submit button.",
+        );
+
+        preg_match(
+            '/<button\b(?=[^>]*type="submit")[^>]*>.*?'.preg_quote($label, '/').'.*?<\/button>/s',
+            $content,
+            $matches,
+        );
+
+        $openingTag = strtok($matches[0], '>');
+
+        $this->assertStringNotContainsString(' disabled', $openingTag);
+        $this->assertStringNotContainsString('aria-disabled', $openingTag);
     }
 }

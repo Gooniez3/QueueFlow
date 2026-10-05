@@ -73,17 +73,26 @@ class QueueFlowQueueServiceTest extends TestCase
         $expectation = $apiClient->shouldReceive($method)->once();
 
         if ($requiresEntryId) {
-            $expectation->with(91, 301, 'inert-staff-token');
+            $expectation->with(
+                91,
+                301,
+                'inert-staff-token',
+                '11111111-1111-4111-8111-111111111111',
+            );
         } else {
-            $expectation->with(91, 'inert-staff-token');
+            $expectation->with(
+                91,
+                'inert-staff-token',
+                '11111111-1111-4111-8111-111111111111',
+            );
         }
 
         $expectation->andReturn($entry);
         [$service] = $this->authenticatedService($apiClient);
 
         $result = $requiresEntryId
-            ? $service->{$method}(91, 301)
-            : $service->{$method}(91);
+            ? $service->{$method}(91, 301, '11111111-1111-4111-8111-111111111111')
+            : $service->{$method}(91, '11111111-1111-4111-8111-111111111111');
 
         $this->assertSame($entry, $result);
     }
@@ -309,6 +318,7 @@ class QueueFlowQueueServiceTest extends TestCase
             'pause' => ['pauseQueue'],
             'resume' => ['resumeQueue'],
             'close' => ['closeQueue'],
+            'reopen' => ['reopenQueue'],
         ];
     }
 

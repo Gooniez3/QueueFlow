@@ -637,14 +637,14 @@
     }
 
     .staff-live-call-next {
-        @apply inline-flex min-h-12 cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-staff-amber px-5 font-staff-display text-sm font-extrabold text-staff-ink opacity-65 sm:min-h-15 sm:px-6 sm:text-base;
+        @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-staff-amber px-5 font-staff-display text-sm font-extrabold text-staff-ink transition-colors hover:bg-[#f4be35] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-staff-amber sm:min-h-15 sm:px-6 sm:text-base;
     }
 
-    .staff-live-disabled-button {
-        @apply inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-staff-line bg-white px-4 text-sm font-bold text-staff-muted opacity-60;
+    .staff-live-secondary-action {
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-staff-line bg-white px-4 text-sm font-bold text-staff-ink transition-colors hover:border-staff-indigo/35 hover:text-staff-indigo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-staff-indigo;
     }
 
-    .staff-live-disabled-danger {
+    .staff-live-secondary-danger {
         @apply border-red-200 text-staff-danger;
     }
 

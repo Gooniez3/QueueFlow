@@ -340,11 +340,13 @@ class QueueFlowQueueApiClientTest extends TestCase
             'callNextQueueEntry' => app(QueueFlowApiClient::class)->callNextQueueEntry(
                 91,
                 'inert-staff-token',
+                '11111111-1111-4111-8111-111111111111',
             ),
             default => app(QueueFlowApiClient::class)->{$method}(
                 91,
                 301,
                 'inert-staff-token',
+                '11111111-1111-4111-8111-111111111111',
             ),
         };
 
@@ -357,6 +359,7 @@ class QueueFlowQueueApiClientTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
             && $request->url() === "http://localhost:8080/api/v1/queues/91/staff/{$path}"
             && $request->hasHeader('Authorization', 'Bearer inert-staff-token')
+            && $request->hasHeader('Idempotency-Key', '11111111-1111-4111-8111-111111111111')
             && $request->data() === []);
     }
 
@@ -383,7 +386,8 @@ class QueueFlowQueueApiClientTest extends TestCase
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
             && $request->url() === "http://localhost:8080/api/v1/queues/91/staff/{$path}"
-            && $request->hasHeader('Authorization', 'Bearer inert-staff-token'));
+            && $request->hasHeader('Authorization', 'Bearer inert-staff-token')
+            && ! $request->hasHeader('Idempotency-Key'));
     }
 
     public function test_recall_conflict_remains_distinguishable(): void
@@ -400,6 +404,7 @@ class QueueFlowQueueApiClientTest extends TestCase
                 91,
                 301,
                 'inert-staff-token',
+                '11111111-1111-4111-8111-111111111111',
             );
 
             $this->fail('Expected QueueFlowApiException was not thrown.');
@@ -529,6 +534,7 @@ class QueueFlowQueueApiClientTest extends TestCase
             'pause' => ['pauseQueue', 'pause', 'PAUSED'],
             'resume' => ['resumeQueue', 'resume', 'OPEN'],
             'close' => ['closeQueue', 'close', 'CLOSED'],
+            'reopen' => ['reopenQueue', 'reopen', 'OPEN'],
         ];
     }
 

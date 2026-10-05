@@ -32,12 +32,15 @@ class QueueFlowQueueService
         );
     }
 
-    public function callNextQueueEntry(int $queueId): QueueStaffEntryData
-    {
+    public function callNextQueueEntry(
+        int $queueId,
+        string $idempotencyKey,
+    ): QueueStaffEntryData {
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueStaffEntryData => $this->apiClient->callNextQueueEntry(
                 $queueId,
                 $token,
+                $idempotencyKey,
             ),
         );
     }
@@ -45,12 +48,14 @@ class QueueFlowQueueService
     public function recallQueueEntry(
         int $queueId,
         int $entryId,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueStaffEntryData => $this->apiClient->recallQueueEntry(
                 $queueId,
                 $entryId,
                 $token,
+                $idempotencyKey,
             ),
         );
     }
@@ -58,12 +63,14 @@ class QueueFlowQueueService
     public function startServingQueueEntry(
         int $queueId,
         int $entryId,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueStaffEntryData => $this->apiClient->startServingQueueEntry(
                 $queueId,
                 $entryId,
                 $token,
+                $idempotencyKey,
             ),
         );
     }
@@ -71,12 +78,14 @@ class QueueFlowQueueService
     public function completeQueueEntry(
         int $queueId,
         int $entryId,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueStaffEntryData => $this->apiClient->completeQueueEntry(
                 $queueId,
                 $entryId,
                 $token,
+                $idempotencyKey,
             ),
         );
     }
@@ -84,12 +93,14 @@ class QueueFlowQueueService
     public function skipQueueEntry(
         int $queueId,
         int $entryId,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueStaffEntryData => $this->apiClient->skipQueueEntry(
                 $queueId,
                 $entryId,
                 $token,
+                $idempotencyKey,
             ),
         );
     }
@@ -118,6 +129,16 @@ class QueueFlowQueueService
     {
         return $this->authService->authenticatedRequest(
             fn (#[\SensitiveParameter] string $token): QueueData => $this->apiClient->closeQueue(
+                $queueId,
+                $token,
+            ),
+        );
+    }
+
+    public function reopenQueue(int $queueId): QueueData
+    {
+        return $this->authService->authenticatedRequest(
+            fn (#[\SensitiveParameter] string $token): QueueData => $this->apiClient->reopenQueue(
                 $queueId,
                 $token,
             ),

@@ -10,6 +10,7 @@ use App\Http\Requests\Staff\StoreBusinessRequest;
 use App\Http\Requests\Staff\UpdateBusinessRequest;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowAuthService;
+use App\Services\StaffCatalogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,6 +20,7 @@ class BusinessController extends Controller
     public function __construct(
         private readonly QueueFlowApiClient $apiClient,
         private readonly QueueFlowAuthService $authService,
+        private readonly StaffCatalogService $catalogService,
     ) {}
 
     public function index(Request $request): View
@@ -35,22 +37,25 @@ class BusinessController extends Controller
             $authContext['memberships'],
         )));
 
+        $businessContexts = $this->catalogService->accessibleBusinessesWithServices(
+            $authContext['memberships'],
+        );
         $businesses = array_map(
-            fn (int $businessId): BusinessData => $this->apiClient->business($businessId),
-            $businessIds,
+            static fn (array $businessContext): BusinessData => $businessContext['business'],
+            $businessContexts,
         );
 
         $businessSummaries = [];
         $totalBranches = 0;
         $totalServices = 0;
 
-        foreach ($businesses as $business) {
-            $branches = $this->apiClient->branches($business->id);
-            $serviceCount = 0;
-
-            foreach ($branches as $branch) {
-                $serviceCount += count($this->apiClient->services($business->id, $branch->id));
-            }
+        foreach ($businessContexts as $businessContext) {
+            $business = $businessContext['business'];
+            $branches = $businessContext['branches'];
+            $serviceCount = array_sum(array_map(
+                static fn (array $services): int => count($services),
+                $businessContext['servicesByBranchId'],
+            ));
 
             $businessSummaries[$business->id] = [
                 'branches' => $branches,

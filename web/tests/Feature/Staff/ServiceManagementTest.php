@@ -37,7 +37,7 @@ class ServiceManagementTest extends TestCase
             ->assertSee('href="'.route('staff.branches.edit', [10, 101]).'"', false)
             ->assertSee('aria-label="Staff page context"', false)
             ->assertSeeInOrder([
-                'staff-nav-item staff-nav-item-disabled staff-nav-item-active',
+                'staff-nav-item staff-nav-item-active',
                 '<span>Branches</span>',
             ], false)
             ->assertDontSee('inert-spring-token');
@@ -143,7 +143,7 @@ class ServiceManagementTest extends TestCase
             ->assertSee('href="'.route('staff.services.edit', [10, 101, 501]).'"', false)
             ->assertSee('aria-label="Staff page context"', false)
             ->assertSeeInOrder([
-                'staff-nav-item staff-nav-item-disabled staff-nav-item-active',
+                'staff-nav-item staff-nav-item-active',
                 '<span>Services</span>',
             ], false)
             ->assertDontSee('Queue context')
