@@ -3,6 +3,7 @@ package com.queueflow.api.entity;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "queue")
@@ -31,6 +32,14 @@ public class Queue {
 
     @Column(name = "next_ticket_sequence", nullable = false)
     private Integer nextTicketSequence = 1;
+
+    @Column(
+            name = "public_code",
+            nullable = false,
+            unique = true,
+            length = 36
+    )
+    private String publicCode;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -70,8 +79,13 @@ public class Queue {
     @PrePersist
     protected void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
+
         createdAt = now;
         updatedAt = now;
+
+        if (publicCode == null || publicCode.isBlank()) {
+            publicCode = UUID.randomUUID().toString();
+        }
 
         if (openedAt == null) {
             openedAt = now;
@@ -133,6 +147,14 @@ public class Queue {
 
     public void setNextTicketSequence(Integer nextTicketSequence) {
         this.nextTicketSequence = nextTicketSequence;
+    }
+
+    public String getPublicCode() {
+        return publicCode;
+    }
+
+    public void setPublicCode(String publicCode) {
+        this.publicCode = publicCode;
     }
 
     public QueueStatus getStatus() {

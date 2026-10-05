@@ -11,4 +11,6 @@ public interface BranchRepository
     List<Branch> findByBusinessId(
             Long businessId
     );
+
+    List<Branch> findAllByOrderByNameAsc();
 }

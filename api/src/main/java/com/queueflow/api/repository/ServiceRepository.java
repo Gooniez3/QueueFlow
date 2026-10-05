@@ -11,4 +11,8 @@ public interface ServiceRepository
     List<Service> findByBranchId(
             Long branchId
     );
+
+    List<Service> findByBranchIdAndActiveTrue(
+            Long branchId
+    );
 }
