@@ -55,6 +55,10 @@ public class BusinessService {
                 request.description()
         );
 
+        business.setCategory(
+                normalizeCategory(request.category())
+        );
+
         Business savedBusiness =
                 businessRepository.save(business);
 
@@ -119,6 +123,10 @@ public class BusinessService {
                 normalizeNullableDescription(request.description())
         );
 
+        business.setCategory(
+                normalizeCategory(request.category())
+        );
+
         return toResponse(businessRepository.save(business));
     }
 
@@ -128,12 +136,19 @@ public class BusinessService {
                 : description;
     }
 
+    private String normalizeCategory(String category) {
+        return category == null || category.isBlank()
+                ? "OTHER"
+                : category.trim().toUpperCase();
+    }
+
     private BusinessResponse toResponse(Business business) {
 
         return new BusinessResponse(
                 business.getId(),
                 business.getName(),
                 business.getDescription(),
+                business.getCategory(),
                 business.getCreatedAt()
         );
     }

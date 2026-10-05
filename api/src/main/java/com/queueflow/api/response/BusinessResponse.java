@@ -6,6 +6,7 @@ public record BusinessResponse(
         Long id,
         String name,
         String description,
+        String category,
         OffsetDateTime createdAt
 ) {
 }

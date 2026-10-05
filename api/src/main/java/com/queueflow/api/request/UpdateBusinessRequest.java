@@ -9,6 +9,9 @@ public record UpdateBusinessRequest(
         @Size(max = 150, message = "Business name must not exceed 150 characters")
         String name,
 
-        String description
+        String description,
+
+        @Size(max = 100, message = "Business category must not exceed 100 characters")
+        String category
 ) {
 }

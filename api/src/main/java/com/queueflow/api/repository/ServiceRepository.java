@@ -3,6 +3,7 @@ package com.queueflow.api.repository;
 import com.queueflow.api.entity.Service;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ServiceRepository
@@ -14,5 +15,9 @@ public interface ServiceRepository
 
     List<Service> findByBranchIdAndActiveTrue(
             Long branchId
+    );
+
+    List<Service> findByBranchIdInAndActiveTrue(
+            Collection<Long> branchIds
     );
 }
