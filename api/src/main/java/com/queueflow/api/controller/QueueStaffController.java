@@ -23,13 +23,18 @@ public class QueueStaffController {
     @PostMapping("/call-next")
     public ResponseEntity<QueueStaffEntryResponse> callNext(
             @PathVariable Long queueId,
-            @AuthenticationPrincipal AuthUserPrincipal principal
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "Idempotency-Key",
+                    required = false
+            ) String idempotencyKey
     ) {
 
         QueueStaffEntryResponse response =
                 queueService.callNext(
                         queueId,
-                        principal.userId()
+                        principal.userId(),
+                        idempotencyKey
                 );
 
         return ResponseEntity.ok(response);
@@ -39,14 +44,19 @@ public class QueueStaffController {
     public ResponseEntity<QueueStaffEntryResponse> recallEntry(
             @PathVariable Long queueId,
             @PathVariable Long entryId,
-            @AuthenticationPrincipal AuthUserPrincipal principal
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "Idempotency-Key",
+                    required = false
+            ) String idempotencyKey
     ) {
 
         QueueStaffEntryResponse response =
                 queueService.recallEntry(
                         queueId,
                         entryId,
-                        principal.userId()
+                        principal.userId(),
+                        idempotencyKey
                 );
 
         return ResponseEntity.ok(response);
@@ -56,14 +66,19 @@ public class QueueStaffController {
     public ResponseEntity<QueueStaffEntryResponse> startServing(
             @PathVariable Long queueId,
             @PathVariable Long entryId,
-            @AuthenticationPrincipal AuthUserPrincipal principal
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "Idempotency-Key",
+                    required = false
+            ) String idempotencyKey
     ) {
 
         QueueStaffEntryResponse response =
                 queueService.startServing(
                         queueId,
                         entryId,
-                        principal.userId()
+                        principal.userId(),
+                        idempotencyKey
                 );
 
         return ResponseEntity.ok(response);
@@ -73,14 +88,19 @@ public class QueueStaffController {
     public ResponseEntity<QueueStaffEntryResponse> completeEntry(
             @PathVariable Long queueId,
             @PathVariable Long entryId,
-            @AuthenticationPrincipal AuthUserPrincipal principal
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "Idempotency-Key",
+                    required = false
+            ) String idempotencyKey
     ) {
 
         QueueStaffEntryResponse response =
                 queueService.completeEntry(
                         queueId,
                         entryId,
-                        principal.userId()
+                        principal.userId(),
+                        idempotencyKey
                 );
 
         return ResponseEntity.ok(response);
@@ -90,14 +110,19 @@ public class QueueStaffController {
     public ResponseEntity<QueueStaffEntryResponse> skipEntry(
             @PathVariable Long queueId,
             @PathVariable Long entryId,
-            @AuthenticationPrincipal AuthUserPrincipal principal
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "Idempotency-Key",
+                    required = false
+            ) String idempotencyKey
     ) {
 
         QueueStaffEntryResponse response =
                 queueService.skipEntry(
                         queueId,
                         entryId,
-                        principal.userId()
+                        principal.userId(),
+                        idempotencyKey
                 );
 
         return ResponseEntity.ok(response);

@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.queueflow.api.repository.GuestJoinIdempotencyRepository;
 import com.queueflow.api.security.GuestTokenEncryptionService;
 import com.queueflow.api.entity.GuestJoinIdempotency;
+import com.queueflow.api.entity.StaffMutationIdempotency;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -56,6 +58,7 @@ public class QueueService {
     private final BusinessAuthorizationService businessAuthorizationService;
     private final GuestJoinIdempotencyRepository guestJoinIdempotencyRepository;
     private final GuestTokenEncryptionService guestTokenEncryptionService;
+    private final StaffMutationIdempotencyRepository staffMutationIdempotencyRepository;
 
     public QueueService(
             QueueRepository queueRepository,
@@ -66,7 +69,8 @@ public class QueueService {
             AuthTokenService authTokenService,
             BusinessAuthorizationService businessAuthorizationService,
             GuestJoinIdempotencyRepository guestJoinIdempotencyRepository,
-            GuestTokenEncryptionService guestTokenEncryptionService
+            GuestTokenEncryptionService guestTokenEncryptionService,
+            StaffMutationIdempotencyRepository staffMutationIdempotencyRepository
     ) {
         this.queueRepository = queueRepository;
         this.queueEntryRepository = queueEntryRepository;
@@ -77,6 +81,8 @@ public class QueueService {
         this.businessAuthorizationService = businessAuthorizationService;
         this.guestJoinIdempotencyRepository = guestJoinIdempotencyRepository;
         this.guestTokenEncryptionService = guestTokenEncryptionService;
+        this.staffMutationIdempotencyRepository =
+                staffMutationIdempotencyRepository;
     }
 
     @Transactional
@@ -679,8 +685,11 @@ public class QueueService {
     @Transactional
     public QueueStaffEntryResponse callNext(
             Long queueId,
-            Long staffUserId
+            Long staffUserId,
+            String idempotencyKey
     ) {
+        String normalizedIdempotencyKey =
+                normalizeIdempotencyKey(idempotencyKey);
 
         Queue queue = queueRepository
                 .findByIdForUpdate(queueId)
@@ -690,6 +699,19 @@ public class QueueService {
                                         + queueId
                         )
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        null,
+                        "CALL_NEXT",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         Long businessId =
                 queue.getBranch()
@@ -709,6 +731,15 @@ public class QueueService {
         if (queue.getStatus() != QueueStatus.OPEN) {
             throw new IllegalStateException(
                     "Queue must be open to call the next entry"
+            );
+        }
+
+        if (queueEntryRepository.existsByQueueIdAndStatus(
+                queueId,
+                QueueEntryStatus.CALLED
+        )) {
+            throw new IllegalStateException(
+                    "Queue already has a called entry"
             );
         }
 
@@ -735,6 +766,14 @@ public class QueueService {
         QueueEntry savedEntry =
                 queueEntryRepository.save(entry);
 
+        saveStaffMutationIdempotency(
+                queue,
+                staffUserId,
+                savedEntry,
+                "CALL_NEXT",
+                normalizedIdempotencyKey
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
@@ -744,8 +783,11 @@ public class QueueService {
     public QueueStaffEntryResponse recallEntry(
             Long queueId,
             Long entryId,
-            Long staffUserId
+            Long staffUserId,
+            String idempotencyKey
     ) {
+        String normalizedIdempotencyKey =
+                normalizeIdempotencyKey(idempotencyKey);
 
         Queue queue = queueRepository
                 .findByIdForUpdate(queueId)
@@ -755,6 +797,19 @@ public class QueueService {
                                         + queueId
                         )
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "RECALL",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         Long businessId =
                 queue.getBranch()
@@ -771,6 +826,8 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        requireQueueActiveForEntryMutation(queue);
 
         QueueEntry entry = queueEntryRepository
                 .findById(entryId)
@@ -804,6 +861,14 @@ public class QueueService {
         QueueEntry savedEntry =
                 queueEntryRepository.save(entry);
 
+        saveStaffMutationIdempotency(
+                queue,
+                staffUserId,
+                savedEntry,
+                "RECALL",
+                normalizedIdempotencyKey
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
@@ -812,8 +877,11 @@ public class QueueService {
     public QueueStaffEntryResponse startServing(
             Long queueId,
             Long entryId,
-            Long staffUserId
+            Long staffUserId,
+            String idempotencyKey
     ) {
+        String normalizedIdempotencyKey =
+                normalizeIdempotencyKey(idempotencyKey);
 
         Queue queue = queueRepository
                 .findByIdForUpdate(queueId)
@@ -823,6 +891,19 @@ public class QueueService {
                                         + queueId
                         )
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "START_SERVING",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         Long businessId =
                 queue.getBranch()
@@ -839,6 +920,8 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        requireQueueActiveForEntryMutation(queue);
 
         QueueEntry entry = queueEntryRepository
                 .findById(entryId)
@@ -864,6 +947,15 @@ public class QueueService {
             );
         }
 
+        if (queueEntryRepository.existsByQueueIdAndStatus(
+                queueId,
+                QueueEntryStatus.SERVING
+        )) {
+            throw new IllegalStateException(
+                    "Queue already has a serving entry"
+            );
+        }
+
         entry.setStatus(
                 QueueEntryStatus.SERVING
         );
@@ -875,6 +967,14 @@ public class QueueService {
         QueueEntry savedEntry =
                 queueEntryRepository.save(entry);
 
+        saveStaffMutationIdempotency(
+                queue,
+                staffUserId,
+                savedEntry,
+                "START_SERVING",
+                normalizedIdempotencyKey
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
@@ -884,8 +984,11 @@ public class QueueService {
     public QueueStaffEntryResponse completeEntry(
             Long queueId,
             Long entryId,
-            Long staffUserId
+            Long staffUserId,
+            String idempotencyKey
     ) {
+        String normalizedIdempotencyKey =
+                normalizeIdempotencyKey(idempotencyKey);
 
         Queue queue = queueRepository
                 .findByIdForUpdate(queueId)
@@ -895,6 +998,19 @@ public class QueueService {
                                         + queueId
                         )
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "COMPLETE",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         Long businessId =
                 queue.getBranch()
@@ -910,6 +1026,8 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        requireQueueActiveForEntryMutation(queue);
 
         QueueEntry entry = queueEntryRepository
                 .findById(entryId)
@@ -946,6 +1064,14 @@ public class QueueService {
         QueueEntry savedEntry =
                 queueEntryRepository.save(entry);
 
+        saveStaffMutationIdempotency(
+                queue,
+                staffUserId,
+                savedEntry,
+                "COMPLETE",
+                normalizedIdempotencyKey
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
@@ -955,8 +1081,11 @@ public class QueueService {
     public QueueStaffEntryResponse skipEntry(
             Long queueId,
             Long entryId,
-            Long staffUserId
+            Long staffUserId,
+            String idempotencyKey
     ) {
+        String normalizedIdempotencyKey =
+                normalizeIdempotencyKey(idempotencyKey);
 
         Queue queue = queueRepository
                 .findByIdForUpdate(queueId)
@@ -966,6 +1095,19 @@ public class QueueService {
                                         + queueId
                         )
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "SKIP",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         Long businessId =
                 queue.getBranch()
@@ -982,6 +1124,8 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        requireQueueActiveForEntryMutation(queue);
 
         QueueEntry entry = queueEntryRepository
                 .findById(entryId)
@@ -1014,9 +1158,117 @@ public class QueueService {
         QueueEntry savedEntry =
                 queueEntryRepository.save(entry);
 
+        saveStaffMutationIdempotency(
+                queue,
+                staffUserId,
+                savedEntry,
+                "SKIP",
+                normalizedIdempotencyKey
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
+    }
+
+    private QueueStaffEntryResponse replayStaffMutation(
+            Queue queue,
+            Long staffUserId,
+            Long requestedEntryId,
+            String operation,
+            String normalizedIdempotencyKey
+    ) {
+
+        if (normalizedIdempotencyKey == null) {
+            return null;
+        }
+
+        StaffMutationIdempotency existing =
+                staffMutationIdempotencyRepository
+                        .findByQueueIdAndStaffUserIdAndIdempotencyKey(
+                                queue.getId(),
+                                staffUserId,
+                                normalizedIdempotencyKey
+                        )
+                        .orElse(null);
+
+        if (existing == null) {
+            return null;
+        }
+
+        if (!existing.getExpiresAt()
+                .isAfter(OffsetDateTime.now())) {
+
+            staffMutationIdempotencyRepository.delete(existing);
+            staffMutationIdempotencyRepository.flush();
+            return null;
+        }
+
+        if (!existing.getOperation().equals(operation)) {
+            throw new IllegalStateException(
+                    "Idempotency-Key was already used with a different request"
+            );
+        }
+
+        if (requestedEntryId != null
+                && !existing.getQueueEntry()
+                        .getId()
+                        .equals(requestedEntryId)) {
+
+            throw new IllegalStateException(
+                    "Idempotency-Key was already used with a different request"
+            );
+        }
+
+        return toStaffEntryResponse(
+                existing.getQueueEntry()
+        );
+    }
+
+    private void saveStaffMutationIdempotency(
+            Queue queue,
+            Long staffUserId,
+            QueueEntry queueEntry,
+            String operation,
+            String normalizedIdempotencyKey
+    ) {
+
+        if (normalizedIdempotencyKey == null) {
+            return;
+        }
+
+        UserAccount staffUser =
+                userAccountRepository
+                        .findById(staffUserId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "User not found with id: "
+                                                + staffUserId
+                                )
+                        );
+
+        StaffMutationIdempotency record =
+                new StaffMutationIdempotency(
+                        queue,
+                        staffUser,
+                        queueEntry,
+                        operation,
+                        normalizedIdempotencyKey,
+                        OffsetDateTime.now().plusHours(24)
+                );
+
+        staffMutationIdempotencyRepository.save(record);
+    }
+
+    private void requireQueueActiveForEntryMutation(
+            Queue queue
+    ) {
+
+        if (queue.getStatus() == QueueStatus.CLOSED) {
+            throw new IllegalStateException(
+                    "Closed queue does not allow entry mutations"
+            );
+        }
     }
 
     @Transactional

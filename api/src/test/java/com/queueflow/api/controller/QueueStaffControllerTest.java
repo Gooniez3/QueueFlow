@@ -17,6 +17,7 @@ import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,9 @@ class QueueStaffControllerTest {
     private StaffMembershipRepository staffMembershipRepository;
 
     @Autowired
+    private StaffMutationIdempotencyRepository staffMutationIdempotencyRepository;
+
+    @Autowired
     private BranchRepository branchRepository;
 
     @Autowired
@@ -75,6 +79,7 @@ class QueueStaffControllerTest {
     @BeforeEach
     void cleanDatabase() {
         authSessionRepository.deleteAll();
+        staffMutationIdempotencyRepository.deleteAll();
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();
         staffMembershipRepository.deleteAll();
@@ -115,6 +120,330 @@ class QueueStaffControllerTest {
                         )
                 )
                 .andExpect(status().isUnauthorized());
+    }
+
+
+    @Test
+    void shouldReplayCallNextWithSameIdempotencyKey()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry first = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        QueueEntry second = createEntry(
+                queue,
+                service,
+                2
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotent-call-next@example.com"
+        );
+
+        String idempotencyKey =
+                "11111111-1111-1111-1111-111111111111";
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(first.getId()))
+                .andExpect(jsonPath("$.status")
+                        .value("CALLED"));
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(first.getId()))
+                .andExpect(jsonPath("$.status")
+                        .value("CALLED"));
+
+        QueueEntry firstReloaded =
+                queueEntryRepository
+                        .findById(first.getId())
+                        .orElseThrow();
+
+        QueueEntry secondReloaded =
+                queueEntryRepository
+                        .findById(second.getId())
+                        .orElseThrow();
+
+        assertThat(firstReloaded.getStatus())
+                .isEqualTo(QueueEntryStatus.CALLED);
+
+        assertThat(secondReloaded.getStatus())
+                .isEqualTo(QueueEntryStatus.WAITING);
+    }
+
+    @Test
+    void shouldRejectReusingStaffIdempotencyKeyForDifferentMutation()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotency-conflict@example.com"
+        );
+
+        String idempotencyKey =
+                "22222222-2222-2222-2222-222222222222";
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(entry.getId()));
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/start",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value(
+                                "Idempotency-Key was already used with a different request"
+                        ));
+    }
+
+
+    @Test
+    void shouldReplayCallNextWithSameIdempotencyKey()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry first = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        QueueEntry second = createEntry(
+                queue,
+                service,
+                2
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotent-call-next@example.com"
+        );
+
+        String idempotencyKey =
+                "11111111-1111-1111-1111-111111111111";
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(first.getId()))
+                .andExpect(jsonPath("$.status")
+                        .value("CALLED"));
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(first.getId()))
+                .andExpect(jsonPath("$.status")
+                        .value("CALLED"));
+
+        QueueEntry firstReloaded =
+                queueEntryRepository
+                        .findById(first.getId())
+                        .orElseThrow();
+
+        QueueEntry secondReloaded =
+                queueEntryRepository
+                        .findById(second.getId())
+                        .orElseThrow();
+
+        assertThat(firstReloaded.getStatus())
+                .isEqualTo(QueueEntryStatus.CALLED);
+
+        assertThat(secondReloaded.getStatus())
+                .isEqualTo(QueueEntryStatus.WAITING);
+    }
+
+    @Test
+    void shouldRejectReusingStaffIdempotencyKeyForDifferentMutation()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotency-conflict@example.com"
+        );
+
+        String idempotencyKey =
+                "22222222-2222-2222-2222-222222222222";
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(entry.getId()));
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/start",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        idempotencyKey
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value(
+                                "Idempotency-Key was already used with a different request"
+                        ));
     }
 
     @Test
@@ -199,7 +528,7 @@ class QueueStaffControllerTest {
     }
 
     @Test
-    void shouldSkipAlreadyCalledEntryWhenCallingNext()
+    void shouldRejectCallNextWhenQueueAlreadyHasCalledEntry()
             throws Exception {
 
         Business business = createBusiness();
@@ -244,15 +573,30 @@ class QueueStaffControllerTest {
                                         "Bearer " + token
                                 )
                 )
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.entryId")
-                        .value(second.getId()))
-                .andExpect(jsonPath("$.ticketSequence")
-                        .value(2))
-                .andExpect(jsonPath("$.ticketNumber")
-                        .value("A002"))
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status")
-                        .value("CALLED"));
+                        .value(409))
+                .andExpect(jsonPath("$.message")
+                        .value("Queue already has a called entry"));
+
+        QueueEntry unchangedFirst =
+                queueEntryRepository
+                        .findById(first.getId())
+                        .orElseThrow();
+
+        QueueEntry unchangedSecond =
+                queueEntryRepository
+                        .findById(second.getId())
+                        .orElseThrow();
+
+        assertThat(unchangedFirst.getStatus())
+                .isEqualTo(QueueEntryStatus.CALLED);
+
+        assertThat(unchangedSecond.getStatus())
+                .isEqualTo(QueueEntryStatus.WAITING);
+
+        assertThat(unchangedSecond.getCalledAt())
+                .isNull();
     }
 
     @Test
@@ -518,6 +862,76 @@ class QueueStaffControllerTest {
                 .isNotNull();
 
         assertThat(updated.getCompletedAt())
+                .isNull();
+    }
+
+    @Test
+    void shouldRejectStartServingWhenQueueAlreadyHasServingEntry()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry servingEntry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        servingEntry.setStatus(QueueEntryStatus.SERVING);
+        servingEntry.setCalledAt(OffsetDateTime.now());
+        servingEntry.setServingAt(OffsetDateTime.now());
+        queueEntryRepository.save(servingEntry);
+
+        QueueEntry calledEntry = createEntry(
+                queue,
+                service,
+                2
+        );
+
+        calledEntry.setStatus(QueueEntryStatus.CALLED);
+        calledEntry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(calledEntry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "second-serving@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/start",
+                                queue.getId(),
+                                calledEntry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status")
+                        .value(409))
+                .andExpect(jsonPath("$.message")
+                        .value("Queue already has a serving entry"));
+
+        QueueEntry unchangedCalled =
+                queueEntryRepository
+                        .findById(calledEntry.getId())
+                        .orElseThrow();
+
+        assertThat(unchangedCalled.getStatus())
+                .isEqualTo(QueueEntryStatus.CALLED);
+
+        assertThat(unchangedCalled.getServingAt())
                 .isNull();
     }
 
@@ -2344,6 +2758,623 @@ class QueueStaffControllerTest {
             )
             .andExpect(status().isForbidden());
   }
+
+
+    // =========================================================
+    // STAFF MUTATION IDEMPOTENCY
+    // =========================================================
+
+    @Test
+    void shouldReplayRecallWithSameIdempotencyKey()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(
+                OffsetDateTime.now().minusMinutes(5)
+        );
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotent-recall@example.com"
+        );
+
+        String key =
+                "33333333-3333-3333-3333-333333333333";
+
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/staff/entries/{entryId}/recall",
+                                    queue.getId(),
+                                    entry.getId()
+                            )
+                                    .header(
+                                            "Authorization",
+                                            "Bearer " + token
+                                    )
+                                    .header(
+                                            "Idempotency-Key",
+                                            key
+                                    )
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.entryId")
+                            .value(entry.getId()))
+                    .andExpect(jsonPath("$.status")
+                            .value("CALLED"));
+        }
+    }
+
+    @Test
+    void shouldReplayStartServingWithSameIdempotencyKey()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotent-start@example.com"
+        );
+
+        String key =
+                "44444444-4444-4444-4444-444444444444";
+
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/staff/entries/{entryId}/start",
+                                    queue.getId(),
+                                    entry.getId()
+                            )
+                                    .header(
+                                            "Authorization",
+                                            "Bearer " + token
+                                    )
+                                    .header(
+                                            "Idempotency-Key",
+                                            key
+                                    )
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.entryId")
+                            .value(entry.getId()))
+                    .andExpect(jsonPath("$.status")
+                            .value("SERVING"));
+        }
+    }
+
+    @Test
+    void shouldReplayCompleteWithSameIdempotencyKey()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.SERVING);
+        entry.setCalledAt(OffsetDateTime.now());
+        entry.setServingAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotent-complete@example.com"
+        );
+
+        String key =
+                "55555555-5555-5555-5555-555555555555";
+
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/staff/entries/{entryId}/complete",
+                                    queue.getId(),
+                                    entry.getId()
+                            )
+                                    .header(
+                                            "Authorization",
+                                            "Bearer " + token
+                                    )
+                                    .header(
+                                            "Idempotency-Key",
+                                            key
+                                    )
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.entryId")
+                            .value(entry.getId()))
+                    .andExpect(jsonPath("$.status")
+                            .value("COMPLETED"));
+        }
+    }
+
+    @Test
+    void shouldReplaySkipWithSameIdempotencyKey()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotent-skip@example.com"
+        );
+
+        String key =
+                "66666666-6666-6666-6666-666666666666";
+
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/queues/{queueId}/staff/entries/{entryId}/skip",
+                                    queue.getId(),
+                                    entry.getId()
+                            )
+                                    .header(
+                                            "Authorization",
+                                            "Bearer " + token
+                                    )
+                                    .header(
+                                            "Idempotency-Key",
+                                            key
+                                    )
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.entryId")
+                            .value(entry.getId()))
+                    .andExpect(jsonPath("$.status")
+                            .value(
+                                    i == 0
+                                            ? "SKIPPED"
+                                            : "SKIPPED"
+                            ));
+        }
+    }
+
+    // =========================================================
+    // PAUSED / CLOSED ENTRY MUTATION POLICY
+    // =========================================================
+
+    @Test
+    void shouldAllowStartServingWhenQueueIsPaused()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.PAUSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "paused-start@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/start",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status")
+                        .value("SERVING"));
+    }
+
+    @Test
+    void shouldRejectStartServingWhenQueueIsClosed()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "closed-start@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/start",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Closed queue does not allow entry mutations"));
+    }
+
+    @Test
+    void shouldAllowCompleteWhenQueueIsPaused()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.PAUSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.SERVING);
+        entry.setCalledAt(OffsetDateTime.now());
+        entry.setServingAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "paused-complete@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/complete",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status")
+                        .value("COMPLETED"));
+    }
+
+    @Test
+    void shouldRejectCompleteWhenQueueIsClosed()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.SERVING);
+        entry.setCalledAt(OffsetDateTime.now());
+        entry.setServingAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "closed-complete@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/complete",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Closed queue does not allow entry mutations"));
+    }
+
+    @Test
+    void shouldAllowSkipWhenQueueIsPaused()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.PAUSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "paused-skip@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/skip",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status")
+                        .value("SKIPPED"));
+    }
+
+    @Test
+    void shouldRejectSkipWhenQueueIsClosed()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "closed-skip@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/skip",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Closed queue does not allow entry mutations"));
+    }
+
+    @Test
+    void shouldAllowRecallWhenQueueIsPaused()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.PAUSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(
+                OffsetDateTime.now().minusMinutes(5)
+        );
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "paused-recall@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/recall",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status")
+                        .value("CALLED"));
+    }
+
+    @Test
+    void shouldRejectRecallWhenQueueIsClosed()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        entry.setCalledAt(OffsetDateTime.now());
+        queueEntryRepository.save(entry);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "closed-recall@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/entries/{entryId}/recall",
+                                queue.getId(),
+                                entry.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Closed queue does not allow entry mutations"));
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================

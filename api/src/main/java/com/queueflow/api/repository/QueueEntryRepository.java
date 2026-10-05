@@ -37,6 +37,11 @@ public interface QueueEntryRepository
             Integer ticketSequence
     );
 
+    boolean existsByQueueIdAndStatus(
+            Long queueId,
+            QueueEntryStatus status
+    );
+
     boolean existsByQueueIdAndUserIdAndStatusIn(
             Long queueId,
             Long userId,
