@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class PublicDiscoveryService {
@@ -45,12 +47,37 @@ public class PublicDiscoveryService {
         String normalizedCategory =
                 normalize(category);
 
-        return branchRepository
-                .findAllByOrderByNameAsc()
-                .stream()
+        List<Branch> branches =
+                branchRepository.findAllByOrderByNameAsc();
+
+        List<Long> branchIds =
+                branches.stream()
+                        .map(Branch::getId)
+                        .toList();
+
+        Map<Long, List<com.queueflow.api.entity.Service>>
+                servicesByBranch =
+                branchIds.isEmpty()
+                        ? Map.of()
+                        : serviceRepository
+                        .findByBranchIdInAndActiveTrue(branchIds)
+                        .stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        service ->
+                                                service.getBranch()
+                                                        .getId()
+                                )
+                        );
+
+        return branches.stream()
                 .map(branch ->
                         toDiscoveryResponse(
                                 branch,
+                                servicesByBranch.getOrDefault(
+                                        branch.getId(),
+                                        List.of()
+                                ),
                                 latitude,
                                 longitude
                         )
@@ -78,15 +105,13 @@ public class PublicDiscoveryService {
 
     private PublicDiscoveryResponse toDiscoveryResponse(
             Branch branch,
+            List<com.queueflow.api.entity.Service> branchServices,
             Double latitude,
             Double longitude
     ) {
 
         List<PublicDiscoveryServiceResponse> services =
-                serviceRepository
-                        .findByBranchIdAndActiveTrue(
-                                branch.getId()
-                        )
+                branchServices
                         .stream()
                         .map(service ->
                                 new PublicDiscoveryServiceResponse(
