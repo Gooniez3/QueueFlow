@@ -4,6 +4,7 @@ import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Business;
 import com.queueflow.api.entity.Queue;
 import com.queueflow.api.entity.QueueEntry;
+import com.queueflow.api.entity.QueueEntryStatus;
 import com.queueflow.api.entity.QueueStatus;
 import com.queueflow.api.entity.StaffMembership;
 import com.queueflow.api.entity.StaffRole;
@@ -20,6 +21,7 @@ import com.queueflow.api.request.CreateQueueRequest;
 import com.queueflow.api.request.JoinQueueRequest;
 import com.queueflow.api.response.QueueEntryResponse;
 import com.queueflow.api.response.QueueResponse;
+import com.queueflow.api.response.QueueStaffEntryResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,9 +73,9 @@ class QueueConcurrencyTest {
     @BeforeEach
     void cleanDatabase() {
         guestJoinIdempotencyRepository.deleteAll();
+        staffMembershipRepository.deleteAll();
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();
-        staffMembershipRepository.deleteAll();
         serviceRepository.deleteAll();
         branchRepository.deleteAll();
         businessRepository.deleteAll();
@@ -491,6 +493,415 @@ void shouldReplaySameGuestJoinUnderConcurrency()
         executor.shutdownNow();
     }
   }
+
+    @Test
+    void shouldAllowOnlyOneConcurrentCallNext()
+            throws Exception {
+
+        Business business = businessRepository.save(
+                new Business(
+                        "Concurrent Call Clinic",
+                        "Concurrency test"
+                )
+        );
+
+        Branch branch = branchRepository.save(
+                new Branch(
+                        business,
+                        "Main Branch",
+                        "123 Main Street",
+                        null,
+                        null
+                )
+        );
+
+        com.queueflow.api.entity.Service service =
+                serviceRepository.save(
+                        new com.queueflow.api.entity.Service(
+                                branch,
+                                "Consultation",
+                                "General consultation",
+                                30
+                        )
+                );
+
+        Queue queue = queueRepository.save(
+                new Queue(
+                        branch,
+                        service,
+                        "Consultation Queue",
+                        LocalDate.now(),
+                        "A"
+                )
+        );
+
+        QueueEntry first = queueEntryRepository.save(
+                new QueueEntry(
+                        queue,
+                        service,
+                        null,
+                        1,
+                        "call-next-guest-1"
+                )
+        );
+
+        QueueEntry second = queueEntryRepository.save(
+                new QueueEntry(
+                        queue,
+                        service,
+                        null,
+                        2,
+                        "call-next-guest-2"
+                )
+        );
+
+        UserAccount staffUser =
+                userAccountRepository.save(
+                        new UserAccount(
+                                "concurrent-call@example.com",
+                                "test-password-hash",
+                                "Concurrent",
+                                "Staff",
+                                null
+                        )
+                );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        staffUser,
+                        business,
+                        branch,
+                        StaffRole.STAFF
+                )
+        );
+
+        int concurrentCalls = 2;
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(concurrentCalls);
+
+        CountDownLatch ready =
+                new CountDownLatch(concurrentCalls);
+
+        CountDownLatch start =
+                new CountDownLatch(1);
+
+        List<Future<Object>> futures =
+                new ArrayList<>();
+
+        try {
+            for (int i = 0; i < concurrentCalls; i++) {
+
+                futures.add(
+                        executor.submit(() -> {
+
+                            ready.countDown();
+                            start.await();
+
+                            try {
+                                return queueService.callNext(
+                                        queue.getId(),
+                                        staffUser.getId(),
+                                        null
+                                );
+                            } catch (Exception exception) {
+                                return exception;
+                            }
+                        })
+                );
+            }
+
+            ready.await();
+            start.countDown();
+
+            List<Object> results =
+                    new ArrayList<>();
+
+            for (Future<Object> future : futures) {
+                results.add(future.get());
+            }
+
+            long successes =
+                    results.stream()
+                            .filter(
+                                    QueueStaffEntryResponse.class::isInstance
+                            )
+                            .count();
+
+            assertThat(successes)
+                    .isEqualTo(1);
+
+            List<Exception> failures =
+                    results.stream()
+                            .filter(Exception.class::isInstance)
+                            .map(Exception.class::cast)
+                            .toList();
+
+            assertThat(failures)
+                    .hasSize(1);
+
+            assertThat(failures.getFirst())
+                    .isInstanceOf(
+                            IllegalStateException.class
+                    )
+                    .hasMessage(
+                            "Queue already has a called entry"
+                    );
+
+            List<QueueEntry> entries =
+                    queueEntryRepository
+                            .findByQueueIdOrderByTicketSequenceAsc(
+                                    queue.getId()
+                            );
+
+            assertThat(entries)
+                    .hasSize(2);
+
+            assertThat(
+                    entries.stream()
+                            .filter(entry ->
+                                    entry.getStatus()
+                                            == QueueEntryStatus.CALLED
+                            )
+                            .count()
+            ).isEqualTo(1);
+
+            assertThat(
+                    entries.stream()
+                            .filter(entry ->
+                                    entry.getStatus()
+                                            == QueueEntryStatus.WAITING
+                            )
+                            .count()
+            ).isEqualTo(1);
+
+            assertThat(first.getId())
+                    .isNotNull();
+
+            assertThat(second.getId())
+                    .isNotNull();
+
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldAllowOnlyOneConcurrentStartServing()
+            throws Exception {
+
+        Business business = businessRepository.save(
+                new Business(
+                        "Concurrent Serving Clinic",
+                        "Concurrency test"
+                )
+        );
+
+        Branch branch = branchRepository.save(
+                new Branch(
+                        business,
+                        "Main Branch",
+                        "123 Main Street",
+                        null,
+                        null
+                )
+        );
+
+        com.queueflow.api.entity.Service service =
+                serviceRepository.save(
+                        new com.queueflow.api.entity.Service(
+                                branch,
+                                "Consultation",
+                                "General consultation",
+                                30
+                        )
+                );
+
+        Queue queue = queueRepository.save(
+                new Queue(
+                        branch,
+                        service,
+                        "Consultation Queue",
+                        LocalDate.now(),
+                        "A"
+                )
+        );
+
+        QueueEntry first = new QueueEntry(
+                queue,
+                service,
+                null,
+                1,
+                "serving-guest-1"
+        );
+
+        first.setStatus(
+                QueueEntryStatus.CALLED
+        );
+
+        first.setCalledAt(
+                OffsetDateTime.now()
+        );
+
+        first = queueEntryRepository.save(first);
+
+        QueueEntry second = new QueueEntry(
+                queue,
+                service,
+                null,
+                2,
+                "serving-guest-2"
+        );
+
+        second.setStatus(
+                QueueEntryStatus.CALLED
+        );
+
+        second.setCalledAt(
+                OffsetDateTime.now()
+        );
+
+        second = queueEntryRepository.save(second);
+
+        Long firstEntryId = first.getId();
+        Long secondEntryId = second.getId();
+
+        UserAccount staffUser =
+                userAccountRepository.save(
+                        new UserAccount(
+                                "concurrent-serving@example.com",
+                                "test-password-hash",
+                                "Concurrent",
+                                "Staff",
+                                null
+                        )
+                );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        staffUser,
+                        business,
+                        branch,
+                        StaffRole.STAFF
+                )
+        );
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(2);
+
+        CountDownLatch ready =
+                new CountDownLatch(2);
+
+        CountDownLatch start =
+                new CountDownLatch(1);
+
+        List<Future<Object>> futures =
+                new ArrayList<>();
+
+        try {
+            futures.add(
+                    executor.submit(() -> {
+
+                        ready.countDown();
+                        start.await();
+
+                        try {
+                            return queueService.startServing(
+                                    queue.getId(),
+                                    firstEntryId,
+                                    staffUser.getId(),
+                                    null
+                            );
+                        } catch (Exception exception) {
+                            return exception;
+                        }
+                    })
+            );
+
+            futures.add(
+                    executor.submit(() -> {
+
+                        ready.countDown();
+                        start.await();
+
+                        try {
+                            return queueService.startServing(
+                                    queue.getId(),
+                                    secondEntryId,
+                                    staffUser.getId(),
+                                    null
+                            );
+                        } catch (Exception exception) {
+                            return exception;
+                        }
+                    })
+            );
+
+            ready.await();
+            start.countDown();
+
+            List<Object> results =
+                    new ArrayList<>();
+
+            for (Future<Object> future : futures) {
+                results.add(future.get());
+            }
+
+            long successes =
+                    results.stream()
+                            .filter(
+                                    QueueStaffEntryResponse.class::isInstance
+                            )
+                            .count();
+
+            assertThat(successes)
+                    .isEqualTo(1);
+
+            List<Exception> failures =
+                    results.stream()
+                            .filter(Exception.class::isInstance)
+                            .map(Exception.class::cast)
+                            .toList();
+
+            assertThat(failures)
+                    .hasSize(1);
+
+            assertThat(failures.getFirst())
+                    .isInstanceOf(
+                            IllegalStateException.class
+                    )
+                    .hasMessage(
+                            "Queue already has a serving entry"
+                    );
+
+            List<QueueEntry> entries =
+                    queueEntryRepository
+                            .findByQueueIdOrderByTicketSequenceAsc(
+                                    queue.getId()
+                            );
+
+            assertThat(
+                    entries.stream()
+                            .filter(entry ->
+                                    entry.getStatus()
+                                            == QueueEntryStatus.SERVING
+                            )
+                            .count()
+            ).isEqualTo(1);
+
+            assertThat(
+                    entries.stream()
+                            .filter(entry ->
+                                    entry.getStatus()
+                                            == QueueEntryStatus.CALLED
+                            )
+                            .count()
+            ).isEqualTo(1);
+
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 
     @Test
     void shouldAllowOnlyOneConcurrentReopen()
