@@ -1162,6 +1162,71 @@ public class QueueService {
     return toResponse(savedQueue);
    }
 
+    @Transactional
+    public QueueResponse reopenQueue(
+            Long queueId,
+            Long staffUserId
+    ) {
+
+        Queue queue = queueRepository
+                .findByIdForUpdate(queueId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Queue not found with id: "
+                                        + queueId
+                        )
+                );
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        Long branchId =
+                queue.getBranch()
+                        .getId();
+
+        businessAuthorizationService
+                .requireBranchAccess(
+                        staffUserId,
+                        businessId,
+                        branchId
+                );
+
+        if (queue.getStatus() != QueueStatus.CLOSED) {
+            throw new IllegalStateException(
+                    "Only a closed queue can be reopened"
+            );
+        }
+
+        LocalDate currentBusinessDate =
+                LocalDate.now(
+                        ZoneId.of(
+                                queue.getBranch()
+                                        .getTimezone()
+                        )
+                );
+
+        if (!queue.getBusinessDate()
+                .equals(currentBusinessDate)) {
+
+            throw new IllegalStateException(
+                    "Only today's queue can be reopened"
+            );
+        }
+
+        queue.setStatus(
+                QueueStatus.OPEN
+        );
+
+        queue.setClosedAt(null);
+
+        Queue savedQueue =
+                queueRepository.save(queue);
+
+        return toResponse(savedQueue);
+    }
+
     private com.queueflow.api.entity.Service resolveJoinService(
             Queue queue,
             Long requestedServiceId

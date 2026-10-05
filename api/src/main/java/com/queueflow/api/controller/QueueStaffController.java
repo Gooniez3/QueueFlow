@@ -147,4 +147,19 @@ public class QueueStaffController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/reopen")
+    public ResponseEntity<QueueResponse> reopenQueue(
+            @PathVariable Long queueId,
+            @AuthenticationPrincipal AuthUserPrincipal principal
+    ) {
+
+        QueueResponse response =
+                queueService.reopenQueue(
+                        queueId,
+                        principal.userId()
+                );
+
+        return ResponseEntity.ok(response);
+    }
 }
