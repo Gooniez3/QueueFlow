@@ -700,19 +700,6 @@ public class QueueService {
                         )
                 );
 
-        QueueStaffEntryResponse replay =
-                replayStaffMutation(
-                        queue,
-                        staffUserId,
-                        null,
-                        "CALL_NEXT",
-                        normalizedIdempotencyKey
-                );
-
-        if (replay != null) {
-            return replay;
-        }
-
         Long businessId =
                 queue.getBranch()
                         .getBusiness()
@@ -727,6 +714,19 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        null,
+                        "CALL_NEXT",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         if (queue.getStatus() != QueueStatus.OPEN) {
             throw new IllegalStateException(
@@ -798,19 +798,6 @@ public class QueueService {
                         )
                 );
 
-        QueueStaffEntryResponse replay =
-                replayStaffMutation(
-                        queue,
-                        staffUserId,
-                        entryId,
-                        "RECALL",
-                        normalizedIdempotencyKey
-                );
-
-        if (replay != null) {
-            return replay;
-        }
-
         Long businessId =
                 queue.getBranch()
                         .getBusiness()
@@ -826,6 +813,19 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "RECALL",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         requireQueueActiveForEntryMutation(queue);
 
@@ -892,19 +892,6 @@ public class QueueService {
                         )
                 );
 
-        QueueStaffEntryResponse replay =
-                replayStaffMutation(
-                        queue,
-                        staffUserId,
-                        entryId,
-                        "START_SERVING",
-                        normalizedIdempotencyKey
-                );
-
-        if (replay != null) {
-            return replay;
-        }
-
         Long businessId =
                 queue.getBranch()
                         .getBusiness()
@@ -920,6 +907,19 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "START_SERVING",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         requireQueueActiveForEntryMutation(queue);
 
@@ -999,19 +999,6 @@ public class QueueService {
                         )
                 );
 
-        QueueStaffEntryResponse replay =
-                replayStaffMutation(
-                        queue,
-                        staffUserId,
-                        entryId,
-                        "COMPLETE",
-                        normalizedIdempotencyKey
-                );
-
-        if (replay != null) {
-            return replay;
-        }
-
         Long businessId =
                 queue.getBranch()
                         .getBusiness()
@@ -1026,6 +1013,19 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "COMPLETE",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         requireQueueActiveForEntryMutation(queue);
 
@@ -1096,19 +1096,6 @@ public class QueueService {
                         )
                 );
 
-        QueueStaffEntryResponse replay =
-                replayStaffMutation(
-                        queue,
-                        staffUserId,
-                        entryId,
-                        "SKIP",
-                        normalizedIdempotencyKey
-                );
-
-        if (replay != null) {
-            return replay;
-        }
-
         Long businessId =
                 queue.getBranch()
                         .getBusiness()
@@ -1124,6 +1111,19 @@ public class QueueService {
                         businessId,
                         branchId
                 );
+
+        QueueStaffEntryResponse replay =
+                replayStaffMutation(
+                        queue,
+                        staffUserId,
+                        entryId,
+                        "SKIP",
+                        normalizedIdempotencyKey
+                );
+
+        if (replay != null) {
+            return replay;
+        }
 
         requireQueueActiveForEntryMutation(queue);
 

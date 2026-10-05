@@ -215,6 +215,140 @@ class QueueStaffControllerTest {
                 .isEqualTo(QueueEntryStatus.WAITING);
     }
 
+
+    @Test
+    void shouldRequireCurrentAuthorizationBeforeIdempotencyReplay()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotency-auth@example.com"
+        );
+
+        String key =
+                "77777777-7777-7777-7777-777777777777";
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        key
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(entry.getId()));
+
+        staffMembershipRepository.deleteAll();
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        key
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
+
+    @Test
+    void shouldRequireCurrentAuthorizationBeforeIdempotencyReplay()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        QueueEntry entry = createEntry(
+                queue,
+                service,
+                1
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "idempotency-auth@example.com"
+        );
+
+        String key =
+                "77777777-7777-7777-7777-777777777777";
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        key
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(entry.getId()));
+
+        staffMembershipRepository.deleteAll();
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/call-next",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .header(
+                                        "Idempotency-Key",
+                                        key
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
     @Test
     void shouldRejectReusingStaffIdempotencyKeyForDifferentMutation()
             throws Exception {
