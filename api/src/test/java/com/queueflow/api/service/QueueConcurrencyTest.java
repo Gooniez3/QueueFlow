@@ -4,12 +4,18 @@ import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Business;
 import com.queueflow.api.entity.Queue;
 import com.queueflow.api.entity.QueueEntry;
+import com.queueflow.api.entity.QueueStatus;
+import com.queueflow.api.entity.StaffMembership;
+import com.queueflow.api.entity.StaffRole;
+import com.queueflow.api.entity.UserAccount;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
 import com.queueflow.api.repository.GuestJoinIdempotencyRepository;
 import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
+import com.queueflow.api.repository.StaffMembershipRepository;
+import com.queueflow.api.repository.UserAccountRepository;
 import com.queueflow.api.request.CreateQueueRequest;
 import com.queueflow.api.request.JoinQueueRequest;
 import com.queueflow.api.response.QueueEntryResponse;
@@ -20,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -55,14 +62,22 @@ class QueueConcurrencyTest {
     @Autowired
     private BusinessRepository businessRepository;
 
+    @Autowired
+    private StaffMembershipRepository staffMembershipRepository;
+
+    @Autowired
+    private UserAccountRepository userAccountRepository;
+
     @BeforeEach
     void cleanDatabase() {
         guestJoinIdempotencyRepository.deleteAll();
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();
+        staffMembershipRepository.deleteAll();
         serviceRepository.deleteAll();
         branchRepository.deleteAll();
         businessRepository.deleteAll();
+        userAccountRepository.deleteAll();
     }
 
     @Test
@@ -476,5 +491,185 @@ void shouldReplaySameGuestJoinUnderConcurrency()
         executor.shutdownNow();
     }
   }
+
+    @Test
+    void shouldAllowOnlyOneConcurrentReopen()
+            throws Exception {
+
+        Business business =
+                businessRepository.save(
+                        new Business(
+                                "Concurrency Clinic",
+                                "Concurrency test"
+                        )
+                );
+
+        Branch branch =
+                branchRepository.save(
+                        new Branch(
+                                business,
+                                "Main Branch",
+                                "123 Main Street",
+                                null,
+                                null
+                        )
+                );
+
+        branch.setTimezone("Asia/Singapore");
+        branch = branchRepository.save(branch);
+
+        com.queueflow.api.entity.Service service =
+                serviceRepository.save(
+                        new com.queueflow.api.entity.Service(
+                                branch,
+                                "Consultation",
+                                "General consultation",
+                                30
+                        )
+                );
+
+        Queue queue =
+                new Queue(
+                        branch,
+                        service,
+                        "Consultation Queue",
+                        LocalDate.now(
+                                java.time.ZoneId.of(
+                                        branch.getTimezone()
+                                )
+                        ),
+                        "A"
+                );
+
+        queue.setStatus(QueueStatus.CLOSED);
+        queue.setClosedAt(OffsetDateTime.now());
+
+        queue = queueRepository.save(queue);
+
+        UserAccount user =
+                userAccountRepository.save(
+                        new UserAccount(
+                                "reopen-concurrency@example.com",
+                                "unused-password-hash",
+                                "Queue",
+                                "Staff",
+                                null
+                        )
+                );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user,
+                        business,
+                        branch,
+                        StaffRole.STAFF
+                )
+        );
+
+        Long queueId = queue.getId();
+        Long staffUserId = user.getId();
+
+        int concurrentReopens = 2;
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(
+                        concurrentReopens
+                );
+
+        CountDownLatch ready =
+                new CountDownLatch(
+                        concurrentReopens
+                );
+
+        CountDownLatch start =
+                new CountDownLatch(1);
+
+        List<Future<Object>> futures =
+                new ArrayList<>();
+
+        try {
+            for (int i = 0;
+                 i < concurrentReopens;
+                 i++) {
+
+                futures.add(
+                        executor.submit(() -> {
+
+                            ready.countDown();
+                            start.await();
+
+                            try {
+                                return queueService.reopenQueue(
+                                        queueId,
+                                        staffUserId
+                                );
+                            } catch (Exception exception) {
+                                return exception;
+                            }
+                        })
+                );
+            }
+
+            ready.await();
+            start.countDown();
+
+            List<Object> results =
+                    new ArrayList<>();
+
+            for (Future<Object> future : futures) {
+                results.add(future.get());
+            }
+
+            long successfulReopens =
+                    results.stream()
+                            .filter(
+                                    QueueResponse.class::isInstance
+                            )
+                            .count();
+
+            assertThat(successfulReopens)
+                    .isEqualTo(1);
+
+            List<Exception> failures =
+                    results.stream()
+                            .filter(
+                                    Exception.class::isInstance
+                            )
+                            .map(
+                                    Exception.class::cast
+                            )
+                            .toList();
+
+            assertThat(failures)
+                    .hasSize(1);
+
+            assertThat(failures.getFirst())
+                    .isInstanceOf(
+                            IllegalStateException.class
+                    );
+
+            assertThat(failures.getFirst())
+                    .hasMessage(
+                            "Only a closed queue can be reopened"
+                    );
+
+            Queue reopened =
+                    queueRepository
+                            .findById(queueId)
+                            .orElseThrow();
+
+            assertThat(reopened.getStatus())
+                    .isEqualTo(QueueStatus.OPEN);
+
+            assertThat(reopened.getClosedAt())
+                    .isNull();
+
+            assertThat(queueRepository.count())
+                    .isEqualTo(1);
+
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 }
 

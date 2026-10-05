@@ -32,6 +32,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -2301,6 +2302,379 @@ class QueueStaffControllerTest {
     assertThat(unchanged.getClosedAt())
             .isNull();
   }
+    // =========================================================
+    // REOPEN QUEUE
+    // =========================================================
+
+    @Test
+    void shouldReopenClosedQueueAndPreserveQueueState() throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        queue.setClosedAt(OffsetDateTime.now());
+        queue.setNextTicketSequence(7);
+        queue = queueRepository.save(queue);
+
+        QueueEntry existingEntry =
+                createEntry(queue, service, 3);
+
+        Long originalQueueId = queue.getId();
+        Long originalBranchId = queue.getBranch().getId();
+        Long originalBusinessId =
+                business.getId();
+        Long originalServiceId = queue.getService().getId();
+
+        LocalDate originalBusinessDate =
+                queue.getBusinessDate();
+
+        OffsetDateTime originalOpenedAt =
+                queue.getOpenedAt();
+
+        Integer originalNextTicketSequence =
+                queue.getNextTicketSequence();
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "reopen-success@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(originalQueueId))
+                .andExpect(jsonPath("$.status")
+                        .value("OPEN"))
+                .andExpect(jsonPath("$.closedAt")
+                        .doesNotExist());
+
+        Queue reopened =
+                queueRepository
+                        .findById(originalQueueId)
+                        .orElseThrow();
+
+        assertThat(reopened.getStatus())
+                .isEqualTo(QueueStatus.OPEN);
+
+        assertThat(reopened.getClosedAt())
+                .isNull();
+
+        assertThat(reopened.getId())
+                .isEqualTo(originalQueueId);
+
+        assertThat(reopened.getBranch().getId())
+                .isEqualTo(originalBranchId);
+
+        Branch reopenedBranch =
+                branchRepository
+                        .findById(
+                                reopened.getBranch().getId()
+                        )
+                        .orElseThrow();
+
+        assertThat(
+                reopenedBranch
+                        .getBusiness()
+                        .getId()
+        ).isEqualTo(originalBusinessId);
+
+        assertThat(reopened.getService().getId())
+                .isEqualTo(originalServiceId);
+
+        assertThat(reopened.getBusinessDate())
+                .isEqualTo(originalBusinessDate);
+
+        assertThat(
+                reopened.getOpenedAt().toInstant()
+        ).isCloseTo(
+                originalOpenedAt.toInstant(),
+                org.assertj.core.api.Assertions.within(
+                        1,
+                        java.time.temporal.ChronoUnit.MILLIS
+                )
+        );
+
+        assertThat(reopened.getNextTicketSequence())
+                .isEqualTo(originalNextTicketSequence);
+
+        QueueEntry preservedEntry =
+                queueEntryRepository
+                        .findById(existingEntry.getId())
+                        .orElseThrow();
+
+        assertThat(preservedEntry.getQueue().getId())
+                .isEqualTo(originalQueueId);
+
+        assertThat(queueRepository.count())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectReopeningOpenQueue() throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.OPEN
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "reopen-open@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void shouldRejectReopeningPausedQueue() throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.PAUSED
+        );
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "reopen-paused@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void shouldRejectRepeatedReopen() throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        queue.setClosedAt(OffsetDateTime.now());
+        queue = queueRepository.save(queue);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "reopen-repeat@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void shouldRejectReopeningPreviousBusinessDateQueue() throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        LocalDate previousDate =
+                LocalDate.now(
+                        ZoneId.of(branch.getTimezone())
+                ).minusDays(1);
+
+        Queue queue =
+                new Queue(
+                        branch,
+                        service,
+                        "Old Queue",
+                        previousDate,
+                        "A"
+                );
+
+        queue.setStatus(QueueStatus.CLOSED);
+        queue.setClosedAt(OffsetDateTime.now());
+
+        queue = queueRepository.save(queue);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "reopen-old@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isConflict());
+
+        Queue unchanged =
+                queueRepository
+                        .findById(queue.getId())
+                        .orElseThrow();
+
+        assertThat(unchanged.getStatus())
+                .isEqualTo(QueueStatus.CLOSED);
+    }
+
+    @Test
+    void shouldRequireAuthenticationToReopenQueue() throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                )
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectUserWithoutBusinessMembershipWhenReopeningQueue()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        Service service = createService(branch);
+
+        Queue queue = createQueue(
+                branch,
+                service,
+                QueueStatus.CLOSED
+        );
+
+        createUser(
+                "reopen-outsider@example.com",
+                "password123"
+        );
+
+        String token = loginAndGetToken(
+                "reopen-outsider@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                queue.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenReopeningMissingQueue()
+            throws Exception {
+
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+
+        String token = createMemberAndLogin(
+                business,
+                branch,
+                "reopen-missing@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/queues/{queueId}/staff/reopen",
+                                999999999L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                )
+                .andExpect(status().isNotFound());
+    }
+
     @Test
     void shouldRejectCallNextFromStaffAssignedToDifferentBranch() throws Exception {
 
