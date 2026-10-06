@@ -608,6 +608,7 @@ class ServiceManagementTest extends TestCase
     {
         return [
             'queueId' => 91,
+            'publicCode' => 'consultation-queue-public-code',
             'name' => $serviceId === null ? 'Shared Queue' : 'Consultation Queue',
             'status' => 'OPEN',
             'ticketPrefix' => 'A',

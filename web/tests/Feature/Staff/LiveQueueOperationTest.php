@@ -477,6 +477,7 @@ class LiveQueueOperationTest extends TestCase
     ): array {
         return [
             'queueId' => 91,
+            'publicCode' => 'selling-drink-queue-public-code',
             'name' => 'Selling drink queue',
             'status' => $status,
             'ticketPrefix' => 'D',

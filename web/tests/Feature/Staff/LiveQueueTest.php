@@ -100,6 +100,11 @@ class LiveQueueTest extends TestCase
             ->assertSeeInOrder(['W003', 'W004'])
             ->assertSee('Next up')
             ->assertSee('Position 1 of 2 waiting')
+            ->assertSee('View board')
+            ->assertSee('href="'.route('queues.board.show', 'queue-91-public-code').'"', false)
+            ->assertSee('target="_blank"', false)
+            ->assertSee('rel="noopener noreferrer"', false)
+            ->assertDontSee('href="'.route('queues.board.show', '91').'"', false)
             ->assertDontSee('inert-spring-token');
 
         $dashboardRequests = collect(Http::recorded())->filter(
@@ -594,6 +599,7 @@ class LiveQueueTest extends TestCase
     ): array {
         return [
             'queueId' => $queueId,
+            'publicCode' => "queue-{$queueId}-public-code",
             'name' => $name,
             'status' => $status,
             'ticketPrefix' => $prefix,

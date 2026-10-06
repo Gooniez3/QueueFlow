@@ -84,6 +84,8 @@
                         </div>
 
                         <div class="flex flex-wrap gap-2" aria-label="Queue controls">
+                            <a class="staff-secondary-button" href="{{ route('queues.board.show', $selectedQueue->publicCode) }}" target="_blank" rel="noopener noreferrer"><x-staff.icon class="size-4" name="queues" />View board</a>
+
                             @if ($selectedQueue->status === 'OPEN')
                                 <form method="POST" action="{{ route('staff.live-queues.pause', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
                                     @csrf

@@ -44,6 +44,10 @@ class StaffDashboardDataTest extends TestCase
             static fn (StaffDashboardQueueData $queue): int => $queue->queueId,
             $dashboard->queues,
         ));
+        $this->assertSame(['queue-91-public-code', 'queue-92-public-code', 'queue-93-public-code'], array_map(
+            static fn (StaffDashboardQueueData $queue): string => $queue->publicCode,
+            $dashboard->queues,
+        ));
         $this->assertSame(['OPEN', 'PAUSED', 'CLOSED'], array_map(
             static fn (StaffDashboardQueueData $queue): string => $queue->status,
             $dashboard->queues,
@@ -87,6 +91,7 @@ class StaffDashboardDataTest extends TestCase
     ): array {
         return [
             'queueId' => $queueId,
+            'publicCode' => "queue-{$queueId}-public-code",
             'name' => "Queue {$queueId}",
             'status' => $status,
             'ticketPrefix' => 'A',

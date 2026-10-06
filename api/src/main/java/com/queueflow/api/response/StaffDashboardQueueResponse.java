@@ -6,6 +6,7 @@ import java.util.List;
 
 public record StaffDashboardQueueResponse(
         Long queueId,
+        String publicCode,
         String name,
         QueueStatus status,
         String ticketPrefix,

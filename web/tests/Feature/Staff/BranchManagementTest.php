@@ -589,6 +589,7 @@ class BranchManagementTest extends TestCase
     ): array {
         return [
             'queueId' => $queueId,
+            'publicCode' => "queue-{$queueId}-public-code",
             'name' => $name,
             'status' => $status,
             'ticketPrefix' => $prefix,

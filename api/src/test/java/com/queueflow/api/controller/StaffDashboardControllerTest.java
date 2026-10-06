@@ -156,6 +156,8 @@ class StaffDashboardControllerTest {
                         .value(1))
                 .andExpect(jsonPath("$.queues[0].queueId")
                         .value(queue.getId()))
+                .andExpect(jsonPath("$.queues[0].publicCode")
+                        .value(queue.getPublicCode()))
                 .andExpect(jsonPath("$.queues[0].name")
                         .value("Consultation Queue"))
                 .andExpect(jsonPath("$.queues[0].status")
