@@ -41,12 +41,43 @@ class QueueOpeningTest extends TestCase
             ->assertSee('Service-specific queue')
             ->assertSee('Shared branch queue')
             ->assertSee('Selling drink')
-            ->assertSee('Event service (inactive)')
+            ->assertDontSee('Event service')
+            ->assertDontSee('value="502"', false)
             ->assertDontSee('inert-spring-token');
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
             && $request->url() === $this->servicesUrl()
             && ! $request->hasHeader('Authorization'));
+    }
+
+    public function test_branch_scoped_staff_can_access_queue_opening_form_for_their_branch(): void
+    {
+        $this->fake([
+            $this->branchUrl() => Http::response($this->branch()),
+            $this->servicesUrl() => Http::response([
+                $this->service(501, 'Selling drink'),
+            ]),
+            $this->businessUrl() => Http::response($this->business()),
+        ], [$this->membership(branchId: 101)]);
+
+        $this->authenticated([$this->membership(branchId: 101)])
+            ->get(route('staff.live-queues.create', [10, 101]))
+            ->assertOk()
+            ->assertSee('Open a queue')
+            ->assertSee('Selling drink');
+    }
+
+    public function test_branch_scoped_staff_cannot_access_queue_opening_form_for_another_branch(): void
+    {
+        $this->fake([], [$this->membership(branchId: 102)]);
+
+        $this->authenticated([$this->membership(branchId: 102)])
+            ->get(route('staff.live-queues.create', [10, 101]))
+            ->assertForbidden()
+            ->assertSee('You are not authorized to manage this branch.');
+
+        Http::assertNotSent(fn (Request $request): bool => $request->url() === $this->branchUrl()
+            || $request->url() === $this->servicesUrl());
     }
 
     public function test_form_rejects_branch_response_from_another_business_before_loading_services(): void
@@ -123,6 +154,18 @@ class QueueOpeningTest extends TestCase
             ->assertNotFound();
 
         Http::assertNotSent(fn (Request $request): bool => $request->url() === $this->queuesUrl());
+    }
+
+    public function test_branch_scoped_staff_cannot_submit_queue_creation_for_another_branch(): void
+    {
+        $this->fake([], [$this->membership(branchId: 102)]);
+
+        $this->authenticated([$this->membership(branchId: 102)])
+            ->post(route('staff.live-queues.store', [10, 101]), $this->serviceQueuePayload())
+            ->assertForbidden();
+
+        Http::assertNotSent(fn (Request $request): bool => $request->url() === $this->branchUrl()
+            || $request->url() === $this->queuesUrl());
     }
 
     public function test_validation_requires_queue_type_service_name_and_prefix_before_spring_mutation(): void
@@ -241,25 +284,25 @@ class QueueOpeningTest extends TestCase
     }
 
     /** @param array<string, mixed> $responses */
-    private function fake(array $responses = []): void
+    private function fake(array $responses = [], ?array $memberships = null): void
     {
         Http::preventStrayRequests();
         Http::fake([
             'http://localhost:8080/api/v1/auth/me' => Http::response([
                 'user' => $this->user(),
-                'memberships' => [$this->membership()],
+                'memberships' => $memberships ?? [$this->membership()],
             ]),
             ...$responses,
         ]);
     }
 
-    private function authenticated(): static
+    private function authenticated(?array $memberships = null): static
     {
         return $this->withSession([
             'queueflow.auth' => [
                 'token' => 'inert-spring-token',
                 'user' => $this->user(),
-                'memberships' => [$this->membership()],
+                'memberships' => $memberships ?? [$this->membership()],
             ],
         ]);
     }
@@ -288,9 +331,9 @@ class QueueOpeningTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function membership(): array
+    private function membership(?int $branchId = null): array
     {
-        return ['businessId' => 10, 'branchId' => null, 'role' => 'MANAGER'];
+        return ['businessId' => 10, 'branchId' => $branchId, 'role' => 'MANAGER'];
     }
 
     /** @return array<string, mixed> */

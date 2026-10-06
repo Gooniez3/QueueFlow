@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Staff;
 
+use App\Data\StaffMembershipData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -13,7 +14,16 @@ class StoreQueueRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $context = $this->attributes->get('queueflow.auth');
+        $businessId = (int) $this->route('businessId');
+        $branchId = (int) $this->route('branchId');
+
+        return collect($context['memberships'] ?? [])
+            ->contains(
+                static fn (mixed $membership): bool => $membership instanceof StaffMembershipData
+                    && $membership->businessId === $businessId
+                    && ($membership->branchId === null || $membership->branchId === $branchId),
+            );
     }
 
     /**

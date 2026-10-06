@@ -124,6 +124,12 @@ public class QueueService {
                 );
             }
 
+            if (!service.isActive()) {
+                throw new IllegalStateException(
+                        "Service is not active"
+                );
+            }
+
             if (queueRepository
                     .findByBranchIdAndServiceIdAndBusinessDate(
                             branchId,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Data\BranchData;
 use App\Data\ServiceData;
+use App\Data\StaffMembershipData;
 use App\Exceptions\QueueFlowApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Staff\StoreQueueRequest;
@@ -22,6 +23,12 @@ class QueueController extends Controller
 
     public function create(Request $request, int $businessId, int $branchId): View
     {
+        $this->ensureMembershipCanAccessBranch(
+            $request->attributes->get('queueflow.auth'),
+            $businessId,
+            $branchId,
+        );
+
         $branch = $this->apiClient->branch($businessId, $branchId);
 
         $this->ensureBranchBelongsToBusiness($branch, $businessId);
@@ -32,11 +39,16 @@ class QueueController extends Controller
             $this->ensureServiceBelongsToBranch($service, $branchId);
         }
 
+        $activeServices = array_values(array_filter(
+            $services,
+            static fn (ServiceData $service): bool => $service->active,
+        ));
+
         return view('staff.queues.create', [
             'authContext' => $request->attributes->get('queueflow.auth'),
             'business' => $this->apiClient->business($businessId),
             'branch' => $branch,
-            'services' => $services,
+            'services' => $activeServices,
         ]);
     }
 
@@ -102,6 +114,25 @@ class QueueController extends Controller
             $service->branchId !== $branchId,
             404,
             'The requested service was not found for this branch.',
+        );
+    }
+
+    /**
+     * @param  array{memberships?: list<StaffMembershipData>}|null  $context
+     */
+    private function ensureMembershipCanAccessBranch(?array $context, int $businessId, int $branchId): void
+    {
+        $canAccessBranch = collect($context['memberships'] ?? [])
+            ->contains(
+                static fn (mixed $membership): bool => $membership instanceof StaffMembershipData
+                    && $membership->businessId === $businessId
+                    && ($membership->branchId === null || $membership->branchId === $branchId),
+            );
+
+        abort_unless(
+            $canAccessBranch,
+            403,
+            'You are not authorized to manage this branch.',
         );
     }
 

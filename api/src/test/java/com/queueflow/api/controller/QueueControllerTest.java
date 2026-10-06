@@ -8,9 +8,11 @@ import com.queueflow.api.entity.UserAccount;
 import com.queueflow.api.repository.AuthSessionRepository;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
+import com.queueflow.api.repository.GuestJoinIdempotencyRepository;
 import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
 import com.queueflow.api.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,11 +65,19 @@ class QueueControllerTest {
     private AuthSessionRepository authSessionRepository;
 
     @Autowired
+    private GuestJoinIdempotencyRepository guestJoinIdempotencyRepository;
+
+    @Autowired
+    private StaffMutationIdempotencyRepository staffMutationIdempotencyRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void cleanDatabase() {
         authSessionRepository.deleteAll();
+        staffMutationIdempotencyRepository.deleteAll();
+        guestJoinIdempotencyRepository.deleteAll();
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();
         staffMembershipRepository.deleteAll();
@@ -228,6 +238,63 @@ class QueueControllerTest {
 
         assertThat(queueRepository.count())
                 .isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectInactiveServiceQueueCreation()
+            throws Exception {
+
+        Business business = createBusiness();
+
+        Branch branch = createBranch(
+                business,
+                "Asia/Singapore"
+        );
+
+        com.queueflow.api.entity.Service service =
+                new com.queueflow.api.entity.Service(
+                        branch,
+                        "Inactive Service",
+                        "Service is not currently offered",
+                        30
+                );
+
+        service.setActive(false);
+
+        service = serviceRepository.save(service);
+
+        String token = createMemberAndLogin(
+                business,
+                "inactive-service@example.com"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/businesses/{businessId}/branches/{branchId}/queues",
+                                business.getId(),
+                                branch.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        serviceQueueRequest(
+                                                service.getId()
+                                        )
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status")
+                        .value(409))
+                .andExpect(jsonPath("$.message")
+                        .value("Service is not active"));
+
+        assertThat(queueRepository.count())
+                .isZero();
     }
 
     @Test
