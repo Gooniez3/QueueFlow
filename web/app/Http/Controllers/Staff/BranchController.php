@@ -9,6 +9,7 @@ use App\Http\Requests\Staff\StoreBranchRequest;
 use App\Http\Requests\Staff\UpdateBranchRequest;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowAuthService;
+use App\Services\StaffCatalogService;
 use App\Services\StaffDashboardPresentationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,26 @@ class BranchController extends Controller
         private readonly QueueFlowApiClient $apiClient,
         private readonly QueueFlowAuthService $authService,
         private readonly StaffDashboardPresentationService $dashboardService,
+        private readonly StaffCatalogService $catalogService,
     ) {}
+
+    public function index(Request $request): View
+    {
+        $authContext = $request->attributes->get('queueflow.auth');
+        $businesses = $this->catalogService->accessibleBusinesses($authContext['memberships']);
+        $branches = collect($businesses)
+            ->flatMap(static fn (array $businessContext): array => $businessContext['branches']);
+
+        return view('staff.branches.index', [
+            'authContext' => $authContext,
+            'businesses' => $businesses,
+            'branchCount' => $branches->count(),
+            'businessCount' => collect($businesses)
+                ->filter(static fn (array $businessContext): bool => $businessContext['branches'] !== [])
+                ->count(),
+            'timezoneCount' => $branches->pluck('timezone')->unique()->count(),
+        ]);
+    }
 
     public function create(Request $request, int $businessId): View
     {

@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Staff;
 
 use App\Data\BranchData;
 use App\Data\StaffDashboardQueueData;
-use App\Data\StaffMembershipData;
+use App\Exceptions\QueueFlowApiException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Staff\QueueEntryMutationRequest;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowQueueService;
+use App\Services\StaffCatalogService;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,34 +20,16 @@ class LiveQueueController extends Controller
     public function __construct(
         private readonly QueueFlowApiClient $apiClient,
         private readonly QueueFlowQueueService $queueService,
+        private readonly StaffCatalogService $catalogService,
     ) {}
 
     public function gateway(Request $request): View
     {
         $authContext = $request->attributes->get('queueflow.auth');
-        $membershipsByBusinessId = [];
-
-        foreach ($authContext['memberships'] as $membership) {
-            $membershipsByBusinessId[$membership->businessId][] = $membership;
-        }
-
-        $businesses = [];
-
-        foreach ($membershipsByBusinessId as $businessId => $memberships) {
-            $branches = $this->accessibleBranches(
-                $this->apiClient->branches($businessId),
-                $memberships,
-            );
-
-            if ($branches === []) {
-                continue;
-            }
-
-            $businesses[] = [
-                'business' => $this->apiClient->business($businessId),
-                'branches' => $branches,
-            ];
-        }
+        $businesses = $this->catalogService->accessibleBusinesses(
+            $authContext['memberships'],
+            includeBusinessesWithoutBranches: false,
+        );
 
         return view('staff.queues.gateway', [
             'authContext' => $authContext,
@@ -79,155 +64,144 @@ class LiveQueueController extends Controller
 
     public function pause(int $businessId, int $branchId, int $queueId): RedirectResponse
     {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->pauseQueue($queueId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->pauseQueue($queueId),
             'Queue paused successfully.',
         );
     }
 
     public function resume(int $businessId, int $branchId, int $queueId): RedirectResponse
     {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->resumeQueue($queueId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->resumeQueue($queueId),
             'Queue resumed successfully.',
         );
     }
 
     public function close(int $businessId, int $branchId, int $queueId): RedirectResponse
     {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->closeQueue($queueId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->closeQueue($queueId),
             'Queue closed successfully.',
         );
     }
 
-    public function callNext(int $businessId, int $branchId, int $queueId): RedirectResponse
+    public function reopen(int $businessId, int $branchId, int $queueId): RedirectResponse
     {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->callNextQueueEntry($queueId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->reopenQueue($queueId),
+            'Queue reopened successfully.',
+        );
+    }
+
+    public function callNext(
+        QueueEntryMutationRequest $request,
+        int $businessId,
+        int $branchId,
+        int $queueId,
+    ): RedirectResponse {
+        return $this->performMutation(
+            $businessId,
+            $branchId,
+            $queueId,
+            fn () => $this->queueService->callNextQueueEntry(
+                $queueId,
+                $request->idempotencyKey(),
+            ),
             'Next ticket called successfully.',
         );
     }
 
     public function startServing(
+        QueueEntryMutationRequest $request,
         int $businessId,
         int $branchId,
         int $queueId,
         int $entryId,
     ): RedirectResponse {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->startServingQueueEntry($queueId, $entryId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->startServingQueueEntry(
+                $queueId,
+                $entryId,
+                $request->idempotencyKey(),
+            ),
             'Service started successfully.',
         );
     }
 
     public function recall(
+        QueueEntryMutationRequest $request,
         int $businessId,
         int $branchId,
         int $queueId,
         int $entryId,
     ): RedirectResponse {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->recallQueueEntry($queueId, $entryId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->recallQueueEntry(
+                $queueId,
+                $entryId,
+                $request->idempotencyKey(),
+            ),
             'Ticket recalled successfully.',
         );
     }
 
     public function skip(
+        QueueEntryMutationRequest $request,
         int $businessId,
         int $branchId,
         int $queueId,
         int $entryId,
     ): RedirectResponse {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->skipQueueEntry($queueId, $entryId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->skipQueueEntry(
+                $queueId,
+                $entryId,
+                $request->idempotencyKey(),
+            ),
             'Ticket skipped successfully.',
         );
     }
 
     public function complete(
+        QueueEntryMutationRequest $request,
         int $businessId,
         int $branchId,
         int $queueId,
         int $entryId,
     ): RedirectResponse {
-        $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
-
-        $this->queueService->completeQueueEntry($queueId, $entryId);
-
-        return $this->redirectToQueue(
+        return $this->performMutation(
             $businessId,
             $branchId,
             $queueId,
+            fn () => $this->queueService->completeQueueEntry(
+                $queueId,
+                $entryId,
+                $request->idempotencyKey(),
+            ),
             'Ticket completed successfully.',
         );
-    }
-
-    /**
-     * @param  list<BranchData>  $branches
-     * @param  list<StaffMembershipData>  $memberships
-     * @return list<BranchData>
-     */
-    private function accessibleBranches(array $branches, array $memberships): array
-    {
-        $hasBusinessWideMembership = collect($memberships)
-            ->contains(static fn (StaffMembershipData $membership): bool => $membership->branchId === null);
-
-        if ($hasBusinessWideMembership) {
-            return $branches;
-        }
-
-        $accessibleBranchIds = array_map(
-            static fn (StaffMembershipData $membership): ?int => $membership->branchId,
-            $memberships,
-        );
-
-        return array_values(array_filter(
-            $branches,
-            static fn (BranchData $branch): bool => in_array($branch->id, $accessibleBranchIds, true),
-        ));
     }
 
     private function ensureBranchBelongsToBusiness(BranchData $branch, int $businessId): void
@@ -304,5 +278,37 @@ class LiveQueueController extends Controller
                 'queue' => $queueId,
             ])
             ->with('status', $message);
+    }
+
+    private function performMutation(
+        int $businessId,
+        int $branchId,
+        int $queueId,
+        Closure $operation,
+        string $successMessage,
+    ): RedirectResponse {
+        try {
+            $this->ensureQueueBelongsToBranch($businessId, $branchId, $queueId);
+            $operation();
+        } catch (QueueFlowApiException $exception) {
+            if ($exception->status !== 409) {
+                throw $exception;
+            }
+
+            return redirect()
+                ->route('staff.live-queues.index', [
+                    'businessId' => $businessId,
+                    'branchId' => $branchId,
+                    'queue' => $queueId,
+                ])
+                ->with('error', 'The queue changed before this action completed. The latest state has been refreshed.');
+        }
+
+        return $this->redirectToQueue(
+            $businessId,
+            $branchId,
+            $queueId,
+            $successMessage,
+        );
     }
 }

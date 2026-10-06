@@ -39,22 +39,22 @@
         <x-staff.icon name="business" />
         <span>Businesses</span>
     </a>
-    <span
-        class="staff-nav-item staff-nav-item-disabled {{ $activeManagementSection === 'branches' ? 'staff-nav-item-active' : '' }}"
-        aria-disabled="true"
+    <a
+        class="staff-nav-item {{ $activeManagementSection === 'branches' ? 'staff-nav-item-active' : '' }}"
+        href="{{ route('staff.branches.index') }}"
         @if ($activeManagementSection === 'branches') aria-current="page" @endif
     >
         <x-staff.icon name="branch" />
         <span>Branches</span>
-    </span>
-    <span
-        class="staff-nav-item staff-nav-item-disabled {{ $activeManagementSection === 'services' ? 'staff-nav-item-active' : '' }}"
-        aria-disabled="true"
+    </a>
+    <a
+        class="staff-nav-item {{ $activeManagementSection === 'services' ? 'staff-nav-item-active' : '' }}"
+        href="{{ route('staff.services.index') }}"
         @if ($activeManagementSection === 'services') aria-current="page" @endif
     >
         <x-staff.icon name="service" />
         <span>Services</span>
-    </span>
+    </a>
 
     <p class="staff-nav-section">PLANNING</p>
     <span class="staff-nav-item staff-nav-item-disabled" aria-disabled="true">

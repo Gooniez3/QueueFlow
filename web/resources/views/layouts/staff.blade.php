@@ -124,6 +124,10 @@
                     </div>
                 @endif
 
+                @if (session('error'))
+                    <div class="staff-alert-error mb-6" role="alert">{{ session('error') }}</div>
+                @endif
+
                 @yield('staff-content')
             </div>
         </div>

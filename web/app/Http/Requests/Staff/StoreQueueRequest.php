@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Staff;
 
+use App\Data\StaffMembershipData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreQueueRequest extends FormRequest
 {
@@ -12,7 +14,16 @@ class StoreQueueRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $context = $this->attributes->get('queueflow.auth');
+        $businessId = (int) $this->route('businessId');
+        $branchId = (int) $this->route('branchId');
+
+        return collect($context['memberships'] ?? [])
+            ->contains(
+                static fn (mixed $membership): bool => $membership instanceof StaffMembershipData
+                    && $membership->businessId === $businessId
+                    && ($membership->branchId === null || $membership->branchId === $branchId),
+            );
     }
 
     /**
@@ -23,7 +34,13 @@ class StoreQueueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'serviceId' => ['nullable', 'integer'],
+            'queueType' => ['required', Rule::in(['service', 'shared'])],
+            'serviceId' => [
+                'nullable',
+                'integer',
+                'required_if:queueType,service',
+                'prohibited_if:queueType,shared',
+            ],
             'name' => ['required', 'string', 'max:150'],
             'ticketPrefix' => ['required', 'string', 'max:10'],
         ];

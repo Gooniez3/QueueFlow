@@ -321,11 +321,13 @@ class QueueFlowApiClient
     public function callNextQueueEntry(
         int $queueId,
         #[\SensitiveParameter] string $token,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->staffQueueEntryTransition(
             $queueId,
             $token,
             'call-next',
+            $idempotencyKey,
         );
     }
 
@@ -333,11 +335,13 @@ class QueueFlowApiClient
         int $queueId,
         int $entryId,
         #[\SensitiveParameter] string $token,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->staffQueueEntryTransition(
             $queueId,
             $token,
             "entries/{$entryId}/recall",
+            $idempotencyKey,
         );
     }
 
@@ -345,11 +349,13 @@ class QueueFlowApiClient
         int $queueId,
         int $entryId,
         #[\SensitiveParameter] string $token,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->staffQueueEntryTransition(
             $queueId,
             $token,
             "entries/{$entryId}/start",
+            $idempotencyKey,
         );
     }
 
@@ -357,11 +363,13 @@ class QueueFlowApiClient
         int $queueId,
         int $entryId,
         #[\SensitiveParameter] string $token,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->staffQueueEntryTransition(
             $queueId,
             $token,
             "entries/{$entryId}/complete",
+            $idempotencyKey,
         );
     }
 
@@ -369,11 +377,13 @@ class QueueFlowApiClient
         int $queueId,
         int $entryId,
         #[\SensitiveParameter] string $token,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         return $this->staffQueueEntryTransition(
             $queueId,
             $token,
             "entries/{$entryId}/skip",
+            $idempotencyKey,
         );
     }
 
@@ -396,6 +406,13 @@ class QueueFlowApiClient
         #[\SensitiveParameter] string $token,
     ): QueueData {
         return $this->staffQueueTransition($queueId, $token, 'close');
+    }
+
+    public function reopenQueue(
+        int $queueId,
+        #[\SensitiveParameter] string $token,
+    ): QueueData {
+        return $this->staffQueueTransition($queueId, $token, 'reopen');
     }
 
     public function staffDashboard(
@@ -552,9 +569,14 @@ class QueueFlowApiClient
         int $queueId,
         #[\SensitiveParameter] string $token,
         string $path,
+        string $idempotencyKey,
     ): QueueStaffEntryData {
         $response = $this->sendPost(
-            $this->client()->withToken($token),
+            $this->client()
+                ->withToken($token)
+                ->withHeaders([
+                    'Idempotency-Key' => $idempotencyKey,
+                ]),
             "/api/v1/queues/{$queueId}/staff/{$path}",
         );
 

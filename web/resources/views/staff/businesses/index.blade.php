@@ -87,7 +87,7 @@
                     </div>
                     <div class="flex items-center justify-between gap-3 border-t border-[#eeeff8] px-5.5 py-3.5">
                         <span class="text-xs text-staff-muted">Access: {{ $businessRoles->map(static fn (string $role): string => ucfirst(strtolower($role)))->implode(', ') }}</span>
-                        <a class="staff-primary-button staff-button-small" href="{{ route('staff.businesses.show', $business->id) }}">Manage<x-staff.icon class="size-4" name="chevron-right" /></a>
+                        <a class="staff-primary-button staff-button-small" href="{{ route('staff.businesses.show', $business->id) }}">View business<x-staff.icon class="size-4" name="chevron-right" /></a>
                     </div>
                 </article>
             @endforeach

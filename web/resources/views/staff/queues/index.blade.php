@@ -30,6 +30,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <span class="inline-flex items-center gap-2 text-xs text-staff-muted"><x-staff.icon class="size-4" name="refresh" />Page refreshed at {{ now()->format('H:i:s') }}</span>
+            <a class="staff-primary-button" href="{{ route('staff.live-queues.create', [$business->id, $branch->id]) }}"><x-staff.icon class="size-4" name="plus" />Open queue</a>
             <a class="staff-secondary-button" href="{{ route('staff.live-queues.index', $refreshParameters) }}"><x-staff.icon class="size-4.5" name="refresh" />Refresh</a>
         </div>
     </header>
@@ -46,6 +47,7 @@
             <div>
                 <h2 id="no-queues-heading" class="staff-section-title">No queues today</h2>
                 <p class="mt-2 max-w-xl text-sm leading-6 text-staff-muted">No queue has been opened for {{ $branch->name }} on this business date.</p>
+                <a class="staff-primary-button mt-4" href="{{ route('staff.live-queues.create', [$business->id, $branch->id]) }}"><x-staff.icon class="size-4" name="plus" />Open queue</a>
             </div>
         </section>
     @else
@@ -85,19 +87,24 @@
                             @if ($selectedQueue->status === 'OPEN')
                                 <form method="POST" action="{{ route('staff.live-queues.pause', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
                                     @csrf
-                                    <button class="staff-live-disabled-button" type="submit"><x-staff.icon class="size-4" name="pause" />Pause</button>
+                                    <button class="staff-live-secondary-action" type="submit"><x-staff.icon class="size-4" name="pause" />Pause</button>
                                 </form>
                             @elseif ($selectedQueue->status === 'PAUSED')
                                 <form method="POST" action="{{ route('staff.live-queues.resume', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
                                     @csrf
-                                    <button class="staff-live-disabled-button" type="submit"><x-staff.icon class="size-4" name="play" />Resume</button>
+                                    <button class="staff-live-secondary-action" type="submit"><x-staff.icon class="size-4" name="play" />Resume</button>
+                                </form>
+                            @elseif ($selectedQueue->status === 'CLOSED')
+                                <form method="POST" action="{{ route('staff.live-queues.reopen', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
+                                    @csrf
+                                    <button class="staff-live-secondary-action" type="submit"><x-staff.icon class="size-4" name="play" />Reopen</button>
                                 </form>
                             @endif
 
                             @if ($selectedQueue->status !== 'CLOSED')
                                 <form method="POST" action="{{ route('staff.live-queues.close', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
                                     @csrf
-                                    <button class="staff-live-disabled-button staff-live-disabled-danger" type="submit"><x-staff.icon class="size-4" name="close" />Close queue</button>
+                                    <button class="staff-live-secondary-action staff-live-secondary-danger" type="submit"><x-staff.icon class="size-4" name="close" />Close queue</button>
                                 </form>
                             @endif
                         </div>
@@ -126,6 +133,7 @@
                     @if ($selectedQueue->waiting !== [] && $selectedQueue->status === 'OPEN' && $selectedQueue->called === null)
                         <form method="POST" action="{{ route('staff.live-queues.call-next', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId]) }}">
                             @csrf
+                            <input type="hidden" name="idempotency_key" value="{{ \Illuminate\Support\Str::uuid() }}">
                             <button class="staff-live-call-next" type="submit"><x-staff.icon class="size-5" name="megaphone" />Call next &middot; {{ $selectedQueue->waiting[0]->ticketNumber }}</button>
                         </form>
                     @endif
@@ -143,10 +151,13 @@
                         @if ($selectedQueue->serving)
                             <p class="staff-live-ticket text-staff-amber">{{ $selectedQueue->serving->ticketNumber }}</p>
 
-                            <form method="POST" action="{{ route('staff.live-queues.complete', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->serving->entryId]) }}">
-                                @csrf
-                                <button class="staff-live-disabled-button border-0 bg-staff-amber text-staff-ink" type="submit"><x-staff.icon class="size-4" name="check" />Complete</button>
-                            </form>
+                            @if ($selectedQueue->status !== 'CLOSED')
+                                <form method="POST" action="{{ route('staff.live-queues.complete', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->serving->entryId]) }}">
+                                    @csrf
+                                    <input type="hidden" name="idempotency_key" value="{{ \Illuminate\Support\Str::uuid() }}">
+                                    <button class="staff-live-secondary-action border-0 bg-staff-amber text-staff-ink" type="submit"><x-staff.icon class="size-4" name="check" />Complete</button>
+                                </form>
+                            @endif
 
                             <p class="mt-3 text-xs leading-5 text-staff-sidebar-muted">Complete when the customer has been served.</p>
                         @else
@@ -165,22 +176,27 @@
                         @if ($selectedQueue->called)
                             <p class="staff-live-ticket">{{ $selectedQueue->called->ticketNumber }}</p>
 
-                            <div class="flex flex-wrap gap-2" aria-label="Called ticket controls">
-                                <form method="POST" action="{{ route('staff.live-queues.start', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
-                                    @csrf
-                                    <button class="staff-live-disabled-button border-0 bg-staff-indigo text-white" type="submit"><x-staff.icon class="size-4" name="play" />Start serving</button>
-                                </form>
+                            @if ($selectedQueue->status !== 'CLOSED')
+                                <div class="flex flex-wrap gap-2" aria-label="Called ticket controls">
+                                    <form method="POST" action="{{ route('staff.live-queues.start', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
+                                        @csrf
+                                        <input type="hidden" name="idempotency_key" value="{{ \Illuminate\Support\Str::uuid() }}">
+                                        <button class="staff-live-secondary-action border-0 bg-staff-indigo text-white" type="submit"><x-staff.icon class="size-4" name="play" />Start serving</button>
+                                    </form>
 
-                                <form method="POST" action="{{ route('staff.live-queues.recall', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
-                                    @csrf
-                                    <button class="staff-live-disabled-button" type="submit"><x-staff.icon class="size-4" name="megaphone" />Recall</button>
-                                </form>
+                                    <form method="POST" action="{{ route('staff.live-queues.recall', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
+                                        @csrf
+                                        <input type="hidden" name="idempotency_key" value="{{ \Illuminate\Support\Str::uuid() }}">
+                                        <button class="staff-live-secondary-action" type="submit"><x-staff.icon class="size-4" name="megaphone" />Recall</button>
+                                    </form>
 
-                                <form method="POST" action="{{ route('staff.live-queues.skip', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
-                                    @csrf
-                                    <button class="staff-live-disabled-button staff-live-disabled-danger" type="submit"><x-staff.icon class="size-4" name="skip" />Skip</button>
-                                </form>
-                            </div>
+                                    <form method="POST" action="{{ route('staff.live-queues.skip', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->called->entryId]) }}">
+                                        @csrf
+                                        <input type="hidden" name="idempotency_key" value="{{ \Illuminate\Support\Str::uuid() }}">
+                                        <button class="staff-live-secondary-action staff-live-secondary-danger" type="submit"><x-staff.icon class="size-4" name="skip" />Skip</button>
+                                    </form>
+                                </div>
+                            @endif
 
                             <p class="mt-3 text-xs leading-5 text-staff-muted">The customer has been called and service has not started.</p>
                         @else
