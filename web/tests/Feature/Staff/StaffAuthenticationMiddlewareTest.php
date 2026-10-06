@@ -226,9 +226,35 @@ class StaffAuthenticationMiddlewareTest extends TestCase
             $mock->shouldNotReceive('currentUser');
         });
 
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::response([]),
+            'http://localhost:8080/api/v1/public/queues/resolve/public-queue-code' => Http::response([
+                'publicCode' => 'public-queue-code',
+                'businessId' => 10,
+                'businessName' => 'QueueFlow Clinic',
+                'branchId' => 101,
+                'branchName' => 'Downtown Branch',
+                'serviceId' => 501,
+                'serviceName' => 'General Consultation',
+                'queueId' => 91,
+                'queueName' => 'Consultation Queue',
+                'queueStatus' => 'OPEN',
+            ]),
+            'http://localhost:8080/api/v1/queues/91/board' => Http::response([
+                'queueId' => 91,
+                'name' => 'Consultation Queue',
+                'status' => 'OPEN',
+                'nowServing' => 'A001',
+                'calling' => 'A002',
+                'waitingCount' => 1,
+                'upcomingTicketNumbers' => ['A003'],
+            ]),
+        ]);
+
         $this->get('/')->assertOk();
         $this->get('/ticket')->assertOk();
-        $this->get('/queue-board')->assertOk();
+        $this->get('/queues/public-queue-code/board')->assertOk();
     }
 
     /**

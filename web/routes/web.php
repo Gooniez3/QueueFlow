@@ -44,7 +44,9 @@ Route::get('/queues/{queueId}/entries/{entryId}', [CustomerTicketController::cla
 Route::post('/queues/{queueId}/entries/{entryId}/cancel', [CustomerQueueEntryController::class, 'cancel'])
     ->whereNumber(['queueId', 'entryId'])
     ->name('queue-entries.cancel');
-Route::get('/queue-board', QueueBoardController::class)->name('queue-board.show');
+Route::get('/queues/{publicCode}/board', [QueueBoardController::class, 'show'])
+    ->where('publicCode', '[A-Za-z0-9-]+')
+    ->name('queues.board.show');
 Route::get('/ticket', [CustomerTicketController::class, 'index'])->name('tickets.show');
 
 Route::prefix('staff')->name('staff.')->group(function (): void {
