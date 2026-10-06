@@ -3,117 +3,132 @@
 @php
     $serviceLabel = $resolvedQueue->serviceName ?? 'Shared branch queue';
     $displayName = $resolvedQueue->queueName !== '' ? $resolvedQueue->queueName : $board->name;
-    $statusLabel = ucfirst(strtolower($board->status));
+    $queueContext = $serviceLabel === $displayName ? $serviceLabel : $serviceLabel.' · '.$displayName;
+    $statusLabel = strtoupper($board->status);
     $statusTone = match ($board->status) {
-        'OPEN' => 'border-emerald-300/35 bg-emerald-300/15 text-emerald-100',
-        'PAUSED' => 'border-amber/45 bg-amber/20 text-amber',
-        'CLOSED' => 'border-white/20 bg-white/10 text-white/75',
-        default => 'border-white/20 bg-white/10 text-white/75',
+        'OPEN' => 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100',
+        'PAUSED' => 'border-amber/35 bg-amber/12 text-amber',
+        'CLOSED' => 'border-rose-200/25 bg-rose-200/10 text-rose-100',
+        default => 'border-white/20 bg-white/10 text-white/70',
+    };
+    $statusDot = match ($board->status) {
+        'OPEN' => 'bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.45)]',
+        'PAUSED' => 'bg-amber',
+        'CLOSED' => 'bg-rose-200',
+        default => 'bg-white/60',
+    };
+    $statusMessage = match ($board->status) {
+        'PAUSED' => 'Queue temporarily paused',
+        'CLOSED' => 'Queue closed',
+        default => null,
     };
 @endphp
 
 @section('title', $displayName.' Board - QueueFlow')
-@section('body-class', 'bg-[#15123B] text-white')
+@section('body-class', 'overflow-hidden bg-[#0D0D31] text-white')
 
 @section('content')
-    <div class="min-h-dvh bg-[#15123B] font-staff-sans text-white">
-        <main class="mx-auto flex min-h-dvh w-full max-w-[96rem] flex-col gap-6 px-5 py-5 sm:px-8 sm:py-7 lg:px-10">
-            <header class="flex flex-col gap-5 rounded-[2rem] border border-white/10 bg-white/[0.07] px-5 py-5 shadow-[0_24px_80px_-48px_rgba(0,0,0,0.7)] sm:px-7 lg:flex-row lg:items-center lg:justify-between">
-                <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <span class="grid size-12 place-items-center rounded-2xl bg-staff-amber font-staff-display text-xl font-extrabold text-[#15123B]" aria-hidden="true">Q</span>
-                        <div>
-                            <p class="font-staff-display text-xl font-extrabold tracking-[-0.035em]">QueueFlow</p>
-                            <p class="text-xs font-semibold tracking-[0.18em] text-white/55">PUBLIC QUEUE BOARD</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-6">
-                        <p class="text-sm font-semibold tracking-[0.16em] text-white/60">{{ $resolvedQueue->branchName }}</p>
-                        <h1 class="mt-2 max-w-5xl break-words font-staff-display text-4xl leading-[0.98] font-extrabold tracking-[-0.06em] text-white sm:text-5xl lg:text-7xl">
-                            {{ $resolvedQueue->businessName }}
-                        </h1>
-                        <p class="mt-3 max-w-4xl break-words text-base text-white/70 sm:text-xl">
-                            {{ $serviceLabel }} <span class="text-white/35" aria-hidden="true">/</span> {{ $displayName }}
-                        </p>
+    <div class="h-dvh overflow-hidden bg-[#0D0D31] font-staff-sans text-white">
+        <main class="mx-auto grid h-dvh w-full max-w-[120rem] grid-rows-[auto_minmax(0,1fr)_auto_auto] gap-5 px-6 py-6 lg:px-8 xl:px-10">
+            <header class="grid shrink-0 grid-cols-[minmax(13rem,0.8fr)_minmax(0,1.45fr)_minmax(16rem,0.9fr)] items-center gap-5 rounded-[1.5rem] border border-white/10 bg-[#171646] px-5 py-4 shadow-[0_20px_70px_-60px_rgba(0,0,0,0.9)]">
+                <div class="flex min-w-0 items-center gap-3.5">
+                    <span class="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#FFC83D] font-staff-display text-lg font-extrabold text-[#0D0D31]" aria-hidden="true">Q</span>
+                    <div class="min-w-0">
+                        <p class="truncate font-staff-display text-xl font-extrabold tracking-[-0.04em]">QueueFlow</p>
+                        <p class="truncate text-[0.68rem] font-extrabold tracking-[0.22em] text-white/48">PUBLIC QUEUE BOARD</p>
                     </div>
                 </div>
 
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-end">
-                    <span class="inline-flex min-h-12 items-center justify-center rounded-full border px-5 text-sm font-bold {{ $statusTone }}" aria-label="Queue status {{ $statusLabel }}">
+                <div class="min-w-0 border-x border-white/10 px-5 text-center">
+                    <h1 class="truncate font-staff-display text-[clamp(1.55rem,2.15vw,2.5rem)] leading-none font-extrabold tracking-[-0.045em] text-white">
+                        {{ $resolvedQueue->businessName }}
+                    </h1>
+                    <p class="mt-1 truncate text-[clamp(0.95rem,1.15vw,1.25rem)] font-semibold text-white/62">
+                        {{ $resolvedQueue->branchName }} <span class="text-white/30" aria-hidden="true">·</span> {{ $queueContext }}
+                    </p>
+                    @if ($statusMessage)
+                        <p @class([
+                            'mt-1 truncate font-staff-display text-[clamp(1rem,1.15vw,1.3rem)] font-extrabold tracking-[-0.02em]',
+                            'text-amber' => $board->status === 'PAUSED',
+                            'text-rose-100' => $board->status === 'CLOSED',
+                        ])>{{ $statusMessage }}</p>
+                    @endif
+                </div>
+
+                <div class="flex min-w-0 items-center justify-end gap-3.5">
+                    <span class="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-extrabold {{ $statusTone }}" aria-label="Queue status {{ $statusLabel }}">
+                        <span class="size-2 rounded-full {{ $statusDot }}" aria-hidden="true"></span>
                         {{ $statusLabel }}
                     </span>
-                    <a class="inline-flex min-h-12 items-center justify-center rounded-full border border-white/15 bg-white px-5 text-sm font-bold text-[#15123B] transition hover:bg-[#F3F4FB] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber" href="{{ route('queues.board.show', $resolvedQueue->publicCode) }}" aria-label="Refresh public queue board">
-                        Refresh board
-                    </a>
-                    <p class="text-xs text-white/50">Rendered {{ $refreshedAt->format('g:i A') }}</p>
+                    <div class="min-w-0 text-right">
+                        <p class="truncate text-sm font-semibold text-white/50">Rendered {{ $refreshedAt->format('g:i A') }}</p>
+                        <a class="mt-1.5 inline-flex min-h-9 items-center justify-center rounded-full border border-[#8D8AFF]/50 bg-[#201F58] px-3.5 text-sm font-bold text-white/82 transition hover:border-[#A9A6FF]/70 hover:bg-[#28266A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFC83D]" href="{{ route('queues.board.show', $resolvedQueue->publicCode) }}" aria-label="Refresh public queue board">
+                            <span aria-hidden="true">↻</span>
+                            <span class="ml-1.5">Refresh board</span>
+                        </a>
+                    </div>
                 </div>
             </header>
 
-            <section class="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.62fr)]" aria-label="Current queue state">
-                <div class="grid gap-5">
-                    <article class="rounded-[2rem] border border-white/10 bg-white text-[#15123B] p-6 shadow-[0_28px_90px_-52px_rgba(0,0,0,0.8)] sm:p-8 lg:p-10" aria-labelledby="now-serving-heading">
-                        <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                                <p class="text-sm font-extrabold tracking-[0.22em] text-[#4338F0]">NOW SERVING</p>
-                                <h2 id="now-serving-heading" class="sr-only">Now serving</h2>
-                            </div>
-                            <p class="rounded-full bg-[#F3F4FB] px-4 py-2 text-sm font-bold text-[#5b5f7a]">{{ $board->waitingCount }} waiting</p>
-                        </div>
+            <section class="grid min-h-0 grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-5" aria-label="Current tickets">
+                <article class="relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-[1.875rem] border border-[#F7F2E7]/90 bg-[#F8F3EA] p-6 text-[#0D0D31] shadow-[0_34px_110px_-78px_rgba(0,0,0,0.95)] lg:p-8" aria-labelledby="now-serving-heading">
+                    <div class="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full border-[2.25rem] border-[#4338F0]/[0.055]" aria-hidden="true"></div>
+                    <div class="relative">
+                        <p class="text-[clamp(0.78rem,0.9vw,0.98rem)] font-extrabold tracking-[0.25em] text-[#4338F0]">NOW SERVING</p>
+                        <h2 id="now-serving-heading" class="sr-only">Now serving</h2>
+                    </div>
 
-                        @if ($board->nowServing)
-                            <p class="mt-8 break-words font-staff-display text-[clamp(5rem,17vw,14rem)] leading-none font-extrabold tracking-[-0.09em] tabular-nums text-[#15123B]">
-                                {{ $board->nowServing }}
-                            </p>
-                        @else
-                            <div class="mt-8 grid min-h-56 place-items-center rounded-[1.5rem] border border-dashed border-[#d8d9ee] bg-[#F3F4FB] px-6 text-center">
-                                <p class="max-w-sm text-xl font-bold text-[#5b5f7a]">No one is being served right now.</p>
-                            </div>
-                        @endif
-                    </article>
+                    <p class="relative grid min-h-0 place-items-center break-words text-center font-staff-display text-[clamp(6rem,10vw,11rem)] leading-none font-extrabold tracking-[-0.08em] tabular-nums">
+                        {{ $board->nowServing ?? '—' }}
+                    </p>
+                </article>
 
-                    <article class="rounded-[2rem] border border-[#FFC83D]/40 bg-[#FFC83D] p-6 text-[#15123B] shadow-[0_24px_70px_-48px_rgba(255,200,61,0.95)] sm:p-8" aria-labelledby="calling-heading">
-                        <p class="text-sm font-extrabold tracking-[0.22em] text-[#15123B]/70">CALLING</p>
+                <article class="relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-[1.875rem] border border-[#F7C948]/70 bg-[#F4B740] p-6 text-[#0D0D31] shadow-[0_34px_90px_-78px_rgba(244,183,64,0.95)] lg:p-8" aria-labelledby="calling-heading">
+                    <div class="pointer-events-none absolute -right-16 -top-20 size-52 rounded-full border-[1.85rem] border-[#0D0D31]/[0.055]" aria-hidden="true"></div>
+                    <div class="relative">
+                        <p class="text-[clamp(0.78rem,0.9vw,0.98rem)] font-extrabold tracking-[0.25em] text-[#0D0D31]/65">CALLING</p>
                         <h2 id="calling-heading" class="sr-only">Calling</h2>
+                    </div>
 
-                        @if ($board->calling)
-                            <p class="mt-4 break-words font-staff-display text-[clamp(3.75rem,10vw,8rem)] leading-none font-extrabold tracking-[-0.08em] tabular-nums">
-                                {{ $board->calling }}
-                            </p>
-                        @else
-                            <p class="mt-5 rounded-2xl bg-white/60 px-5 py-8 text-lg font-bold text-[#15123B]/70">No ticket is being called.</p>
-                        @endif
-                    </article>
+                    <p class="relative grid min-h-0 place-items-center break-words text-center font-staff-display text-[clamp(5rem,7.5vw,8.75rem)] leading-none font-extrabold tracking-[-0.08em] tabular-nums">
+                        {{ $board->calling ?? '—' }}
+                    </p>
+                </article>
+            </section>
+
+            <section class="shrink-0 rounded-[1.625rem] border border-[#DAD7FF]/70 bg-[#F3F1FF] p-4 text-[#0D0D31] shadow-[0_24px_80px_-72px_rgba(0,0,0,0.9)]" aria-label="Upcoming tickets">
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <p class="text-sm font-extrabold tracking-[0.24em] text-[#4338F0]">UP NEXT</p>
+                        <h2 class="sr-only">Up next</h2>
+                    </div>
+                    <p class="text-sm font-bold text-[#59577A]">Upcoming tickets</p>
                 </div>
 
-                <aside class="rounded-[2rem] border border-white/10 bg-white/10 p-5 shadow-[0_24px_80px_-50px_rgba(0,0,0,0.75)] sm:p-6 lg:p-7" aria-labelledby="up-next-heading">
-                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5">
-                        <div>
-                            <p class="text-sm font-extrabold tracking-[0.22em] text-[#FFC83D]">UP NEXT</p>
-                            <h2 id="up-next-heading" class="sr-only">Up next</h2>
-                        </div>
-                        <p class="rounded-full bg-white/10 px-3 py-1.5 text-sm font-bold text-white/75">{{ $board->waitingCount }} waiting</p>
-                    </div>
-
-                    <ol class="mt-3 divide-y divide-white/10">
-                        @forelse ($board->upcomingTicketNumbers as $ticketNumber)
-                            <li class="grid min-h-24 grid-cols-[3rem_minmax(0,1fr)] items-center gap-4 py-4 sm:min-h-28">
-                                <span class="font-staff-display text-xl font-extrabold text-white/35">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
-                                <span class="break-words font-staff-display text-[clamp(2.5rem,7vw,5rem)] leading-none font-extrabold tracking-[-0.07em] tabular-nums text-white">{{ $ticketNumber }}</span>
-                            </li>
-                        @empty
-                            <li class="grid min-h-56 place-items-center px-4 py-10 text-center">
-                                <p class="max-w-xs text-xl font-bold text-white/65">No upcoming tickets.</p>
-                            </li>
-                        @endforelse
-                    </ol>
-
-                    <div class="mt-6 rounded-[1.5rem] border border-white/10 bg-[#4338F0] px-5 py-5">
-                        <p class="font-staff-display text-5xl font-extrabold tracking-[-0.06em] text-white tabular-nums">{{ $board->waitingCount }}</p>
-                        <p class="mt-1 text-sm font-bold text-white/70">total waiting</p>
-                    </div>
-                </aside>
+                <ol class="mt-3 grid grid-cols-5 gap-3">
+                    @forelse ($board->upcomingTicketNumbers as $ticketNumber)
+                        <li class="flex min-h-[5.25rem] items-center justify-center rounded-[1.125rem] border border-[#D7D4FA] bg-[#FFFCF6] px-3 py-2 text-center">
+                            <span class="break-words font-staff-display text-[clamp(1.9rem,2.75vw,3.25rem)] leading-none font-extrabold tracking-[-0.07em] tabular-nums">{{ $ticketNumber }}</span>
+                        </li>
+                    @empty
+                        <li class="col-span-5 flex min-h-14 items-center justify-center rounded-[1rem] px-4 py-2 text-center text-[clamp(1.05rem,1.35vw,1.4rem)] font-bold text-[#59577A]">
+                            No upcoming tickets
+                        </li>
+                    @endforelse
+                </ol>
             </section>
+
+            <footer class="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.25rem] border border-white/10 bg-[#171646] px-5 py-3">
+                <div class="min-w-0">
+                    <p class="truncate font-staff-display text-lg font-extrabold tracking-[-0.035em] text-white">{{ $resolvedQueue->businessName }}</p>
+                    <p class="truncate text-sm font-semibold text-white/48">{{ $resolvedQueue->branchName }}</p>
+                </div>
+
+                <div class="flex items-baseline gap-3 border-l border-white/10 pl-5 text-right">
+                    <span class="font-staff-display text-[clamp(1.9rem,2.8vw,3rem)] leading-none font-extrabold tabular-nums">{{ $board->waitingCount }}</span>
+                    <span class="text-xs font-extrabold tracking-[0.18em] text-white/55">{{ $board->waitingCount === 1 ? 'PERSON WAITING' : 'PEOPLE WAITING' }}</span>
+                </div>
+            </footer>
         </main>
     </div>
 @endsection

@@ -36,13 +36,14 @@ class QueueBoardTest extends TestCase
             ->assertSee('Downtown Branch')
             ->assertSee('General Consultation')
             ->assertSee('Consultation Queue')
-            ->assertSee('Open')
+            ->assertSee('OPEN')
             ->assertSee('NOW SERVING')
             ->assertSee('A001')
             ->assertSee('CALLING')
             ->assertSee('A002')
             ->assertSeeInOrder(['UP NEXT', 'A003', 'A004'])
-            ->assertSee('2 waiting')
+            ->assertSee('2')
+            ->assertSee('PEOPLE WAITING')
             ->assertSee('Rendered 2:45 PM')
             ->assertSee('Refresh board')
             ->assertSee('href="'.route('queues.board.show', 'public-queue-code').'"', false)
@@ -97,10 +98,11 @@ class QueueBoardTest extends TestCase
 
         $this->get(route('queues.board.show', 'public-queue-code'))
             ->assertOk()
-            ->assertSee('No one is being served right now.')
-            ->assertSee('No ticket is being called.')
-            ->assertSee('No upcoming tickets.')
-            ->assertSee('0 waiting')
+            ->assertSee('NOW SERVING')
+            ->assertSee('CALLING')
+            ->assertSee('No upcoming tickets')
+            ->assertSee('0')
+            ->assertSee('PEOPLE WAITING')
             ->assertDontSee('average wait')
             ->assertDontSee('Counter');
     }
@@ -204,8 +206,8 @@ class QueueBoardTest extends TestCase
     public static function nonOpenQueueStatuses(): array
     {
         return [
-            'paused' => ['PAUSED', 'Paused'],
-            'closed' => ['CLOSED', 'Closed'],
+            'paused' => ['PAUSED', 'PAUSED'],
+            'closed' => ['CLOSED', 'CLOSED'],
         ];
     }
 
