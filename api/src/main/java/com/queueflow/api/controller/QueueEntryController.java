@@ -3,6 +3,8 @@ package com.queueflow.api.controller;
 import com.queueflow.api.request.JoinQueueRequest;
 import com.queueflow.api.response.QueueEntryResponse;
 import com.queueflow.api.response.QueuePositionResponse;
+import com.queueflow.api.response.QueueEntryQrCredentialResponse;
+import com.queueflow.api.service.QueueEntryQrService;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.QueueService;
 import org.springframework.http.HttpStatus;
@@ -15,11 +17,14 @@ import org.springframework.web.bind.annotation.*;
 public class QueueEntryController {
 
     private final QueueService queueService;
+    private final QueueEntryQrService queueEntryQrService;
 
     public QueueEntryController(
-            QueueService queueService
+            QueueService queueService,
+            QueueEntryQrService queueEntryQrService
     ) {
         this.queueService = queueService;
+        this.queueEntryQrService = queueEntryQrService;
     }
 
     @PostMapping
@@ -96,6 +101,33 @@ public class QueueEntryController {
 
         QueueEntryResponse response =
                 queueService.cancelQueueEntry(
+                        queueId,
+                        entryId,
+                        userId,
+                        guestToken
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{entryId}/qr-credential")
+    public ResponseEntity<QueueEntryQrCredentialResponse> issueQrCredential(
+            @PathVariable Long queueId,
+            @PathVariable Long entryId,
+            @AuthenticationPrincipal AuthUserPrincipal principal,
+            @RequestHeader(
+                    value = "X-Guest-Token",
+                    required = false
+            ) String guestToken
+    ) {
+
+        Long userId =
+                principal == null
+                        ? null
+                        : principal.userId();
+
+        QueueEntryQrCredentialResponse response =
+                queueEntryQrService.issueCredential(
                         queueId,
                         entryId,
                         userId,
