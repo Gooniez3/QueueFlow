@@ -22,6 +22,76 @@ class LiveQueueTest extends TestCase
             ->assertRedirect(route('staff.login'));
     }
 
+    public function test_staff_branch_stream_forwards_only_safe_events_with_server_side_token(): void
+    {
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/events' => Http::response(
+                "event: connected\ndata: {\"branchId\":101}\n\nevent: branch-update\ndata: {\"queueId\":91}\n\nevent: private\ndata: secret\n\n",
+                200,
+                ['Content-Type' => 'text/event-stream'],
+            ),
+        ]);
+
+        $response = $this->authenticated()
+            ->get(route('staff.live-queues.events', [10, 101]));
+
+        $response->assertOk()
+            ->assertHeader('Content-Type', 'text/event-stream; charset=utf-8');
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/101/events'
+            && $request->hasHeader('Authorization', 'Bearer inert-spring-token')
+        );
+    }
+
+    public function test_branch_scoped_staff_cannot_open_sibling_branch_stream(): void
+    {
+        $this->fake([], [$this->membership(branchId: 102)]);
+
+        $this->authenticated([$this->membership(branchId: 102)])
+            ->get(route('staff.live-queues.events', [10, 101]))
+            ->assertForbidden();
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_matching_branch_scoped_staff_can_open_branch_stream(): void
+    {
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/events' => Http::response('', 200, [
+                'Content-Type' => 'text/event-stream',
+            ]),
+        ], [$this->membership(branchId: 101)]);
+
+        $this->authenticated([$this->membership(branchId: 101)])
+            ->get(route('staff.live-queues.events', [10, 101]))
+            ->assertOk();
+    }
+
+    public function test_upstream_401_clears_authentication_and_redirects_to_login(): void
+    {
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/events' => Http::response([], 401),
+        ]);
+
+        $this->authenticated()
+            ->get(route('staff.live-queues.events', [10, 101]))
+            ->assertRedirect(route('staff.login'))
+            ->assertSessionMissing('queueflow.auth');
+    }
+
+    public function test_upstream_403_returns_safe_forbidden_without_clearing_authentication(): void
+    {
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/events' => Http::response([], 403),
+        ]);
+
+        $this->authenticated()
+            ->get(route('staff.live-queues.events', [10, 101]))
+            ->assertForbidden()
+            ->assertSessionHas('queueflow.auth.token', 'inert-spring-token')
+            ->assertDontSee('Spring');
+    }
+
     public function test_gateway_lists_only_branches_accessible_through_real_memberships(): void
     {
         $membership = $this->membership(branchId: 101);
@@ -104,6 +174,10 @@ class LiveQueueTest extends TestCase
             ->assertSee('href="'.route('queues.board.show', 'queue-91-public-code').'"', false)
             ->assertSee('target="_blank"', false)
             ->assertSee('rel="noopener noreferrer"', false)
+            ->assertSee('QueueFlowSseConnection', false)
+            ->assertSee('branch-update', false)
+            ->assertSee('staff\\/businesses\\/10\\/branches\\/101\\/events', false)
+            ->assertDontSee('http://localhost:8080/api/v1/businesses/10/branches/101/events', false)
             ->assertDontSee('href="'.route('queues.board.show', '91').'"', false)
             ->assertDontSee('inert-spring-token');
 

@@ -18,6 +18,28 @@ use Tests\TestCase;
 
 class QueueFlowQueueApiClientTest extends TestCase
 {
+    public function test_it_streams_staff_branch_events_with_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/events' => Http::response(
+                "event: connected\ndata: {}\n\n",
+                200,
+                ['Content-Type' => 'text/event-stream'],
+            ),
+        ]);
+
+        $response = app(QueueFlowApiClient::class)->streamStaffBranchEvents(
+            10,
+            101,
+            'inert-spring-token',
+        );
+
+        $this->assertSame(200, $response->status());
+        Http::assertSent(fn (Request $request): bool => $request->hasHeader('Authorization', 'Bearer inert-spring-token')
+        );
+    }
+
     public function test_it_creates_a_queue_with_bearer_authentication_and_maps_response(): void
     {
         Http::preventStrayRequests();
