@@ -3,6 +3,7 @@ package com.queueflow.api.controller;
 import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Business;
 import com.queueflow.api.entity.StaffMembership;
+import com.queueflow.api.entity.Queue;
 import com.queueflow.api.entity.StaffRole;
 import com.queueflow.api.entity.UserAccount;
 import com.queueflow.api.repository.AuthSessionRepository;
@@ -12,9 +13,17 @@ import com.queueflow.api.repository.GuestJoinIdempotencyRepository;
 import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.repository.QueueRepository;
 import com.queueflow.api.repository.ServiceRepository;
+import com.queueflow.api.realtime.QueueRealtimeEvent;
+import com.queueflow.api.realtime.QueueRealtimeEventType;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
 import com.queueflow.api.repository.UserAccountRepository;
+import com.queueflow.api.realtime.QueueRealtimeEvent;
+import com.queueflow.api.realtime.QueueRealtimeEventType;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,10 +44,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@RecordApplicationEvents
 class QueueControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ApplicationEvents applicationEvents;
 
     @Autowired
     private QueueEntryRepository queueEntryRepository;
@@ -176,6 +189,60 @@ class QueueControllerTest {
         assertThat(queueRepository.count())
                 .isEqualTo(1);
     }
+
+    @Test
+    void shouldPublishQueueCreatedRealtimeEvent()
+        throws Exception {
+
+    Business business = createBusiness();
+
+    Branch branch = createBranch(
+            business,
+            "Asia/Singapore"
+    );
+
+    String token = createMemberAndLogin(
+            business,
+            "realtime@example.com"
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/businesses/{businessId}/branches/{branchId}/queues",
+                            business.getId(),
+                            branch.getId()
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + token
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(sharedQueueRequest())
+            )
+            .andExpect(status().isCreated());
+
+    Queue createdQueue =
+            queueRepository.findAll()
+                    .getFirst();
+
+    assertThat(
+            applicationEvents
+                    .stream(QueueRealtimeEvent.class)
+                    .anyMatch(event ->
+                            event.type()
+                                    == QueueRealtimeEventType.QUEUE_CREATED
+                                    && event.businessId()
+                                    .equals(business.getId())
+                                    && event.branchId()
+                                    .equals(branch.getId())
+                                    && event.queueId()
+                                    .equals(createdQueue.getId())
+                                    && event.entryId() == null
+                    )
+    ).isTrue();
+ }
 
     @Test
     void shouldCreateServiceQueue()
