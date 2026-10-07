@@ -33,6 +33,17 @@ public interface QueueRepository extends JpaRepository<Queue, Long> {
             String publicCode
     );
 
+    @Query("""
+            select q
+            from Queue q
+            join fetch q.branch b
+            join fetch b.business
+            where q.id = :queueId
+            """)
+    Optional<Queue> findByIdWithBranchAndBusiness(
+            @Param("queueId") Long queueId
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select q

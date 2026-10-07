@@ -1,9 +1,13 @@
 package com.queueflow.api.controller;
 
+import com.queueflow.api.entity.Branch;
 import com.queueflow.api.realtime.QueueRealtimeBroadcaster;
 import com.queueflow.api.repository.BranchRepository;
+import com.queueflow.api.security.AuthUserPrincipal;
+import com.queueflow.api.service.BusinessAuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,13 +23,17 @@ public class BranchRealtimeController {
 
     private final QueueRealtimeBroadcaster broadcaster;
     private final BranchRepository branchRepository;
+    private final BusinessAuthorizationService businessAuthorizationService;
 
     public BranchRealtimeController(
             QueueRealtimeBroadcaster broadcaster,
-            BranchRepository branchRepository
+            BranchRepository branchRepository,
+            BusinessAuthorizationService businessAuthorizationService
     ) {
         this.broadcaster = broadcaster;
         this.branchRepository = branchRepository;
+        this.businessAuthorizationService =
+                businessAuthorizationService;
     }
 
     @GetMapping(
@@ -33,25 +41,30 @@ public class BranchRealtimeController {
     )
     public SseEmitter subscribe(
             @PathVariable Long businessId,
-            @PathVariable Long branchId
+            @PathVariable Long branchId,
+            @AuthenticationPrincipal AuthUserPrincipal principal
     ) {
-        boolean exists =
+        Branch branch =
                 branchRepository
                         .findById(branchId)
                         .filter(
-                                branch ->
-                                        branch.getBusiness()
+                                value ->
+                                        value.getBusiness()
                                                 .getId()
                                                 .equals(businessId)
                         )
-                        .isPresent();
+                        .orElseThrow(() ->
+                                new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Branch not found"
+                                )
+                        );
 
-        if (!exists) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Branch not found"
-            );
-        }
+        businessAuthorizationService.requireBranchAccess(
+                principal.userId(),
+                businessId,
+                branch.getId()
+        );
 
         return broadcaster.subscribeBranch(branchId);
     }

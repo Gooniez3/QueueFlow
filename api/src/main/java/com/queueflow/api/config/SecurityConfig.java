@@ -84,7 +84,8 @@ public class SecurityConfig {
                         // Staff dashboard requires authentication.
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/v1/businesses/*/branches/*/staff/dashboard"
+                                "/api/v1/businesses/*/branches/*/staff/dashboard",
+                                "/api/v1/businesses/*/branches/*/events"
                         ).authenticated()
                         // Public business/branch/service discovery
                         .requestMatchers(
@@ -92,18 +93,12 @@ public class SecurityConfig {
                                 "/api/v1/businesses",
                                 "/api/v1/businesses/**"
                         ).permitAll()
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/businesses/*/branches/*/events"
-                        ).permitAll()
-
                         // Public queue position lookup.
                         // QueueService verifies ownership using either
                         // the authenticated user or X-Guest-Token.
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/queues/*/entries/*/position",
-                                "/api/v1/queues/*/events",
                                 "/api/v1/queues/{queueId}/board",
                                 "/api/v1/public/queues/resolve/{publicCode}",
                                 "/api/v1/public/discovery",
@@ -159,7 +154,7 @@ public class SecurityConfig {
             new UrlBasedCorsConfigurationSource();
 
     source.registerCorsConfiguration(
-            "/api/v1/**",
+            "/api/v1/public/queues/*/events",
             configuration
     );
 
