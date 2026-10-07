@@ -1,6 +1,7 @@
 package com.queueflow.api;
 
-import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
@@ -8,40 +9,39 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 @Component
-class TestDatabaseSafetyGuard implements SmartInitializingSingleton {
+class TestDatabaseSafetyGuard implements BeanPostProcessor {
 
     private static final String REQUIRED_DATABASE_NAME =
             "queueflow_test";
 
-    private static final String REQUIRED_JDBC_URL_PREFIX =
-            "jdbc:postgresql://localhost:5433/"
-                    + REQUIRED_DATABASE_NAME;
-
-    private final DataSource dataSource;
-
-    TestDatabaseSafetyGuard(
-            DataSource dataSource
-    ) {
-        this.dataSource = dataSource;
-    }
-
     @Override
-    public void afterSingletonsInstantiated() {
-        String jdbcUrl = jdbcUrl();
+    public Object postProcessAfterInitialization(
+            Object bean,
+            String beanName
+    ) throws BeansException {
+        if (! (bean instanceof DataSource dataSource)) {
+            return bean;
+        }
 
-        if (! jdbcUrl.equals(REQUIRED_JDBC_URL_PREFIX)
-                && ! jdbcUrl.startsWith(REQUIRED_JDBC_URL_PREFIX + "?")) {
+        String databaseName = databaseName(dataSource);
+
+        if (! REQUIRED_DATABASE_NAME.equals(databaseName)) {
             throw new IllegalStateException(
                     "Refusing to run Spring integration tests against non-test database. "
-                            + "Expected JDBC URL to start with: "
-                            + REQUIRED_JDBC_URL_PREFIX
+                            + "Integration tests require the `"
+                            + REQUIRED_DATABASE_NAME
+                            + "` database."
             );
         }
+
+        return bean;
     }
 
-    private String jdbcUrl() {
+    private String databaseName(
+            DataSource dataSource
+    ) {
         try (Connection connection = dataSource.getConnection()) {
-            return connection.getMetaData().getURL();
+            return connection.getCatalog();
         } catch (SQLException exception) {
             throw new IllegalStateException(
                     "Unable to verify Spring test database safety.",
@@ -50,3 +50,5 @@ class TestDatabaseSafetyGuard implements SmartInitializingSingleton {
         }
     }
 }
+
+
