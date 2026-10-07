@@ -171,6 +171,9 @@ class QueuePositionTest {
         assertThat(response.queueId())
                 .isEqualTo(queue.getId());
 
+        assertThat(response.publicCode())
+                .isEqualTo(queue.getPublicCode());
+
         assertThat(response.serviceId())
                 .isEqualTo(longService.getId());
 

@@ -213,6 +213,7 @@ class QueueFlowQueueApiClientTest extends TestCase
             'http://localhost:8080/api/v1/queues/91/entries/301/position' => Http::response([
                 'entryId' => 301,
                 'queueId' => 91,
+                'publicCode' => 'public-queue-code',
                 'serviceId' => 31,
                 'ticketSequence' => 23,
                 'ticketNumber' => 'A023',
@@ -270,6 +271,7 @@ class QueueFlowQueueApiClientTest extends TestCase
             'http://localhost:8080/api/v1/queues/91/entries/301/position' => Http::response([
                 'entryId' => 301,
                 'queueId' => 91,
+                'publicCode' => 'public-queue-code',
                 'serviceId' => 31,
                 'ticketSequence' => 23,
                 'ticketNumber' => 'A023',

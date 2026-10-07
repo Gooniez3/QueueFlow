@@ -7,6 +7,7 @@ final readonly class QueuePositionData
     public function __construct(
         public int $entryId,
         public int $queueId,
+        public string $publicCode,
         public int $serviceId,
         public int $ticketSequence,
         public string $ticketNumber,
@@ -23,6 +24,7 @@ final readonly class QueuePositionData
         return new self(
             entryId: (int) $data['entryId'],
             queueId: (int) $data['queueId'],
+            publicCode: (string) $data['publicCode'],
             serviceId: (int) $data['serviceId'],
             ticketSequence: (int) $data['ticketSequence'],
             ticketNumber: (string) $data['ticketNumber'],

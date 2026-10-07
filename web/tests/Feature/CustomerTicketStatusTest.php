@@ -224,6 +224,10 @@ class CustomerTicketStatusTest extends TestCase
             $response->assertDontSee('People ahead')
                 ->assertDontSee('Estimated wait')
                 ->assertDontSee('Waiting position is not shown for this ticket status.');
+
+            if (in_array($status, ['COMPLETED', 'CANCELLED', 'SKIPPED'], true)) {
+                $response->assertDontSee('QueueFlowSseConnection', false);
+            }
         }
     }
 
@@ -260,7 +264,9 @@ class CustomerTicketStatusTest extends TestCase
             ->assertSee('href="'.$detailUrl.'"', false)
             ->assertDontSee('setInterval', false)
             ->assertDontSee('WebSocket', false)
-            ->assertDontSee('EventSource', false)
+            ->assertSee('QueueFlowSseConnection', false)
+            ->assertSee('public-queue-code', false)
+            ->assertDontSee('/api/v1/public/queues/91/events', false)
             ->assertDontSee('guestToken')
             ->assertDontSee('idempotencyKey');
         $this->assertStringNotContainsString('?', $detailUrl);
@@ -429,6 +435,7 @@ class CustomerTicketStatusTest extends TestCase
         return new QueuePositionData(
             entryId: 301,
             queueId: 91,
+            publicCode: 'public-queue-code',
             serviceId: 31,
             ticketSequence: 23,
             ticketNumber: 'A023',
@@ -448,6 +455,7 @@ class CustomerTicketStatusTest extends TestCase
                     return Http::response([
                         'entryId' => $entryId,
                         'queueId' => $queueId,
+                        'publicCode' => 'public-queue-code',
                         'serviceId' => 31,
                         'ticketSequence' => $entryId,
                         'ticketNumber' => $ticketNumber,

@@ -676,6 +676,7 @@ public class QueueService {
         return new QueuePositionResponse(
         entry.getId(),
         entry.getQueue().getId(),
+        entry.getQueue().getPublicCode(),
         entry.getQueue().getName(),
 
         entry.getQueue()
