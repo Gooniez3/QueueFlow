@@ -179,4 +179,24 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.CONFLICT)
                 .body(response);
     }
+
+    @ExceptionHandler(QrCredentialInactiveException.class)
+    public ResponseEntity<ApiErrorResponse> handleQrCredentialInactive(
+            QrCredentialInactiveException exception,
+            HttpServletRequest request
+    ) {
+
+        ApiErrorResponse response = new ApiErrorResponse(
+                OffsetDateTime.now(),
+                HttpStatus.GONE.value(),
+                HttpStatus.GONE.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.GONE)
+                .body(response);
+    }
 }

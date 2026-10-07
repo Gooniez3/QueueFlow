@@ -112,7 +112,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/v1/queues/*/entries",
-                                "/api/v1/queues/*/entries/*/cancel"
+                                "/api/v1/queues/*/entries/*/cancel",
+                                "/api/v1/queues/*/entries/*/qr-credential"
                         ).permitAll()
 
                         // Business creation and all other mutations
