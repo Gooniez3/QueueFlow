@@ -35,6 +35,26 @@ class QueueFlowApiClient
             ->timeout(5);
     }
 
+    public function streamStaffBranchEvents(
+        int $businessId,
+        int $branchId,
+        #[\SensitiveParameter] string $token,
+    ): Response {
+        try {
+            $response = $this->client()
+                ->timeout(0)
+                ->withOptions(['stream' => true])
+                ->withToken($token)
+                ->get("/api/v1/businesses/{$businessId}/branches/{$branchId}/events");
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return $response;
+    }
+
     /**
      * @return list<BusinessData>
      */

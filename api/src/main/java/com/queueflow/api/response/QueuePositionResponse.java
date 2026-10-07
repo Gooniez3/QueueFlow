@@ -5,6 +5,7 @@ import com.queueflow.api.entity.QueueEntryStatus;
 public record QueuePositionResponse(
         Long entryId,
         Long queueId,
+        String publicCode,
         String queueName,
         Long businessId,
         String businessName,

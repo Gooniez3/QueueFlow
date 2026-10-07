@@ -12,6 +12,7 @@ class QueuePositionDataTest extends TestCase
         $position = QueuePositionData::fromArray([
             'entryId' => 301,
             'queueId' => 91,
+            'publicCode' => 'public-queue-code',
             'serviceId' => 31,
             'ticketSequence' => 23,
             'ticketNumber' => 'A023',
@@ -22,6 +23,7 @@ class QueuePositionDataTest extends TestCase
 
         $this->assertSame(301, $position->entryId);
         $this->assertSame(91, $position->queueId);
+        $this->assertSame('public-queue-code', $position->publicCode);
         $this->assertSame(31, $position->serviceId);
         $this->assertSame(23, $position->ticketSequence);
         $this->assertSame('A023', $position->ticketNumber);

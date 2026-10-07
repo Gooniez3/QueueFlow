@@ -475,6 +475,7 @@ class QueueFlowCustomerQueueServiceTest extends TestCase
         return new QueuePositionData(
             entryId: 301,
             queueId: 91,
+            publicCode: 'public-queue-code',
             serviceId: 31,
             ticketSequence: 23,
             ticketNumber: 'A023',

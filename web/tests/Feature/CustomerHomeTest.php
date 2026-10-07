@@ -317,6 +317,7 @@ class CustomerHomeTest extends TestCase
         return [
             'entryId' => $entryId,
             'queueId' => $queueId,
+            'publicCode' => 'public-queue-code',
             'serviceId' => 31,
             'ticketSequence' => $entryId,
             'ticketNumber' => $ticketNumber,

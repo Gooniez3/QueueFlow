@@ -7,6 +7,44 @@
     <x-staff.topbar-breadcrumbs :items="[['label' => 'Live queues', 'url' => route('staff.live-queues.gateway')], ['label' => $branch->name]]" />
 @endsection
 
+@push('scripts')
+    <script>
+        (() => {
+            const baseUrl = @json(route('staff.live-queues.events', [$business->id, $branch->id]));
+            const RealtimeConnection = window.QueueFlowRealtime?.QueueFlowSseConnection;
+
+            if (!baseUrl || !RealtimeConnection) {
+                return;
+            }
+
+            let refreshTimer = null;
+            const connection = new RealtimeConnection(baseUrl, {
+                events: {
+                    'branch-update': () => {
+                        if (refreshTimer !== null) {
+                            return;
+                        }
+
+                        refreshTimer = window.setTimeout(() => {
+                            refreshTimer = null;
+                            window.location.reload();
+                        }, 500);
+                    },
+                },
+            });
+
+            connection.connect();
+            window.addEventListener('pagehide', () => {
+                if (refreshTimer !== null) {
+                    window.clearTimeout(refreshTimer);
+                }
+
+                connection.close();
+            }, { once: true });
+        })();
+    </script>
+@endpush
+
 @section('staff-context')
     <div class="staff-context-chip" aria-label="Current business: {{ $business->name }}"><x-staff.icon class="size-4.5 text-staff-indigo" name="business" /><span class="max-w-36 truncate">{{ $business->name }}</span></div>
     <div class="staff-context-chip" aria-label="Current branch: {{ $branch->name }}"><x-staff.icon class="size-4.5 text-staff-indigo" name="branch" /><span class="max-w-36 truncate">{{ $branch->name }}</span></div>

@@ -52,3 +52,48 @@
         </script>
     @endpush
 @endif
+
+@if (in_array($status['label'], ['WAITING', 'CALLED', 'SERVING'], true))
+    @push('scripts')
+        <script>
+            (() => {
+                const publicCode = @json($position->publicCode);
+                const baseUrl = document.querySelector('meta[name="queueflow-realtime-base-url"]')?.content?.trim();
+                const RealtimeConnection = window.QueueFlowRealtime?.QueueFlowSseConnection;
+
+                if (!baseUrl || !publicCode || !RealtimeConnection) {
+                    return;
+                }
+
+                const eventsUrl = new URL(
+                    `api/v1/public/queues/${encodeURIComponent(publicCode)}/events`,
+                    `${baseUrl.replace(/\/+$/, '')}/`,
+                ).toString();
+                let refreshTimer = null;
+                const connection = new RealtimeConnection(eventsUrl, {
+                    events: {
+                        'queue-update': () => {
+                            if (refreshTimer !== null) {
+                                return;
+                            }
+
+                            refreshTimer = window.setTimeout(() => {
+                                refreshTimer = null;
+                                window.location.reload();
+                            }, 500);
+                        },
+                    },
+                });
+
+                connection.connect();
+                window.addEventListener('pagehide', () => {
+                    if (refreshTimer !== null) {
+                        window.clearTimeout(refreshTimer);
+                    }
+
+                    connection.close();
+                }, { once: true });
+            })();
+        </script>
+    @endpush
+@endif

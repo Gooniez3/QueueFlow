@@ -2,6 +2,7 @@
 
 use App\Exceptions\GuestQueueOwnershipException;
 use App\Exceptions\QueueFlowApiException;
+use App\Http\Middleware\EnsureQueueFlowBranchMembership;
 use App\Http\Middleware\EnsureQueueFlowBusinessMembership;
 use App\Http\Middleware\EnsureQueueFlowStaffAuthenticated;
 use Illuminate\Foundation\Application;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'queueflow.business.member' => EnsureQueueFlowBusinessMembership::class,
+            'queueflow.branch.member' => EnsureQueueFlowBranchMembership::class,
             'queueflow.staff.auth' => EnsureQueueFlowStaffAuthenticated::class,
         ]);
     })
