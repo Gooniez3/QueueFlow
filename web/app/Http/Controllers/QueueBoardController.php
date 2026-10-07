@@ -2,25 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Contracts\QueuePresentationSource;
-use App\Presentation\CustomerDemoPresentation;
-use App\Services\GuestQueueOwnershipStore;
+use App\Services\QueueFlowApiClient;
 use Illuminate\View\View;
 
 class QueueBoardController extends Controller
 {
     public function __construct(
-        private readonly QueuePresentationSource $queuePresentationSource,
-        private readonly GuestQueueOwnershipStore $ownershipStore,
-        private readonly CustomerDemoPresentation $demoPresentation,
+        private readonly QueueFlowApiClient $apiClient,
     ) {}
 
-    public function __invoke(): View
+    public function show(string $publicCode): View
     {
+        $resolvedQueue = $this->apiClient->resolvePublicQueue($publicCode);
+        $board = $this->apiClient->publicQueueBoard($resolvedQueue->queueId);
+
         return view('queue-board.show', [
-            'board' => $this->queuePresentationSource->queueBoard(),
-            'ownedTicket' => $this->ownershipStore->all()[0] ?? null,
-            'presentation' => $this->demoPresentation->queueBoard(),
+            'resolvedQueue' => $resolvedQueue,
+            'board' => $board,
+            'refreshedAt' => now(),
         ]);
     }
 }

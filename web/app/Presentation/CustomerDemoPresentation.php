@@ -114,22 +114,6 @@ final readonly class CustomerDemoPresentation
     }
 
     /**
-     * @return array{waiting: int, averageWaitMinutes: int, servedToday: int, recentlyServed: list<array{ticketNumber: string, minutesAgo: int}>}
-     */
-    public function queueBoard(): array
-    {
-        return [
-            'waiting' => 12,
-            'averageWaitMinutes' => 15,
-            'servedToday' => 86,
-            'recentlyServed' => [
-                ['ticketNumber' => 'A-017', 'minutesAgo' => 3],
-                ['ticketNumber' => 'A-016', 'minutesAgo' => 8],
-            ],
-        ];
-    }
-
-    /**
      * @return array{number: string, peopleAhead: int, estimatedWaitMinutes: int, alternatives: list<array{name: string, waiting: int, estimatedWaitMinutes: int}>}
      */
     public function joinPreview(): array

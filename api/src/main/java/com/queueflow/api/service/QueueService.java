@@ -1634,6 +1634,7 @@ public class QueueService {
 
         return new StaffDashboardQueueResponse(
                 queue.getId(),
+                queue.getPublicCode(),
                 queue.getName(),
                 queue.getStatus(),
                 queue.getTicketPrefix(),

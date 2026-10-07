@@ -6,6 +6,8 @@ use App\Data\AuthUserData;
 use App\Data\BranchData;
 use App\Data\BusinessData;
 use App\Data\LoginData;
+use App\Data\PublicQueueBoardData;
+use App\Data\PublicQueueResolveData;
 use App\Data\RegisteredUserData;
 use App\Data\ServiceData;
 use App\Data\StaffMembershipData;
@@ -1058,5 +1060,130 @@ class QueueFlowApiClientTest extends TestCase
             $this->assertSame('Unable to connect to the QueueFlow API.', $exception->getMessage());
             $this->assertInstanceOf(ConnectionException::class, $exception->getPrevious());
         }
+    }
+
+    public function test_it_resolves_a_public_queue_without_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/public/queues/resolve/public-queue-code' => Http::response([
+                'publicCode' => 'public-queue-code',
+                'businessId' => 10,
+                'businessName' => 'QueueFlow Clinic',
+                'branchId' => 101,
+                'branchName' => 'Downtown Branch',
+                'serviceId' => 501,
+                'serviceName' => 'General Consultation',
+                'queueId' => 91,
+                'queueName' => 'Consultation Queue',
+                'queueStatus' => 'OPEN',
+            ]),
+        ]);
+
+        $resolvedQueue = app(QueueFlowApiClient::class)->resolvePublicQueue('public-queue-code');
+
+        $this->assertInstanceOf(PublicQueueResolveData::class, $resolvedQueue);
+        $this->assertSame('public-queue-code', $resolvedQueue->publicCode);
+        $this->assertSame(10, $resolvedQueue->businessId);
+        $this->assertSame('QueueFlow Clinic', $resolvedQueue->businessName);
+        $this->assertSame(101, $resolvedQueue->branchId);
+        $this->assertSame('Downtown Branch', $resolvedQueue->branchName);
+        $this->assertSame(501, $resolvedQueue->serviceId);
+        $this->assertSame('General Consultation', $resolvedQueue->serviceName);
+        $this->assertSame(91, $resolvedQueue->queueId);
+        $this->assertSame('Consultation Queue', $resolvedQueue->queueName);
+        $this->assertSame('OPEN', $resolvedQueue->queueStatus);
+
+        Http::assertSent(
+            fn (Request $request): bool => $request->method() === 'GET'
+                && $request->url() === 'http://localhost:8080/api/v1/public/queues/resolve/public-queue-code'
+                && ! $request->hasHeader('Authorization')
+        );
+    }
+
+    public function test_it_maps_a_public_shared_queue_resolve_response_without_service_context(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/public/queues/resolve/shared-public-code' => Http::response([
+                'publicCode' => 'shared-public-code',
+                'businessId' => 10,
+                'businessName' => 'QueueFlow Clinic',
+                'branchId' => 101,
+                'branchName' => 'Downtown Branch',
+                'serviceId' => null,
+                'serviceName' => null,
+                'queueId' => 92,
+                'queueName' => 'Main Queue',
+                'queueStatus' => 'PAUSED',
+            ]),
+        ]);
+
+        $resolvedQueue = app(QueueFlowApiClient::class)->resolvePublicQueue('shared-public-code');
+
+        $this->assertInstanceOf(PublicQueueResolveData::class, $resolvedQueue);
+        $this->assertNull($resolvedQueue->serviceId);
+        $this->assertNull($resolvedQueue->serviceName);
+        $this->assertSame(92, $resolvedQueue->queueId);
+        $this->assertSame('PAUSED', $resolvedQueue->queueStatus);
+    }
+
+    public function test_it_fetches_a_public_queue_board_without_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/board' => Http::response([
+                'queueId' => 91,
+                'name' => 'Consultation Queue',
+                'status' => 'OPEN',
+                'nowServing' => 'A001',
+                'calling' => 'A002',
+                'waitingCount' => 2,
+                'upcomingTicketNumbers' => ['A003', 'A004'],
+            ]),
+        ]);
+
+        $board = app(QueueFlowApiClient::class)->publicQueueBoard(91);
+
+        $this->assertInstanceOf(PublicQueueBoardData::class, $board);
+        $this->assertSame(91, $board->queueId);
+        $this->assertSame('Consultation Queue', $board->name);
+        $this->assertSame('OPEN', $board->status);
+        $this->assertSame('A001', $board->nowServing);
+        $this->assertSame('A002', $board->calling);
+        $this->assertSame(2, $board->waitingCount);
+        $this->assertSame(['A003', 'A004'], $board->upcomingTicketNumbers);
+
+        Http::assertSent(
+            fn (Request $request): bool => $request->method() === 'GET'
+                && $request->url() === 'http://localhost:8080/api/v1/queues/91/board'
+                && ! $request->hasHeader('Authorization')
+        );
+    }
+
+    public function test_it_maps_nullable_public_queue_board_operational_fields(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/92/board' => Http::response([
+                'queueId' => 92,
+                'name' => 'Empty Queue',
+                'status' => 'CLOSED',
+                'nowServing' => null,
+                'calling' => null,
+                'waitingCount' => 0,
+                'upcomingTicketNumbers' => [],
+            ]),
+        ]);
+
+        $board = app(QueueFlowApiClient::class)->publicQueueBoard(92);
+
+        $this->assertInstanceOf(PublicQueueBoardData::class, $board);
+        $this->assertSame(92, $board->queueId);
+        $this->assertSame('CLOSED', $board->status);
+        $this->assertNull($board->nowServing);
+        $this->assertNull($board->calling);
+        $this->assertSame(0, $board->waitingCount);
+        $this->assertSame([], $board->upcomingTicketNumbers);
     }
 }

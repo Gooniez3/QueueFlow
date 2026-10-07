@@ -45,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
                         true,
                     )
                 ) || (
-                    request()->routeIs('home', 'businesses.show', 'branches.show', 'services.show', 'tickets.show')
+                    request()->routeIs('home', 'businesses.show', 'branches.show', 'services.show', 'tickets.show', 'queues.board.show')
                     && $exception->status === 404
                 ) || (
                     request()->routeIs('queue-entries.store')
@@ -178,7 +178,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 };
             }
 
-            if (! $request->routeIs('home', 'businesses.show', 'branches.show', 'services.show', 'tickets.show')) {
+            if (! $request->routeIs('home', 'businesses.show', 'branches.show', 'services.show', 'tickets.show', 'queues.board.show')) {
                 return null;
             }
 

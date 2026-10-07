@@ -56,7 +56,7 @@
             </section>
 
             <section class="px-5 pt-6" aria-labelledby="live-queue-heading">
-                <div class="flex items-center justify-between gap-4"><div class="flex items-center gap-2"><span class="size-2 rounded-full bg-customer-green"></span><h2 id="live-queue-heading" class="text-xs font-bold tracking-[0.08em]">LIVE QUEUE</h2></div><a class="text-xs font-bold text-customer-indigo" href="{{ route('queue-board.show') }}">Details &rsaquo;</a></div>
+                <div class="flex items-center justify-between gap-4"><div class="flex items-center gap-2"><span class="size-2 rounded-full bg-customer-green"></span><h2 id="live-queue-heading" class="text-xs font-bold tracking-[0.08em]">LIVE QUEUE</h2></div></div>
                 <div class="mt-3 grid grid-cols-3 gap-2">
                     @foreach (['nowServing' => 'Now serving', 'calling' => 'Calling', 'upNext' => 'Up next'] as $key => $label)
                         <div @class(['rounded-2xl px-3 py-3', 'bg-customer-indigo text-white' => $key === 'nowServing', 'bg-customer-yellow' => $key === 'calling', 'bg-white' => $key === 'upNext'])><p class="text-[0.65rem]">{{ $label }}</p><p class="mt-2 text-xl font-bold">{{ $presentation['activeTicket'][$key] }}</p></div>
@@ -80,7 +80,7 @@
             </section>
 
             <section class="px-5 pt-6" aria-labelledby="live-queue-heading">
-                <div class="flex items-center justify-between gap-4"><div class="flex items-center gap-2"><span class="size-2 rounded-full bg-customer-green"></span><h2 id="live-queue-heading" class="text-xs font-bold tracking-[0.08em]">LIVE QUEUE</h2></div><a class="text-xs font-bold text-customer-indigo" href="{{ route('queue-board.show') }}">See all &rsaquo;</a></div>
+                <div class="flex items-center justify-between gap-4"><div class="flex items-center gap-2"><span class="size-2 rounded-full bg-customer-green"></span><h2 id="live-queue-heading" class="text-xs font-bold tracking-[0.08em]">LIVE QUEUE</h2></div></div>
                 <div class="mt-3 divide-y divide-customer-line/70 overflow-hidden rounded-[1.5rem] bg-white px-4">
                     @foreach ($presentation['liveQueues'] as $queue)
                         @php($business = $businesses[$loop->index] ?? null)

@@ -6,6 +6,8 @@ use App\Data\AuthUserData;
 use App\Data\BranchData;
 use App\Data\BusinessData;
 use App\Data\LoginData;
+use App\Data\PublicQueueBoardData;
+use App\Data\PublicQueueResolveData;
 use App\Data\QueueData;
 use App\Data\QueueEntryData;
 use App\Data\QueuePositionData;
@@ -265,6 +267,26 @@ class QueueFlowApiClient
         );
 
         return TodayQueueData::fromArray($response->json());
+    }
+
+    public function resolvePublicQueue(string $publicCode): PublicQueueResolveData
+    {
+        $response = $this->sendGet(
+            $this->client(),
+            "/api/v1/public/queues/resolve/{$publicCode}",
+        );
+
+        return PublicQueueResolveData::fromArray($response->json());
+    }
+
+    public function publicQueueBoard(int $queueId): PublicQueueBoardData
+    {
+        $response = $this->sendGet(
+            $this->client(),
+            "/api/v1/queues/{$queueId}/board",
+        );
+
+        return PublicQueueBoardData::fromArray($response->json());
     }
 
     public function joinQueue(

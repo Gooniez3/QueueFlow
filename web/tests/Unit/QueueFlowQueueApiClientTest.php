@@ -311,6 +311,7 @@ class QueueFlowQueueApiClientTest extends TestCase
         $this->assertInstanceOf(StaffDashboardData::class, $dashboard);
         $this->assertSame('2030-04-15', $dashboard->businessDate);
         $this->assertCount(2, $dashboard->queues);
+        $this->assertSame('consultation-queue-public-code', $dashboard->queues[0]->publicCode);
         $this->assertSame([301, 302], array_map(
             static fn (QueueStaffEntryData $entry): int => $entry->entryId,
             $dashboard->queues[0]->waiting,
@@ -655,6 +656,7 @@ class QueueFlowQueueApiClientTest extends TestCase
             'queues' => [
                 [
                     'queueId' => 91,
+                    'publicCode' => 'consultation-queue-public-code',
                     'name' => 'Consultation Queue',
                     'status' => 'OPEN',
                     'ticketPrefix' => 'A',
@@ -696,6 +698,7 @@ class QueueFlowQueueApiClientTest extends TestCase
                 ],
                 [
                     'queueId' => 92,
+                    'publicCode' => 'shared-queue-public-code',
                     'name' => 'Shared Queue',
                     'status' => 'PAUSED',
                     'ticketPrefix' => 'S',

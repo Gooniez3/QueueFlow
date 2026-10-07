@@ -9,6 +9,7 @@ final readonly class StaffDashboardQueueData
      */
     public function __construct(
         public int $queueId,
+        public string $publicCode,
         public string $name,
         public string $status,
         public string $ticketPrefix,
@@ -26,6 +27,7 @@ final readonly class StaffDashboardQueueData
     {
         return new self(
             queueId: (int) $data['queueId'],
+            publicCode: (string) $data['publicCode'],
             name: (string) $data['name'],
             status: (string) $data['status'],
             ticketPrefix: (string) $data['ticketPrefix'],
