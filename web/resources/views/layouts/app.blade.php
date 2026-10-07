@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="queueflow-realtime-base-url" content="{{ rtrim(config('services.queueflow.public_realtime_base_url'), '/') }}">
 
         <title>@yield('title', 'QueueFlow')</title>
 

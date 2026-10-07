@@ -37,6 +37,10 @@ return [
 
     'queueflow' => [
         'base_url' => env('QUEUEFLOW_API_URL', 'http://localhost:8080'),
+        'public_realtime_base_url' => env(
+            'QUEUEFLOW_PUBLIC_REALTIME_URL',
+            env('QUEUEFLOW_API_URL', 'http://localhost:8080'),
+        ),
     ],
 
 ];
