@@ -47,6 +47,10 @@ class QueueBoardTest extends TestCase
             ->assertSee('Rendered 2:45 PM')
             ->assertSee('Refresh board')
             ->assertSee('href="'.route('queues.board.show', 'public-queue-code').'"', false)
+            ->assertSee('queueflow-realtime-base-url', false)
+            ->assertSee('const publicCode = "public-queue-code";', false)
+            ->assertSee('api/v1/public/queues/${encodeURIComponent(publicCode)}/events', false)
+            ->assertDontSee('/api/v1/public/queues/91/events', false)
             ->assertDontSee('inert-spring-token');
 
         $requests = Http::recorded();
