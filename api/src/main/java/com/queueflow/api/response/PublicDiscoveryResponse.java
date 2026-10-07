@@ -1,5 +1,7 @@
 package com.queueflow.api.response;
 
+import com.queueflow.api.entity.BusinessCategory;
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -7,7 +9,7 @@ public record PublicDiscoveryResponse(
         Long businessId,
         String businessName,
         String businessDescription,
-        String category,
+        BusinessCategory category,
         Long branchId,
         String branchName,
         String address,

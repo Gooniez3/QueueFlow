@@ -130,17 +130,19 @@ public class BusinessService {
         return toResponse(businessRepository.save(business));
     }
 
+    private com.queueflow.api.entity.BusinessCategory normalizeCategory(
+            com.queueflow.api.entity.BusinessCategory category
+    ) {
+        return category == null
+                ? com.queueflow.api.entity.BusinessCategory.OTHER
+                : category;
+    }
     private String normalizeNullableDescription(String description) {
         return description == null || description.isBlank()
                 ? null
                 : description;
     }
 
-    private String normalizeCategory(String category) {
-        return category == null || category.isBlank()
-                ? "OTHER"
-                : category.trim().toUpperCase();
-    }
 
     private BusinessResponse toResponse(Business business) {
 
@@ -153,3 +155,7 @@ public class BusinessService {
         );
     }
 }
+
+
+
+
