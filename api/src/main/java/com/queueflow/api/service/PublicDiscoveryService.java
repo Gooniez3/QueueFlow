@@ -1,6 +1,7 @@
 package com.queueflow.api.service;
 
 import com.queueflow.api.entity.Branch;
+import com.queueflow.api.entity.BusinessCategory;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.ServiceRepository;
 import com.queueflow.api.response.PublicDiscoveryResponse;
@@ -44,8 +45,8 @@ public class PublicDiscoveryService {
         String normalizedSearch =
                 normalize(search);
 
-        String normalizedCategory =
-                normalize(category);
+        com.queueflow.api.entity.BusinessCategory normalizedCategory =
+                parseCategory(category);
 
         List<Branch> branches =
                 branchRepository.findAllByOrderByNameAsc();
@@ -147,16 +148,14 @@ public class PublicDiscoveryService {
 
     private boolean matchesCategory(
             PublicDiscoveryResponse response,
-            String category
+            com.queueflow.api.entity.BusinessCategory category
     ) {
 
         if (category == null) {
             return true;
         }
 
-        return response.category() != null
-                && response.category()
-                .equalsIgnoreCase(category);
+        return response.category() == category;
     }
 
     private boolean matchesSearch(
@@ -218,6 +217,26 @@ public class PublicDiscoveryService {
         return value != null
                 && value.toLowerCase(Locale.ROOT)
                 .contains(search);
+    }
+
+    private com.queueflow.api.entity.BusinessCategory parseCategory(
+            String value
+    ) {
+
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return com.queueflow.api.entity.BusinessCategory.valueOf(
+                    value.trim()
+                            .toUpperCase(Locale.ROOT)
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "Unsupported business category"
+            );
+        }
     }
 
     private String normalize(
@@ -351,3 +370,7 @@ public class PublicDiscoveryService {
                 );
     }
 }
+
+
+
+

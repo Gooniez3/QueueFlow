@@ -17,8 +17,9 @@ public class Business {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 100)
-    private String category = "OTHER";
+    private BusinessCategory category = BusinessCategory.OTHER;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -35,7 +36,7 @@ public class Business {
     ) {
         this.name = name;
         this.description = description;
-        this.category = "OTHER";
+        this.category = BusinessCategory.OTHER;
     }
 
     @PrePersist
@@ -44,8 +45,8 @@ public class Business {
         createdAt = now;
         updatedAt = now;
 
-        if (category == null || category.isBlank()) {
-            category = "OTHER";
+        if (category == null) {
+            category = BusinessCategory.OTHER;
         }
     }
 
@@ -78,12 +79,12 @@ public class Business {
         this.description = description;
     }
 
-    public String getCategory() {
+    public BusinessCategory getCategory() {
         return category;
     }
 
     public void setCategory(
-            String category
+            BusinessCategory category
     ) {
         this.category = category;
     }

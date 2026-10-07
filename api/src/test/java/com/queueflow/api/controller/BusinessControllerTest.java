@@ -1,6 +1,7 @@
 package com.queueflow.api.controller;
 
 import com.queueflow.api.entity.Business;
+import com.queueflow.api.entity.BusinessCategory;
 import com.queueflow.api.entity.StaffMembership;
 import com.queueflow.api.entity.StaffRole;
 import com.queueflow.api.entity.UserAccount;
@@ -383,6 +384,280 @@ class BusinessControllerTest {
                 .isZero();
     }
 
+
+    @Test
+    void shouldAcceptAllSupportedBusinessCategories()
+            throws Exception {
+
+        createUser(
+                "owner@example.com",
+                "password123"
+        );
+
+        String token = loginAndGetToken(
+                "owner@example.com",
+                "password123"
+        );
+
+        for (BusinessCategory category :
+                BusinessCategory.values()) {
+
+            mockMvc.perform(
+                            post("/api/v1/businesses")
+                                    .header(
+                                            "Authorization",
+                                            "Bearer " + token
+                                    )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content("""
+                                            {
+                                                "name": "Business %s",
+                                                "description": "Category test",
+                                                "category": "%s"
+                                            }
+                                            """.formatted(
+                                            category.name(),
+                                            category.name()
+                                    )))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.category")
+                            .value(category.name()));
+        }
+
+        assertThat(businessRepository.count())
+                .isEqualTo(
+                        BusinessCategory.values().length
+                );
+    }
+
+    @Test
+    void shouldRejectUnsupportedBusinessCategory()
+            throws Exception {
+
+        createUser(
+                "owner@example.com",
+                "password123"
+        );
+
+        String token = loginAndGetToken(
+                "owner@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/businesses")
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                            "name": "Invalid Category Business",
+                                            "description": "Invalid category test",
+                                            "category": "TECHNOLOGY"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message")
+                        .value("Malformed JSON request"));
+
+        assertThat(businessRepository.count())
+                .isZero();
+    }
+
+    @Test
+    void shouldUpdateBusinessCategory()
+            throws Exception {
+
+        UserAccount user = createUser(
+                "owner@example.com",
+                "password123"
+        );
+
+        String token = loginAndGetToken(
+                "owner@example.com",
+                "password123"
+        );
+
+        Business business =
+                new Business(
+                        "QueueFlow Clinic",
+                        "Medical clinic"
+                );
+
+        business.setCategory(
+                BusinessCategory.HEALTH
+        );
+
+        business = businessRepository.save(
+                business
+        );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user,
+                        business,
+                        null,
+                        StaffRole.OWNER
+                )
+        );
+
+        mockMvc.perform(
+                        put(
+                                "/api/v1/businesses/{businessId}",
+                                business.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                            "name": "QueueFlow Tech",
+                                            "description": "Retail technology",
+                                            "category": "RETAIL_TECH"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.category")
+                        .value("RETAIL_TECH"));
+
+        Business updated =
+                businessRepository
+                        .findById(
+                                business.getId()
+                        )
+                        .orElseThrow();
+
+        assertThat(updated.getCategory())
+                .isEqualTo(
+                        BusinessCategory.RETAIL_TECH
+                );
+    }
+
+    @Test
+    void shouldKeepOtherWhenCategoryIsOmitted()
+            throws Exception {
+
+        createUser(
+                "owner@example.com",
+                "password123"
+        );
+
+        String token = loginAndGetToken(
+                "owner@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/businesses")
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(validBusinessRequest())
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category")
+                        .value("OTHER"));
+
+        Business business =
+                businessRepository
+                        .findAll()
+                        .getFirst();
+
+        assertThat(business.getCategory())
+                .isEqualTo(
+                        BusinessCategory.OTHER
+                );
+    }
+
+    @Test
+    void shouldRejectUnsupportedBusinessCategoryOnUpdate()
+            throws Exception {
+
+        UserAccount user = createUser(
+                "owner@example.com",
+                "password123"
+        );
+
+        String token = loginAndGetToken(
+                "owner@example.com",
+                "password123"
+        );
+
+        Business business =
+                new Business(
+                        "QueueFlow Clinic",
+                        "Medical clinic"
+                );
+
+        business.setCategory(
+                BusinessCategory.HEALTH
+        );
+
+        business = businessRepository.save(
+                business
+        );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user,
+                        business,
+                        null,
+                        StaffRole.OWNER
+                )
+        );
+
+        mockMvc.perform(
+                        put(
+                                "/api/v1/businesses/{businessId}",
+                                business.getId()
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + token
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                            "name": "QueueFlow Clinic",
+                                            "description": "Medical clinic",
+                                            "category": "TECHNOLOGY"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message")
+                        .value("Malformed JSON request"));
+
+        Business unchanged =
+                businessRepository
+                        .findById(
+                                business.getId()
+                        )
+                        .orElseThrow();
+
+        assertThat(unchanged.getCategory())
+                .isEqualTo(
+                        BusinessCategory.HEALTH
+                );
+    }
     private UserAccount createUser(
             String email,
             String rawPassword
@@ -471,3 +746,4 @@ class BusinessControllerTest {
                 """;
     }
 }
+

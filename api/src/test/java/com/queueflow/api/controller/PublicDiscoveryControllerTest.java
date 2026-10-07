@@ -2,6 +2,7 @@ package com.queueflow.api.controller;
 
 import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Business;
+import com.queueflow.api.entity.BusinessCategory;
 import com.queueflow.api.repository.AuthSessionRepository;
 import com.queueflow.api.repository.BranchRepository;
 import com.queueflow.api.repository.BusinessRepository;
@@ -80,7 +81,7 @@ class PublicDiscoveryControllerTest {
                 createBusiness(
                         "QueueFlow Clinic",
                         "Medical clinic",
-                        "HEALTH"
+                        BusinessCategory.HEALTH
                 );
 
         Branch branch =
@@ -128,7 +129,7 @@ class PublicDiscoveryControllerTest {
                 createBusiness(
                         "TechFix Center",
                         "Device repair specialists",
-                        "TECHNOLOGY"
+                        BusinessCategory.RETAIL_TECH
                 );
 
         Branch branch =
@@ -196,14 +197,14 @@ class PublicDiscoveryControllerTest {
                 createBusiness(
                         "QueueFlow Clinic",
                         "Medical clinic",
-                        "HEALTH"
+                        BusinessCategory.HEALTH
                 );
 
         Business repairShop =
                 createBusiness(
                         "TechFix",
                         "Technology repair",
-                        "TECHNOLOGY"
+                        BusinessCategory.RETAIL_TECH
                 );
 
         Branch clinicBranch =
@@ -264,7 +265,7 @@ class PublicDiscoveryControllerTest {
                 createBusiness(
                         "QueueFlow Clinic",
                         "Medical clinic",
-                        "HEALTH"
+                        BusinessCategory.HEALTH
                 );
 
         Branch branch =
@@ -310,7 +311,7 @@ class PublicDiscoveryControllerTest {
                 createBusiness(
                         "QueueFlow Clinics",
                         "Medical clinics",
-                        "HEALTH"
+                        BusinessCategory.HEALTH
                 );
 
         Branch nearby =
@@ -434,7 +435,7 @@ class PublicDiscoveryControllerTest {
                 createBusiness(
                         "QueueFlow Clinic",
                         "Medical clinic",
-                        "HEALTH"
+                        BusinessCategory.HEALTH
                 );
 
         Branch branch =
@@ -485,10 +486,28 @@ class PublicDiscoveryControllerTest {
                 .isEqualByComparingTo(originalLongitude);
     }
 
+
+    @Test
+    void shouldRejectUnsupportedDiscoveryCategory()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/public/discovery")
+                                .param(
+                                        "category",
+                                        "TECHNOLOGY"
+                                )
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message")
+                        .value(
+                                "Unsupported business category"
+                        ));
+    }
     private Business createBusiness(
             String name,
             String description,
-            String category
+            BusinessCategory category
     ) {
 
         Business business =
@@ -552,3 +571,4 @@ class PublicDiscoveryControllerTest {
         return serviceRepository.save(service);
     }
 }
+

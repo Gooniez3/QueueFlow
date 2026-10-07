@@ -1,5 +1,6 @@
 package com.queueflow.api.request;
 
+import com.queueflow.api.entity.BusinessCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -11,7 +12,6 @@ public record UpdateBusinessRequest(
 
         String description,
 
-        @Size(max = 100, message = "Business category must not exceed 100 characters")
-        String category
+        BusinessCategory category
 ) {
 }
