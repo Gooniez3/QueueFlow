@@ -24,6 +24,7 @@ import com.queueflow.api.response.StaffDashboardQueueResponse;
 import com.queueflow.api.response.StaffDashboardResponse;
 import com.queueflow.api.response.StaffDashboardServiceResponse;
 import com.queueflow.api.security.AuthTokenService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,8 @@ import com.queueflow.api.security.GuestTokenEncryptionService;
 import com.queueflow.api.entity.GuestJoinIdempotency;
 import com.queueflow.api.entity.StaffMutationIdempotency;
 import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
+import com.queueflow.api.realtime.QueueRealtimeEvent;
+import com.queueflow.api.realtime.QueueRealtimeEventType;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -59,6 +62,7 @@ public class QueueService {
     private final GuestJoinIdempotencyRepository guestJoinIdempotencyRepository;
     private final GuestTokenEncryptionService guestTokenEncryptionService;
     private final StaffMutationIdempotencyRepository staffMutationIdempotencyRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public QueueService(
             QueueRepository queueRepository,
@@ -70,7 +74,8 @@ public class QueueService {
             BusinessAuthorizationService businessAuthorizationService,
             GuestJoinIdempotencyRepository guestJoinIdempotencyRepository,
             GuestTokenEncryptionService guestTokenEncryptionService,
-            StaffMutationIdempotencyRepository staffMutationIdempotencyRepository
+            StaffMutationIdempotencyRepository staffMutationIdempotencyRepository,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.queueRepository = queueRepository;
         this.queueEntryRepository = queueEntryRepository;
@@ -83,6 +88,7 @@ public class QueueService {
         this.guestTokenEncryptionService = guestTokenEncryptionService;
         this.staffMutationIdempotencyRepository =
                 staffMutationIdempotencyRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -171,6 +177,17 @@ public class QueueService {
    try {
        Queue savedQueue =
             queueRepository.saveAndFlush(queue);
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.QUEUE_CREATED,
+                        businessId,
+                        branchId,
+                        savedQueue.getId(),
+                        null,
+                        OffsetDateTime.now()
+                )
+        );
 
     return toResponse(savedQueue);
 
@@ -433,6 +450,27 @@ public class QueueService {
     );
  }
 
+
+        Long businessId =
+                queue.getBranch()
+                        .getBusiness()
+                        .getId();
+
+        Long branchId =
+                queue.getBranch()
+                        .getId();
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.JOIN,
+                        businessId,
+                        branchId,
+                        queueId,
+                        savedEntry.getId(),
+                        OffsetDateTime.now()
+                )
+        );
+
         String ticketNumber =
                 formatTicketNumber(
                         queue.getTicketPrefix(),
@@ -524,6 +562,27 @@ public class QueueService {
 
     QueueEntry savedEntry =
             queueEntryRepository.save(entry);
+
+
+    Long businessId =
+            queue.getBranch()
+                    .getBusiness()
+                    .getId();
+
+    Long branchId =
+            queue.getBranch()
+                    .getId();
+
+    eventPublisher.publishEvent(
+            new QueueRealtimeEvent(
+                    QueueRealtimeEventType.CANCEL,
+                    businessId,
+                    branchId,
+                    queueId,
+                    savedEntry.getId(),
+                    OffsetDateTime.now()
+            )
+    );
 
     return toEntryResponse(
             savedEntry,
@@ -780,6 +839,17 @@ public class QueueService {
                 normalizedIdempotencyKey
         );
 
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.CALL_NEXT,
+                        businessId,
+                        branchId,
+                        queueId,
+                        savedEntry.getId(),
+                        OffsetDateTime.now()
+                )
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
@@ -873,6 +943,17 @@ public class QueueService {
                 savedEntry,
                 "RECALL",
                 normalizedIdempotencyKey
+        );
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.RECALL,
+                        businessId,
+                        branchId,
+                        queueId,
+                        savedEntry.getId(),
+                        OffsetDateTime.now()
+                )
         );
 
         return toStaffEntryResponse(
@@ -981,6 +1062,17 @@ public class QueueService {
                 normalizedIdempotencyKey
         );
 
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.START_SERVING,
+                        businessId,
+                        branchId,
+                        queueId,
+                        savedEntry.getId(),
+                        OffsetDateTime.now()
+                )
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
@@ -1078,6 +1170,17 @@ public class QueueService {
                 normalizedIdempotencyKey
         );
 
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.COMPLETE,
+                        businessId,
+                        branchId,
+                        queueId,
+                        savedEntry.getId(),
+                        OffsetDateTime.now()
+                )
+        );
+
         return toStaffEntryResponse(
                 savedEntry
         );
@@ -1170,6 +1273,17 @@ public class QueueService {
                 savedEntry,
                 "SKIP",
                 normalizedIdempotencyKey
+        );
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.SKIP,
+                        businessId,
+                        branchId,
+                        queueId,
+                        savedEntry.getId(),
+                        OffsetDateTime.now()
+                )
         );
 
         return toStaffEntryResponse(
@@ -1321,6 +1435,18 @@ public class QueueService {
         Queue savedQueue =
                 queueRepository.save(queue);
 
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.PAUSE,
+                        businessId,
+                        branchId,
+                        queueId,
+                        null,
+                        OffsetDateTime.now()
+                )
+        );
+
         return toResponse(savedQueue);
     }
 
@@ -1368,7 +1494,19 @@ public class QueueService {
     Queue savedQueue =
             queueRepository.save(queue);
 
-    return toResponse(savedQueue);
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.RESUME,
+                        businessId,
+                        branchId,
+                        queueId,
+                        null,
+                        OffsetDateTime.now()
+                )
+        );
+
+        return toResponse(savedQueue);
    }
    @Transactional
    public QueueResponse closeQueue(
@@ -1417,7 +1555,19 @@ public class QueueService {
     Queue savedQueue =
             queueRepository.save(queue);
 
-    return toResponse(savedQueue);
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.CLOSE,
+                        businessId,
+                        branchId,
+                        queueId,
+                        null,
+                        OffsetDateTime.now()
+                )
+        );
+
+        return toResponse(savedQueue);
    }
 
     @Transactional
@@ -1481,6 +1631,18 @@ public class QueueService {
 
         Queue savedQueue =
                 queueRepository.save(queue);
+
+
+        eventPublisher.publishEvent(
+                new QueueRealtimeEvent(
+                        QueueRealtimeEventType.REOPEN,
+                        businessId,
+                        branchId,
+                        queueId,
+                        null,
+                        OffsetDateTime.now()
+                )
+        );
 
         return toResponse(savedQueue);
     }

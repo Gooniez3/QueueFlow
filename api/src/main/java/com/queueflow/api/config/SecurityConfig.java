@@ -13,6 +13,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.config.Customizer;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
 @Configuration
 public class SecurityConfig {
 
@@ -47,6 +55,7 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
 
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(
@@ -83,6 +92,10 @@ public class SecurityConfig {
                                 "/api/v1/businesses",
                                 "/api/v1/businesses/**"
                         ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/businesses/*/branches/*/events"
+                        ).permitAll()
 
                         // Public queue position lookup.
                         // QueueService verifies ownership using either
@@ -90,9 +103,11 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/queues/*/entries/*/position",
+                                "/api/v1/queues/*/events",
                                 "/api/v1/queues/{queueId}/board",
                                 "/api/v1/public/queues/resolve/{publicCode}",
-                                "/api/v1/public/discovery"
+                                "/api/v1/public/discovery",
+                                "/api/v1/public/queues/{publicCode}/events"
                         ).permitAll()
 
                         // Public queue joining and cancellation.
@@ -117,6 +132,39 @@ public class SecurityConfig {
 
         return http.build();
     }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(
+        @Value("${queueflow.web.allowed-origin}")
+        String allowedOrigin
+  ) {
+    CorsConfiguration configuration =
+            new CorsConfiguration();
+
+    configuration.setAllowedOrigins(
+            List.of(allowedOrigin)
+    );
+
+    configuration.setAllowedMethods(
+            List.of("GET", "OPTIONS")
+    );
+
+    configuration.setAllowedHeaders(
+            List.of("*")
+    );
+
+    configuration.setAllowCredentials(false);
+
+    UrlBasedCorsConfigurationSource source =
+            new UrlBasedCorsConfigurationSource();
+
+    source.registerCorsConfiguration(
+            "/api/v1/**",
+            configuration
+    );
+
+    return source;
+  }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
