@@ -1,0 +1,57 @@
+
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  backend-tests:
+    name: Spring Boot Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: api
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: queueflow
+          POSTGRES_USER: queueflow
+          POSTGRES_PASSWORD: queueflow_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U queueflow -d queueflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/queueflow
+      DB_USERNAME: queueflow
+      DB_PASSWORD: queueflow_test_password
+      GUEST_TOKEN_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Singapore
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: api/pom.xml
+
+      - name: Build and run tests
+        run: mvn -B clean verify
