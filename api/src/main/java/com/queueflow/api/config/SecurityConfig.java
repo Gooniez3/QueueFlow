@@ -105,6 +105,36 @@ public class SecurityConfig {
                                 "/api/v1/public/queues/{publicCode}/events"
                         ).permitAll()
 
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/branches/*/services/*/slots"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/pre-queue/reservations"
+                        ).permitAll()
+
+                        .requestMatchers(
+                               HttpMethod.GET,
+                               "/api/v1/pre-queue/reservations/*"
+                        ).permitAll()
+
+                        .requestMatchers(
+                              HttpMethod.POST,
+                              "/api/v1/pre-queue/reservations/*/cancel"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/pre-queue/reservations/*/reschedule"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/pre-queue/reservations/*/check-in"
+                        ).permitAll()
+
                         // Public queue joining and cancellation.
                         // Guests can use these without authentication.
                         // If a valid bearer token is supplied,
