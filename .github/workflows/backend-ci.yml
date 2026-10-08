@@ -27,7 +27,7 @@ jobs:
           POSTGRES_USER: queueflow
           POSTGRES_PASSWORD: queueflow_test_password
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd "pg_isready -U queueflow -d queueflow"
           --health-interval 10s
@@ -35,7 +35,7 @@ jobs:
           --health-retries 5
 
     env:
-      DB_URL: jdbc:postgresql://localhost:5432/queueflow
+      DB_URL: jdbc:postgresql://localhost:5433/queueflow
       DB_USERNAME: queueflow
       DB_PASSWORD: queueflow_test_password
       GUEST_TOKEN_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
