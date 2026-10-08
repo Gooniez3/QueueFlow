@@ -232,7 +232,7 @@ public class PreQueueSchedulingService {
             null
     );
  }
-    
+
     @Transactional
     public PreQueueReservationResponse cancelReservation(
         Long reservationId,
@@ -318,6 +318,17 @@ public class PreQueueSchedulingService {
         reservationId
     );
 
+
+    ServiceSession newSession =
+            serviceSessionRepository
+                    .findByIdForUpdate(newServiceSessionId)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Service session not found with id: "
+                                            + newServiceSessionId
+                            )
+                    );
+
     PreQueueReservation reservation =
             preQueueReservationRepository
                     .findByIdForUpdate(reservationId)
@@ -360,16 +371,6 @@ public class PreQueueSchedulingService {
                 "Only a reserved reservation can be rescheduled"
         );
     }
-
-    ServiceSession newSession =
-            serviceSessionRepository
-                    .findByIdForUpdate(newServiceSessionId)
-                    .orElseThrow(() ->
-                            new ResourceNotFoundException(
-                                    "Service session not found with id: "
-                                            + newServiceSessionId
-                            )
-                    );
 
     if (!newSession.isBookingOpen()) {
         throw new IllegalStateException(
@@ -469,8 +470,7 @@ public PreQueueCheckInResponse checkInReservation(
     preQueueReservationExpiryService.expireIfNeeded(
         reservationId
     );
-
-    PreQueueReservation reservation =
+PreQueueReservation reservation =
             preQueueReservationRepository
                     .findByIdForUpdate(reservationId)
                     .orElseThrow(() ->

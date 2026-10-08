@@ -2073,6 +2073,281 @@ void shouldRejectReschedulingExpiredReservation()
 }
 
 @Test
+void shouldPreventConcurrentReschedulesFromOverbookingLastSlot()
+        throws Exception {
+
+    Business business =
+            businessRepository.save(
+                    new Business(
+                            "QueueFlow Clinic",
+                            "Medical clinic"
+                    )
+            );
+
+    Branch branch =
+            branchRepository.save(
+                    new Branch(
+                            business,
+                            "Downtown Branch",
+                            "123 Main Street",
+                            null,
+                            null
+                    )
+            );
+
+    com.queueflow.api.entity.Service service =
+            serviceRepository.save(
+                    new com.queueflow.api.entity.Service(
+                            branch,
+                            "General Consultation",
+                            "General consultation service",
+                            15
+                    )
+            );
+
+    LocalDate reservationDate =
+            LocalDate.now(
+                    ZoneId.of(
+                            branch.getTimezone()
+                    )
+            ).plusDays(1);
+
+    ServiceSession sourceSessionOne =
+            serviceSessionRepository.save(
+                    new ServiceSession(
+                            service,
+                            reservationDate,
+                            LocalTime.of(9, 0),
+                            LocalTime.of(9, 30),
+                            2
+                    )
+            );
+
+    ServiceSession sourceSessionTwo =
+            serviceSessionRepository.save(
+                    new ServiceSession(
+                            service,
+                            reservationDate,
+                            LocalTime.of(10, 0),
+                            LocalTime.of(10, 30),
+                            2
+                    )
+            );
+
+    ServiceSession targetSession =
+            serviceSessionRepository.save(
+                    new ServiceSession(
+                            service,
+                            reservationDate,
+                            LocalTime.of(11, 0),
+                            LocalTime.of(11, 30),
+                            1
+                    )
+            );
+
+    MvcResult firstCreate =
+            mockMvc.perform(
+                            post("/api/v1/pre-queue/reservations")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                                "serviceSessionId": %d
+                                            }
+                                            """.formatted(
+                                            sourceSessionOne.getId()
+                                    )))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+    MvcResult secondCreate =
+            mockMvc.perform(
+                            post("/api/v1/pre-queue/reservations")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                                "serviceSessionId": %d
+                                            }
+                                            """.formatted(
+                                            sourceSessionTwo.getId()
+                                    )))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+    String firstBody =
+            firstCreate.getResponse()
+                    .getContentAsString();
+
+    String secondBody =
+            secondCreate.getResponse()
+                    .getContentAsString();
+
+    String firstGuestToken =
+            extractJsonString(
+                    firstBody,
+                    "guestToken"
+            );
+
+    String secondGuestToken =
+            extractJsonString(
+                    secondBody,
+                    "guestToken"
+            );
+
+    String firstReservationCode =
+            extractJsonString(
+                    firstBody,
+                    "reservationCode"
+            );
+
+    String secondReservationCode =
+            extractJsonString(
+                    secondBody,
+                    "reservationCode"
+            );
+
+    PreQueueReservation firstReservation =
+            preQueueReservationRepository
+                    .findByReservationCode(
+                            firstReservationCode
+                    )
+                    .orElseThrow();
+
+    PreQueueReservation secondReservation =
+            preQueueReservationRepository
+                    .findByReservationCode(
+                            secondReservationCode
+                    )
+                    .orElseThrow();
+
+    java.util.concurrent.ExecutorService executor =
+            java.util.concurrent.Executors
+                    .newFixedThreadPool(2);
+
+    java.util.concurrent.CountDownLatch ready =
+            new java.util.concurrent.CountDownLatch(2);
+
+    java.util.concurrent.CountDownLatch start =
+            new java.util.concurrent.CountDownLatch(1);
+
+    try {
+        java.util.concurrent.Future<Integer> firstFuture =
+                executor.submit(() -> {
+                    ready.countDown();
+                    start.await();
+
+                    return mockMvc.perform(
+                                    patch(
+                                            "/api/v1/pre-queue/reservations/{reservationId}/reschedule",
+                                            firstReservation.getId()
+                                    )
+                                            .header(
+                                                    "X-Guest-Token",
+                                                    firstGuestToken
+                                            )
+                                            .contentType(
+                                                    MediaType.APPLICATION_JSON
+                                            )
+                                            .content("""
+                                                    {
+                                                        "serviceSessionId": %d
+                                                    }
+                                                    """.formatted(
+                                                    targetSession.getId()
+                                            ))
+                            )
+                            .andReturn()
+                            .getResponse()
+                            .getStatus();
+                });
+
+        java.util.concurrent.Future<Integer> secondFuture =
+                executor.submit(() -> {
+                    ready.countDown();
+                    start.await();
+
+                    return mockMvc.perform(
+                                    patch(
+                                            "/api/v1/pre-queue/reservations/{reservationId}/reschedule",
+                                            secondReservation.getId()
+                                    )
+                                            .header(
+                                                    "X-Guest-Token",
+                                                    secondGuestToken
+                                            )
+                                            .contentType(
+                                                    MediaType.APPLICATION_JSON
+                                            )
+                                            .content("""
+                                                    {
+                                                        "serviceSessionId": %d
+                                                    }
+                                                    """.formatted(
+                                                    targetSession.getId()
+                                            ))
+                            )
+                            .andReturn()
+                            .getResponse()
+                            .getStatus();
+                });
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                ready.await(
+                        5,
+                        java.util.concurrent.TimeUnit.SECONDS
+                )
+        );
+
+        start.countDown();
+
+        int firstStatus =
+                firstFuture.get(
+                        10,
+                        java.util.concurrent.TimeUnit.SECONDS
+                );
+
+        int secondStatus =
+                secondFuture.get(
+                        10,
+                        java.util.concurrent.TimeUnit.SECONDS
+                );
+
+        java.util.List<Integer> statuses =
+                java.util.List.of(
+                        firstStatus,
+                        secondStatus
+                );
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                1,
+                statuses.stream()
+                        .filter(status -> status == 200)
+                        .count()
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                1,
+                statuses.stream()
+                        .filter(status -> status == 409)
+                        .count()
+        );
+
+        long targetReservedCount =
+                preQueueReservationRepository
+                        .countByServiceSessionIdAndStatus(
+                                targetSession.getId(),
+                                PreQueueReservationStatus.RESERVED
+                        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                1,
+                targetReservedCount
+        );
+    } finally {
+        executor.shutdownNow();
+    }
+}
+
+@Test
 void shouldRejectReschedulingCancelledReservation()
         throws Exception {
 
