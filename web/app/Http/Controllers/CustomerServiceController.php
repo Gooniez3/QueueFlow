@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Data\BranchData;
 use App\Data\BusinessData;
+use App\Data\PublicQueueBoardData;
 use App\Data\ServiceData;
 use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
-use App\Presentation\CustomerDemoPresentation;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowCustomerQueueService;
 use Illuminate\View\View;
@@ -17,7 +17,6 @@ class CustomerServiceController extends Controller
     public function __construct(
         private readonly QueueFlowApiClient $apiClient,
         private readonly QueueFlowCustomerQueueService $customerQueueService,
-        private readonly CustomerDemoPresentation $demoPresentation,
     ) {}
 
     public function show(
@@ -38,13 +37,68 @@ class CustomerServiceController extends Controller
             $serviceId,
         );
 
+        $queue = $this->applicableQueueOrNull($businessId, $branchId, $serviceId);
+        $selectedBoard = $service->active && $queue?->status === 'OPEN'
+            ? $this->publicBoardOrNull($queue->id)
+            : null;
+
         return view('services.show', [
             'business' => $business,
             'branch' => $branch,
             'service' => $service,
-            'queue' => $this->applicableQueueOrNull($businessId, $branchId, $serviceId),
-            'presentation' => $this->demoPresentation->joinPreview(),
+            'queue' => $queue,
+            'selectedBoard' => $selectedBoard,
+            'alternativeServices' => $service->active && $queue?->status === 'OPEN'
+                ? $this->alternativeServices($businessId, $branchId, $serviceId)
+                : [],
         ]);
+    }
+
+    /** @return list<array{id: int, name: string, description: ?string, durationMinutes: int, waitingCount: ?int}> */
+    private function alternativeServices(
+        int $businessId,
+        int $branchId,
+        int $selectedServiceId,
+    ): array {
+        try {
+            $services = $this->apiClient->services($businessId, $branchId);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $alternatives = [];
+
+        foreach ($services as $service) {
+            if ($service->id === $selectedServiceId
+                || $service->branchId !== $branchId
+                || ! $service->active) {
+                continue;
+            }
+
+            $waitingCount = null;
+
+            try {
+                $queue = $this->customerQueueService->applicableQueue(
+                    $businessId,
+                    $branchId,
+                    $service->id,
+                );
+                $board = $this->publicBoardOrNull($queue->id);
+                $waitingCount = $board?->waitingCount;
+            } catch (\Throwable) {
+                // Keep the real service visible without fabricating queue data.
+            }
+
+            $alternatives[] = [
+                'id' => $service->id,
+                'name' => $service->name,
+                'description' => $service->description,
+                'durationMinutes' => $service->durationMinutes,
+                'waitingCount' => $waitingCount,
+            ];
+        }
+
+        return $alternatives;
     }
 
     private function ensureNestedResourcesMatch(
@@ -92,6 +146,15 @@ class CustomerServiceController extends Controller
             }
 
             throw $exception;
+        }
+    }
+
+    private function publicBoardOrNull(int $queueId): ?PublicQueueBoardData
+    {
+        try {
+            return $this->apiClient->publicQueueBoard($queueId);
+        } catch (\Throwable) {
+            return null;
         }
     }
 }

@@ -4,6 +4,8 @@ namespace Tests\Unit;
 
 use App\Data\QueueData;
 use App\Data\QueueEntryData;
+use App\Data\QueueEntryQrCredentialData;
+use App\Data\QueueEntryQrVerificationData;
 use App\Data\QueuePositionData;
 use App\Data\QueueStaffEntryData;
 use App\Data\StaffDashboardData;
@@ -259,6 +261,60 @@ class QueueFlowQueueApiClientTest extends TestCase
             && $request->url() === 'http://localhost:8080/api/v1/queues/91/entries/301/position'
             && $request->hasHeader('X-Guest-Token', 'inert-guest-token')
             && ! $request->hasHeader('Authorization'));
+    }
+
+    public function test_guest_qr_credential_uses_guest_token_and_maps_response(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/entries/301/qr-credential' => Http::response([
+                'credential' => 'opaque-qr-credential',
+                'expiresAt' => '2026-10-08T12:00:00Z',
+            ]),
+        ]);
+
+        $credential = app(QueueFlowApiClient::class)->issueQueueEntryQrCredential(
+            91,
+            301,
+            guestToken: 'inert-guest-token',
+        );
+
+        $this->assertInstanceOf(QueueEntryQrCredentialData::class, $credential);
+        $this->assertSame('opaque-qr-credential', $credential->credential);
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->url() === 'http://localhost:8080/api/v1/queues/91/entries/301/qr-credential'
+            && $request->hasHeader('X-Guest-Token', 'inert-guest-token')
+            && ! $request->hasHeader('Authorization'));
+    }
+
+    public function test_staff_qr_verification_uses_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/staff/queue-entry-qr/verify' => Http::response([
+                'entryId' => 301,
+                'queueId' => 91,
+                'businessId' => 10,
+                'branchId' => 21,
+                'branchName' => 'Authoritative Branch',
+                'serviceId' => 31,
+                'serviceName' => 'Authoritative Service',
+                'ticketNumber' => 'A023',
+                'status' => 'WAITING',
+            ]),
+        ]);
+
+        $verification = app(QueueFlowApiClient::class)->verifyQueueEntryQrCredential(
+            'inert-staff-token',
+            'opaque-qr-credential',
+        );
+
+        $this->assertInstanceOf(QueueEntryQrVerificationData::class, $verification);
+        $this->assertSame('A023', $verification->ticketNumber);
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->url() === 'http://localhost:8080/api/v1/staff/queue-entry-qr/verify'
+            && $request->hasHeader('Authorization', 'Bearer inert-staff-token')
+            && $request->data()['credential'] === 'opaque-qr-credential');
     }
 
     public function test_guest_cancel_uses_guest_token_header_and_maps_response(): void

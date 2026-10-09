@@ -6,10 +6,13 @@ use App\Data\AuthUserData;
 use App\Data\BranchData;
 use App\Data\BusinessData;
 use App\Data\LoginData;
+use App\Data\PublicDiscoveryData;
 use App\Data\PublicQueueBoardData;
 use App\Data\PublicQueueResolveData;
 use App\Data\QueueData;
 use App\Data\QueueEntryData;
+use App\Data\QueueEntryQrCredentialData;
+use App\Data\QueueEntryQrVerificationData;
 use App\Data\QueuePositionData;
 use App\Data\QueueStaffEntryData;
 use App\Data\RegisteredUserData;
@@ -88,18 +91,47 @@ class QueueFlowApiClient
         return BusinessData::fromArray($response->json());
     }
 
+    /**
+     * @return list<PublicDiscoveryData>
+     */
+    public function publicDiscovery(
+        ?string $search = null,
+        ?string $category = null,
+        ?float $latitude = null,
+        ?float $longitude = null,
+    ): array {
+        $query = array_filter([
+            'search' => $search,
+            'category' => $category,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+
+        try {
+            $response = $this->client()->get('/api/v1/public/discovery', $query);
+        } catch (ConnectionException $exception) {
+            throw $this->connectionException($exception);
+        }
+
+        $this->ensureSuccessful($response);
+
+        return collect($response->json())
+            ->map(fn (array $discovery): PublicDiscoveryData => PublicDiscoveryData::fromArray($discovery))
+            ->all();
+    }
+
     public function createBusiness(
         #[\SensitiveParameter] string $token,
         string $name,
         ?string $description = null,
+        ?string $category = null,
     ): BusinessData {
         try {
-            $response = $this->client()
-                ->withToken($token)
-                ->post('/api/v1/businesses', [
-                    'name' => $name,
-                    'description' => $description,
-                ]);
+            $payload = ['name' => $name, 'description' => $description];
+            if ($category !== null) {
+                $payload['category'] = $category;
+            }
+            $response = $this->client()->withToken($token)->post('/api/v1/businesses', $payload);
         } catch (ConnectionException $exception) {
             throw $this->connectionException($exception);
         }
@@ -114,14 +146,17 @@ class QueueFlowApiClient
         #[\SensitiveParameter] string $token,
         string $name,
         ?string $description,
+        ?string $category = null,
     ): BusinessData {
+        $payload = ['name' => $name, 'description' => $description];
+        if ($category !== null) {
+            $payload['category'] = $category;
+        }
+
         $response = $this->sendPut(
             $this->client()->withToken($token),
             "/api/v1/businesses/{$businessId}",
-            [
-                'name' => $name,
-                'description' => $description,
-            ],
+            $payload,
         );
 
         return BusinessData::fromArray($response->json());
@@ -358,6 +393,33 @@ class QueueFlowApiClient
         );
 
         return QueueEntryData::fromArray($response->json());
+    }
+
+    public function issueQueueEntryQrCredential(
+        int $queueId,
+        int $entryId,
+        #[\SensitiveParameter] ?string $token = null,
+        #[\SensitiveParameter] ?string $guestToken = null,
+    ): QueueEntryQrCredentialData {
+        $response = $this->sendPost(
+            $this->withQueueCredentials($token, $guestToken),
+            "/api/v1/queues/{$queueId}/entries/{$entryId}/qr-credential",
+        );
+
+        return QueueEntryQrCredentialData::fromArray($response->json());
+    }
+
+    public function verifyQueueEntryQrCredential(
+        #[\SensitiveParameter] string $token,
+        #[\SensitiveParameter] string $credential,
+    ): QueueEntryQrVerificationData {
+        $response = $this->sendPost(
+            $this->client()->withToken($token),
+            '/api/v1/staff/queue-entry-qr/verify',
+            ['credential' => $credential],
+        );
+
+        return QueueEntryQrVerificationData::fromArray($response->json());
     }
 
     public function callNextQueueEntry(

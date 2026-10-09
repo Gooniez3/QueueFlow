@@ -8,13 +8,13 @@ use Tests\TestCase;
 
 class CustomerExperiencePresentationTest extends TestCase
 {
-    public function test_places_category_screen_uses_the_demo_presentation_boundary(): void
+    public function test_places_uses_real_discovery_categories_and_businesses(): void
     {
         Http::preventStrayRequests();
         Http::fake([
-            'http://localhost:8080/api/v1/businesses' => Http::response([
-                $this->business(10, 'Northstar Health'),
-                $this->business(20, 'Harbour Services'),
+            'http://localhost:8080/api/v1/public/discovery' => Http::response([
+                $this->discovery(10, 'Northstar Health', 'HEALTH', 101, 'Riverside Clinic', [501 => 'General Consultation']),
+                $this->discovery(20, 'Harbour Services', 'FINANCE', 201, 'Central Branch', [601 => 'Account Services']),
             ]),
         ]);
 
@@ -22,6 +22,10 @@ class CustomerExperiencePresentationTest extends TestCase
 
         $response->assertOk()
             ->assertViewIs('places.index')
+            ->assertViewHas('categories', fn (array $categories): bool => count($categories) === 6
+                && $categories[0]['name'] === 'Hospital / Clinic'
+                && $categories[0]['count'] === 1
+                && $categories[2]['count'] === 0)
             ->assertSee('What do you need today?')
             ->assertSee('Hospital / Clinic')
             ->assertSee('Bank / Service')
@@ -29,8 +33,8 @@ class CustomerExperiencePresentationTest extends TestCase
             ->assertSee('Restaurant')
             ->assertSee('Event')
             ->assertSee('Retail / Tech')
-            ->assertSee('Search coming soon')
-            ->assertSee('Browse all places')
+            ->assertSee('0 places')
+            ->assertSee('Browse places')
             ->assertSee('Northstar Health')
             ->assertSee('Harbour Services')
             ->assertSee('href="'.route('businesses.show', 10).'"', false)
@@ -38,29 +42,59 @@ class CustomerExperiencePresentationTest extends TestCase
             ->assertSee('data-active-destination="places"', false);
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
-            && $request->url() === 'http://localhost:8080/api/v1/businesses'
+            && $request->url() === 'http://localhost:8080/api/v1/public/discovery'
             && ! $request->hasHeader('Authorization'));
         Http::assertSentCount(1);
     }
 
-    public function test_place_category_list_renders_display_only_filters_and_waiting_values(): void
+    public function test_place_category_list_renders_real_business_branch_and_service_hierarchy(): void
     {
-        $response = $this->get(route('places.show', 'hospital-clinic'));
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/public/discovery*' => Http::response([
+                $this->discovery(10, 'Northstar Health', 'HEALTH', 101, 'Riverside Clinic', [501 => 'General Consultation']),
+            ]),
+        ]);
+
+        $response = $this->get(route('places.show', 'health'));
 
         $response->assertOk()
             ->assertViewIs('places.show')
             ->assertSee('Hospital / Clinic')
-            ->assertSee('Near me')
-            ->assertSee('Open now')
-            ->assertSee('Shortest wait')
-            ->assertSee('QueueFlow Clinic')
-            ->assertSee('waiting')
-            ->assertSee('temporary presentation data');
+            ->assertSee('Northstar Health')
+            ->assertSee('Riverside Clinic')
+            ->assertSee('General Consultation')
+            ->assertDontSee('temporary presentation data')
+            ->assertDontSee('Search coming soon');
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'category=HEALTH'));
     }
 
-    public function test_unknown_demo_place_category_is_not_found(): void
+    public function test_places_search_forwards_query_and_renders_no_results_state(): void
     {
-        $this->get(route('places.show', 'unknown-category'))->assertNotFound();
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/public/discovery*' => Http::response([]),
+        ]);
+
+        $response = $this->get(route('places.index', ['search' => '  closed clinic  ']));
+
+        $response->assertOk()
+            ->assertSee('No places match your search.')
+            ->assertSee('Clear search')
+            ->assertSee('value="closed clinic"', false);
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'http://localhost:8080/api/v1/public/discovery?search=closed%20clinic');
+    }
+
+    public function test_empty_place_category_has_a_truthful_empty_state(): void
+    {
+        Http::fake([
+            'http://localhost:8080/api/v1/public/discovery*' => Http::response([]),
+        ]);
+
+        $this->get(route('places.show', 'unknown-category'))
+            ->assertNotFound();
     }
 
     public function test_guest_account_has_no_customer_authentication_controls(): void
@@ -126,13 +160,25 @@ class CustomerExperiencePresentationTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function business(int $id, string $name): array
+    private function discovery(int $businessId, string $businessName, string $category, int $branchId, string $branchName, array $services): array
     {
         return [
-            'id' => $id,
-            'name' => $name,
-            'description' => 'Customer-facing services.',
-            'createdAt' => '2026-09-30T10:15:30+08:00',
+            'businessId' => $businessId,
+            'businessName' => $businessName,
+            'businessDescription' => 'Customer-facing services.',
+            'category' => $category,
+            'branchId' => $branchId,
+            'branchName' => $branchName,
+            'address' => '1 QueueFlow Street',
+            'latitude' => null,
+            'longitude' => null,
+            'distanceKm' => null,
+            'services' => collect($services)->map(fn (string $name, int $id): array => [
+                'serviceId' => $id,
+                'name' => $name,
+                'description' => 'Available service',
+                'durationMinutes' => 20,
+            ])->values()->all(),
         ];
     }
 }

@@ -22,6 +22,35 @@ class LiveQueueTest extends TestCase
             ->assertRedirect(route('staff.login'));
     }
 
+    public function test_staff_qr_verification_uses_server_side_bearer_token_and_renders_result(): void
+    {
+        $this->fake([
+            'http://localhost:8080/api/v1/staff/queue-entry-qr/verify' => Http::response([
+                'entryId' => 301,
+                'queueId' => 91,
+                'businessId' => 10,
+                'branchId' => 101,
+                'branchName' => 'Riverside Clinic',
+                'serviceId' => 501,
+                'serviceName' => 'General Consultation',
+                'ticketNumber' => 'GC006',
+                'status' => 'WAITING',
+            ]),
+        ]);
+
+        $this->authenticated()
+            ->post(route('staff.queue-entry-qr.verify', [10, 101]), [
+                'credential' => 'opaque-qr-credential',
+            ])
+            ->assertOk()
+            ->assertSee('GC006')
+            ->assertSee('General Consultation');
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'http://localhost:8080/api/v1/staff/queue-entry-qr/verify'
+            && $request->hasHeader('Authorization', 'Bearer inert-spring-token')
+            && $request->data()['credential'] === 'opaque-qr-credential');
+    }
+
     public function test_staff_branch_stream_forwards_only_safe_events_with_server_side_token(): void
     {
         $this->fake([

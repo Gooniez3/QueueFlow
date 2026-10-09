@@ -42,10 +42,16 @@
                         <p class="mt-1 break-words text-[3.75rem] leading-none font-bold tracking-[-0.065em]">{{ $activeTicket->ticketNumber }}</p>
 
                         <div class="mt-5 h-1.5 overflow-hidden rounded-full bg-white/15" aria-hidden="true"><span class="block h-full w-2/3 rounded-full bg-customer-yellow"></span></div>
-                        <div class="mt-2 flex justify-between gap-3 text-xs"><span class="text-white/65">Now serving {{ $presentation['activeTicket']['nowServing'] }}</span><span class="font-bold text-customer-yellow">You {{ $activeTicket->ticketNumber }}</span></div>
+                        <div class="mt-2 flex justify-between gap-3 text-xs"><span class="text-white/65">Now serving {{ $liveQueue['nowServing'] ?? '—' }}</span><span class="font-bold text-customer-yellow">You {{ $activeTicket->ticketNumber }}</span></div>
 
                         <div class="relative mt-5 grid grid-cols-[7rem_1fr] gap-5 border-t border-dashed border-white/25 pt-5">
-                            <x-demo-qr :pattern="$presentation['ticket']['qrPattern']" dark />
+                            <div class="grid aspect-square place-items-center rounded-2xl border border-white/15 bg-white/10 p-2">
+                                @if ($qrDataUri)
+                                    <img class="size-full rounded-lg" src="{{ $qrDataUri }}" alt="QR credential for {{ $activeTicket->ticketNumber }}" />
+                                @else
+                                    <p class="text-center text-[0.62rem] font-bold uppercase tracking-[0.12em] text-white/60">QR unavailable</p>
+                                @endif
+                            </div>
                             <dl class="grid content-center gap-4">
                                 <div><dt class="text-xs text-white/55">People ahead</dt><dd class="mt-1 text-2xl font-bold tabular-nums">{{ $position->peopleAhead }}</dd></div>
                                 <div><dt class="text-xs text-white/55">Estimated wait</dt><dd class="mt-1 text-2xl font-bold tabular-nums">{{ $position->estimatedWaitMinutes }} min</dd></div>
@@ -59,7 +65,7 @@
                 <div class="flex items-center justify-between gap-4"><div class="flex items-center gap-2"><span class="size-2 rounded-full bg-customer-green"></span><h2 id="live-queue-heading" class="text-xs font-bold tracking-[0.08em]">LIVE QUEUE</h2></div></div>
                 <div class="mt-3 grid grid-cols-3 gap-2">
                     @foreach (['nowServing' => 'Now serving', 'calling' => 'Calling', 'upNext' => 'Up next'] as $key => $label)
-                        <div @class(['rounded-2xl px-3 py-3', 'bg-customer-indigo text-white' => $key === 'nowServing', 'bg-customer-yellow' => $key === 'calling', 'bg-white' => $key === 'upNext'])><p class="text-[0.65rem]">{{ $label }}</p><p class="mt-2 text-xl font-bold">{{ $presentation['activeTicket'][$key] }}</p></div>
+                        <div @class(['rounded-2xl px-3 py-3', 'bg-customer-indigo text-white' => $key === 'nowServing', 'bg-customer-yellow' => $key === 'calling', 'bg-white' => $key === 'upNext'])><p class="text-[0.65rem]">{{ $label }}</p><p class="mt-2 text-xl font-bold">{{ $liveQueue[$key] ?? '—' }}</p></div>
                     @endforeach
                 </div>
                 <div class="mt-4 flex items-center gap-3 rounded-[1.25rem] bg-white p-4 ring-1 ring-customer-line/40">
@@ -81,16 +87,9 @@
 
             <section class="px-5 pt-6" aria-labelledby="live-queue-heading">
                 <div class="flex items-center justify-between gap-4"><div class="flex items-center gap-2"><span class="size-2 rounded-full bg-customer-green"></span><h2 id="live-queue-heading" class="text-xs font-bold tracking-[0.08em]">LIVE QUEUE</h2></div></div>
-                <div class="mt-3 divide-y divide-customer-line/70 overflow-hidden rounded-[1.5rem] bg-white px-4">
-                    @foreach ($presentation['liveQueues'] as $queue)
-                        @php($business = $businesses[$loop->index] ?? null)
-                        <div class="relative flex min-h-17 items-center gap-3 py-3">
-                            <span class="grid size-10 shrink-0 place-items-center rounded-full bg-customer-indigo/10 text-customer-indigo"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 10.5c0 5.25-8 10.5-8 10.5S4 15.75 4 10.5a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10.5" r="2.25" /></svg></span>
-                            <div class="min-w-0 grow"><p class="truncate text-sm font-bold">{{ $business?->name ?? $queue['name'] }}</p><p class="truncate text-xs text-customer-muted">Now serving {{ $queue['nowServing'] }}</p></div>
-                            <div class="text-right"><p class="text-2xl leading-none font-bold tabular-nums">{{ str_pad((string) $queue['waiting'], 2, '0', STR_PAD_LEFT) }}</p><p class="text-[0.65rem] text-customer-muted">waiting</p></div>
-                            @if ($business)<a class="absolute inset-0" href="{{ route('businesses.show', $business->id) }}"><span class="sr-only">View {{ $business->name }}</span></a>@endif
-                        </div>
-                    @endforeach
+                <div class="mt-3 rounded-[1.5rem] bg-white px-4 py-6 text-center">
+                    <p class="text-sm font-bold">No active ticket</p>
+                    <p class="mt-1 text-xs text-customer-muted">Join a queue to see its live status here.</p>
                 </div>
             </section>
         @endif
