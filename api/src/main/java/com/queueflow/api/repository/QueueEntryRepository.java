@@ -3,6 +3,10 @@ package com.queueflow.api.repository;
 import com.queueflow.api.entity.QueueEntry;
 import com.queueflow.api.entity.QueueEntryStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -47,4 +51,8 @@ public interface QueueEntryRepository
             Long userId,
             Collection<QueueEntryStatus> statuses
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM QueueEntry e WHERE e.id = :entryId")
+    Optional<QueueEntry> findByIdForUpdate(@Param("entryId") Long entryId);
 }

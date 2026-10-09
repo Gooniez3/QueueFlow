@@ -137,12 +137,12 @@ class QueueEntryQrControllerTest {
                 );
 
         assertThat(secondCredential)
-                .isNotEqualTo(firstCredential);
+                .isEqualTo(firstCredential);
 
         List<QueueEntryQrCredential> records =
                 qrCredentialRepository.findAll();
 
-        assertThat(records).hasSize(2);
+        assertThat(records).hasSize(1);
 
         assertThat(
                 records.stream()
@@ -381,10 +381,21 @@ class QueueEntryQrControllerTest {
                         customerToken
                 );
 
-        issueCredential(
-                setup.queue().getId(),
-                entry.getId(),
-                customerToken
+        QueueEntryQrCredential record =
+                qrCredentialRepository
+                        .findByCredentialHash(
+                                authTokenService.hashToken(
+                                        oldCredential
+                                )
+                        )
+                        .orElseThrow();
+
+        record.setRevokedAt(
+                        OffsetDateTime.now()
+        );
+
+        qrCredentialRepository.saveAndFlush(
+                record
         );
 
         String staffToken =
@@ -418,6 +429,35 @@ class QueueEntryQrControllerTest {
                         .value(
                                 "QR credential has been revoked"
                         ));
+
+        String replacementCredential = issueCredential(
+                setup.queue().getId(),
+                entry.getId(),
+                customerToken
+        );
+
+        assertThat(replacementCredential)
+                .isNotEqualTo(oldCredential);
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(replacementCredential))
+        )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(oldCredential))
+        )
+                .andExpect(status().isGone());
     }
 
     @Test
@@ -502,6 +542,35 @@ class QueueEntryQrControllerTest {
                         .value(
                                 "QR credential has expired"
                         ));
+
+        String replacementCredential = issueCredential(
+                setup.queue().getId(),
+                entry.getId(),
+                customerToken
+        );
+
+        assertThat(replacementCredential)
+                .isNotEqualTo(credential);
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(replacementCredential))
+        )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(credential))
+        )
+                .andExpect(status().isGone());
     }
 
     @Test
@@ -844,6 +913,228 @@ class QueueEntryQrControllerTest {
         assertThat(stored.getCredentialHash())
                 .isNotEqualTo(qrCredential);
     }
+
+ @Test
+ void shouldAllowRepeatedQrScansWithoutRevokingCredential()
+        throws Exception {
+
+    Setup setup = createSetup();
+
+    UserAccount customer = createUser(
+            "repeat-scan-customer@example.com",
+            "password123"
+    );
+
+    QueueEntry entry = createEntry(
+            setup.queue(),
+            setup.service(),
+            customer,
+            1
+    );
+
+    String customerToken = loginAndGetToken(
+            "repeat-scan-customer@example.com",
+            "password123"
+    );
+
+    String credential = issueCredential(
+            setup.queue().getId(),
+            entry.getId(),
+            customerToken
+    );
+
+    String staffToken = createStaffAndLogin(
+            setup.business(),
+            setup.branch(),
+            "repeat-scan-staff@example.com"
+    );
+
+    for (int i = 0; i < 3; i++) {
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header(
+                                "Authorization",
+                                "Bearer " + staffToken
+                        )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                    "credential": "%s"
+                                }
+                                """.formatted(credential))
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entryId")
+                        .value(entry.getId()))
+                .andExpect(jsonPath("$.status")
+                        .value("WAITING"));
+    }
+
+    QueueEntryQrCredential stored =
+            qrCredentialRepository
+                    .findByCredentialHash(
+                            authTokenService.hashToken(credential)
+                    )
+                    .orElseThrow();
+
+    assertThat(stored.getRevokedAt()).isNull();
+
+    assertThat(
+            queueEntryRepository.findById(entry.getId())
+                    .orElseThrow().getStatus()
+    ).isEqualTo(QueueEntryStatus.WAITING);
+  }
+
+    @Test
+    void shouldReuseSameQrCredentialForConcurrentRequests() throws Exception {
+        Setup setup = createSetup();
+
+        UserAccount customer = createUser(
+                "concurrent-qr-customer@example.com",
+                "password123"
+        );
+
+        QueueEntry entry = createEntry(
+                setup.queue(),
+                setup.service(),
+                customer,
+                1
+        );
+
+        String customerToken = loginAndGetToken(
+                "concurrent-qr-customer@example.com",
+                "password123"
+        );
+
+        java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newFixedThreadPool(2);
+
+        java.util.concurrent.CountDownLatch ready =
+                new java.util.concurrent.CountDownLatch(2);
+
+        java.util.concurrent.CountDownLatch start =
+                new java.util.concurrent.CountDownLatch(1);
+
+        java.util.concurrent.Callable<String> request = () -> {
+            ready.countDown();
+
+            if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Start signal timed out");
+            }
+
+            return issueCredential(
+                    setup.queue().getId(),
+                    entry.getId(),
+                    customerToken
+            );
+        };
+
+        try {
+            java.util.concurrent.Future<String> first =
+                    executor.submit(request);
+
+            java.util.concurrent.Future<String> second =
+                    executor.submit(request);
+
+            assertThat(
+                    ready.await(10, java.util.concurrent.TimeUnit.SECONDS)
+            ).isTrue();
+
+            start.countDown();
+
+            String firstCredential =
+                    first.get(20, java.util.concurrent.TimeUnit.SECONDS);
+
+            String secondCredential =
+                    second.get(20, java.util.concurrent.TimeUnit.SECONDS);
+
+            assertThat(secondCredential).isEqualTo(firstCredential);
+
+            assertThat(
+                    qrCredentialRepository
+                            .findByQueueEntryIdAndRevokedAtIsNull(entry.getId())
+            ).hasSize(1);
+
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+    @Test
+    void shouldReplaceLegacyQrCredentialWithoutEncryptedValue()
+            throws Exception {
+
+        Setup setup = createSetup();
+
+        UserAccount customer = createUser(
+                "legacy-qr-customer@example.com",
+                "password123"
+        );
+
+        QueueEntry entry = createEntry(
+                setup.queue(),
+                setup.service(),
+                customer,
+                1
+        );
+
+        String customerToken = loginAndGetToken(
+                "legacy-qr-customer@example.com",
+                "password123"
+        );
+
+        // Simulate a credential created before migration V11.
+        String legacyRawCredential = authTokenService.generateToken();
+
+        QueueEntryQrCredential legacyCredential =
+                new QueueEntryQrCredential(
+                        entry,
+                        authTokenService.hashToken(legacyRawCredential),
+                        OffsetDateTime.now().plusHours(24)
+                );
+
+        qrCredentialRepository.saveAndFlush(legacyCredential);
+
+        assertThat(legacyCredential.getEncryptedCredential()).isNull();
+
+        // A legacy credential cannot be reconstructed from its hash.
+        String newCredential = issueCredential(
+                setup.queue().getId(),
+                entry.getId(),
+                customerToken
+        );
+
+        assertThat(newCredential).isNotEqualTo(legacyRawCredential);
+
+        QueueEntryQrCredential oldRecord =
+                qrCredentialRepository.findById(
+                        legacyCredential.getId()
+                ).orElseThrow();
+
+        assertThat(oldRecord.getRevokedAt()).isNotNull();
+
+        QueueEntryQrCredential newRecord =
+                qrCredentialRepository.findByCredentialHash(
+                        authTokenService.hashToken(newCredential)
+                ).orElseThrow();
+
+        assertThat(newRecord.getEncryptedCredential()).isNotNull();
+        assertThat(newRecord.getRevokedAt()).isNull();
+
+        // Further refreshes must reuse the replacement credential.
+        String repeatedCredential = issueCredential(
+                setup.queue().getId(),
+                entry.getId(),
+                customerToken
+        );
+
+        assertThat(repeatedCredential).isEqualTo(newCredential);
+
+        assertThat(
+                qrCredentialRepository
+                        .findByQueueEntryIdAndRevokedAtIsNull(entry.getId())
+        ).hasSize(1);
+    }
     private String issueCredential(
             Long queueId,
             Long entryId,
@@ -1099,4 +1390,3 @@ class QueueEntryQrControllerTest {
     ) {
     }
 }
-

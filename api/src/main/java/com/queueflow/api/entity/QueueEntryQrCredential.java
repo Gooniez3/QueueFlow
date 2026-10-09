@@ -37,6 +37,9 @@ public class QueueEntryQrCredential {
     )
     private String credentialHash;
 
+    @Column(name = "encrypted_credential", columnDefinition = "TEXT")
+    private String encryptedCredential;
+
     @Column(
             name = "expires_at",
             nullable = false
@@ -134,5 +137,13 @@ public class QueueEntryQrCredential {
             OffsetDateTime now
     ) {
         return !expiresAt.isAfter(now);
+    }
+
+    public String getEncryptedCredential() {
+        return encryptedCredential;
+    }
+
+    public void setEncryptedCredential(String encryptedCredential) {
+        this.encryptedCredential = encryptedCredential;
     }
 }
