@@ -429,6 +429,35 @@ class QueueEntryQrControllerTest {
                         .value(
                                 "QR credential has been revoked"
                         ));
+
+        String replacementCredential = issueCredential(
+                setup.queue().getId(),
+                entry.getId(),
+                customerToken
+        );
+
+        assertThat(replacementCredential)
+                .isNotEqualTo(oldCredential);
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(replacementCredential))
+        )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(oldCredential))
+        )
+                .andExpect(status().isGone());
     }
 
     @Test
@@ -513,6 +542,35 @@ class QueueEntryQrControllerTest {
                         .value(
                                 "QR credential has expired"
                         ));
+
+        String replacementCredential = issueCredential(
+                setup.queue().getId(),
+                entry.getId(),
+                customerToken
+        );
+
+        assertThat(replacementCredential)
+                .isNotEqualTo(credential);
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(replacementCredential))
+        )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/verify")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"credential": "%s"}
+                                """.formatted(credential))
+        )
+                .andExpect(status().isGone());
     }
 
     @Test

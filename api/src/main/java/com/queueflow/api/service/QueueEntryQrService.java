@@ -14,16 +14,11 @@ import com.queueflow.api.security.QrCredentialEncryptionService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.persistence.LockModeType;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.Optional;
 
 @Service
 public class QueueEntryQrService {
@@ -48,20 +43,20 @@ public class QueueEntryQrService {
             businessAuthorizationService;
 
     public QueueEntryQrService(
-        QueueEntryRepository queueEntryRepository,
-        QueueEntryQrCredentialRepository qrCredentialRepository,
-        AuthTokenService authTokenService,
-        BusinessAuthorizationService businessAuthorizationService,
-        QrCredentialEncryptionService qrCredentialEncryptionService
+            QueueEntryRepository queueEntryRepository,
+            QueueEntryQrCredentialRepository qrCredentialRepository,
+            AuthTokenService authTokenService,
+            BusinessAuthorizationService businessAuthorizationService,
+            QrCredentialEncryptionService qrCredentialEncryptionService
     ) {
-    this.queueEntryRepository = queueEntryRepository;
-    this.qrCredentialRepository = qrCredentialRepository;
-    this.authTokenService = authTokenService;
-    this.businessAuthorizationService = businessAuthorizationService;
-    this.qrCredentialEncryptionService = qrCredentialEncryptionService;
-   }
+        this.queueEntryRepository = queueEntryRepository;
+        this.qrCredentialRepository = qrCredentialRepository;
+        this.authTokenService = authTokenService;
+        this.businessAuthorizationService = businessAuthorizationService;
+        this.qrCredentialEncryptionService = qrCredentialEncryptionService;
+    }
 
-   @Transactional
+    @Transactional
    public QueueEntryQrCredentialResponse issueCredential(
         Long queueId,
         Long entryId,

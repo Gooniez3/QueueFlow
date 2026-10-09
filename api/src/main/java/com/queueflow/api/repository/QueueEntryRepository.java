@@ -51,12 +51,6 @@ public interface QueueEntryRepository
             Long userId,
             Collection<QueueEntryStatus> statuses
     );
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT e FROM QueueEntry e WHERE e.id = :entryId")
-    Optional<QueueEntry> findByForUpdate(
-        @Param("entryId") Long entryId
-
-    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT e FROM QueueEntry e WHERE e.id = :entryId")

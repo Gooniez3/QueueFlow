@@ -36,6 +36,7 @@ public class QueueEntryQrCredential {
             length = 64
     )
     private String credentialHash;
+
     @Column(name = "encrypted_credential", columnDefinition = "TEXT")
     private String encryptedCredential;
 
@@ -139,10 +140,10 @@ public class QueueEntryQrCredential {
     }
 
     public String getEncryptedCredential() {
-    return encryptedCredential;
-   }
+        return encryptedCredential;
+    }
 
     public void setEncryptedCredential(String encryptedCredential) {
         this.encryptedCredential = encryptedCredential;
-     }
+    }
 }
