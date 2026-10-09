@@ -10,14 +10,20 @@ import com.queueflow.api.repository.QueueEntryRepository;
 import com.queueflow.api.response.QueueEntryQrCredentialResponse;
 import com.queueflow.api.response.QueueEntryQrVerificationResponse;
 import com.queueflow.api.security.AuthTokenService;
+import com.queueflow.api.security.QrCredentialEncryptionService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
 
 @Service
 public class QueueEntryQrService {
@@ -36,109 +42,139 @@ public class QueueEntryQrService {
 
     private final AuthTokenService authTokenService;
 
+    private final QrCredentialEncryptionService qrCredentialEncryptionService;
+
     private final BusinessAuthorizationService
             businessAuthorizationService;
 
     public QueueEntryQrService(
-            QueueEntryRepository queueEntryRepository,
-            QueueEntryQrCredentialRepository qrCredentialRepository,
-            AuthTokenService authTokenService,
-            BusinessAuthorizationService businessAuthorizationService
+        QueueEntryRepository queueEntryRepository,
+        QueueEntryQrCredentialRepository qrCredentialRepository,
+        AuthTokenService authTokenService,
+        BusinessAuthorizationService businessAuthorizationService,
+        QrCredentialEncryptionService qrCredentialEncryptionService
     ) {
-        this.queueEntryRepository =
-                queueEntryRepository;
+    this.queueEntryRepository = queueEntryRepository;
+    this.qrCredentialRepository = qrCredentialRepository;
+    this.authTokenService = authTokenService;
+    this.businessAuthorizationService = businessAuthorizationService;
+    this.qrCredentialEncryptionService = qrCredentialEncryptionService;
+   }
 
-        this.qrCredentialRepository =
-                qrCredentialRepository;
+   @Transactional
+   public QueueEntryQrCredentialResponse issueCredential(
+        Long queueId,
+        Long entryId,
+        Long userId,
+        String guestToken
+  ) {
 
-        this.authTokenService =
-                authTokenService;
+    // Lock the queue entry to prevent concurrent QR creation.
+    QueueEntry entry = queueEntryRepository
+            .findByIdForUpdate(entryId)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                    "Queue entry not found with id: " + entryId
+            ));
 
-        this.businessAuthorizationService =
-                businessAuthorizationService;
+    // Confirm the entry belongs to the requested queue.
+    if (!entry.getQueue().getId().equals(queueId)) {
+        throw new ResourceNotFoundException(
+                "Queue entry not found with id: " + entryId
+        );
     }
 
-    @Transactional
-    public QueueEntryQrCredentialResponse issueCredential(
-            Long queueId,
-            Long entryId,
-            Long userId,
-            String guestToken
-    ) {
+    // Only the ticket owner can request the QR credential.
+    requireCustomerOwnership(
+            entry,
+            userId,
+            guestToken
+    );
 
-        QueueEntry entry =
-                requireEntry(
-                        queueId,
-                        entryId
-                );
+    // Only live tickets may receive an active QR credential.
+    requireLiveTicket(entry);
 
-        requireCustomerOwnership(
-                entry,
-                userId,
-                guestToken
-        );
+    OffsetDateTime now = OffsetDateTime.now();
 
-        requireLiveTicket(entry);
+    // Find existing credentials that have not been revoked.
+    List<QueueEntryQrCredential> existingCredentials =
+            qrCredentialRepository
+                    .findByQueueEntryIdAndRevokedAtIsNull(entryId);
 
-        OffsetDateTime now =
-                OffsetDateTime.now();
+    // Return the existing QR if it is still valid.
+    for (QueueEntryQrCredential existing : existingCredentials) {
 
-        List<QueueEntryQrCredential>
-                existingCredentials =
-                qrCredentialRepository
-                        .findByQueueEntryIdAndRevokedAtIsNull(
-                                entryId
-                        );
+        if (!existing.isExpired(now)
+                && existing.getEncryptedCredential() != null) {
 
-        existingCredentials.forEach(
-                credential ->
-                        credential.setRevokedAt(now)
-        );
-
-        if (!existingCredentials.isEmpty()) {
-            qrCredentialRepository.saveAll(
-                    existingCredentials
-            );
-        }
-
-        String rawCredential;
-        String credentialHash;
-
-        do {
-            rawCredential =
-                    authTokenService.generateToken();
-
-            credentialHash =
-                    authTokenService.hashToken(
-                            rawCredential
+            String rawCredential =
+                    qrCredentialEncryptionService.decrypt(
+                            existing.getEncryptedCredential()
                     );
 
-        } while (
-                qrCredentialRepository
-                        .existsByCredentialHash(
-                                credentialHash
-                        )
-        );
+            // Verify that the decrypted value matches its stored hash.
+            String decryptedHash =
+                    authTokenService.hashToken(rawCredential);
 
-        OffsetDateTime expiresAt =
-                now.plusHours(24);
-
-        QueueEntryQrCredential credential =
-                new QueueEntryQrCredential(
-                        entry,
-                        credentialHash,
-                        expiresAt
+            if (!decryptedHash.equals(existing.getCredentialHash())) {
+                throw new IllegalStateException(
+                        "Stored QR credential failed integrity verification"
                 );
+            }
 
-        qrCredentialRepository.save(
-                credential
-        );
-
-        return new QueueEntryQrCredentialResponse(
-                rawCredential,
-                expiresAt
-        );
+            return new QueueEntryQrCredentialResponse(
+                    rawCredential,
+                    existing.getExpiresAt()
+            );
+        }
     }
+
+    // No reusable QR was found.
+    // Revoke any expired or legacy credentials.
+    for (QueueEntryQrCredential existing : existingCredentials) {
+        existing.setRevokedAt(now);
+    }
+
+    if (!existingCredentials.isEmpty()) {
+        qrCredentialRepository.saveAll(existingCredentials);
+    }
+
+    // Generate a new unique QR credential.
+    String rawCredential;
+    String credentialHash;
+
+    do {
+        rawCredential = authTokenService.generateToken();
+
+        credentialHash =
+                authTokenService.hashToken(rawCredential);
+
+    } while (
+            qrCredentialRepository
+                    .existsByCredentialHash(credentialHash)
+    );
+
+    // The new QR credential remains valid for 24 hours.
+    OffsetDateTime expiresAt = now.plusHours(24);
+
+    QueueEntryQrCredential credential =
+            new QueueEntryQrCredential(
+                    entry,
+                    credentialHash,
+                    expiresAt
+            );
+
+    // Store an encrypted copy so the same QR can be returned on refresh.
+    credential.setEncryptedCredential(
+            qrCredentialEncryptionService.encrypt(rawCredential)
+    );
+
+    qrCredentialRepository.save(credential);
+
+    return new QueueEntryQrCredentialResponse(
+            rawCredential,
+            expiresAt
+    );
+  }
 
     @Transactional(readOnly = true)
     public QueueEntryQrVerificationResponse verifyCredential(

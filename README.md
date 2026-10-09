@@ -76,3 +76,21 @@ Review and commit the Phase 0 foundation, then begin Phase 1 with a deliberately
 small, manually created Laravel exercise. The first Laravel work should teach
 Composer, routes, controllers, Blade, forms, validation, sessions, environment
 variables, and Tailwind before QueueFlow features are added.
+
+## QR Credential Encryption
+
+QueueFlow uses AES-256-GCM to encrypt QR credentials and return
+the same credential when a customer refreshes their ticket.
+
+Required environment variable:
+QR_CREDENTIAL_ENCRYPTION_KEY
+
+The value must be a Base64-encoded, cryptographically random 32-byte key.
+
+Important:
+- Generate the key once per environment.
+- Store the key securely and reuse it after application restarts.
+- Never commit the actual encryption key to Git.
+- Keep the QR encryption key separate from the guest token encryption key.
+- Changing or losing the key makes existing encrypted QR credentials unreadable.
+- Legacy QR credentials without encrypted values are replaced on reissuance.
