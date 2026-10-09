@@ -11,13 +11,42 @@
                 <a class="customer-back-link" href="{{ route('tickets.show') }}" aria-label="Back to Tickets">
                     <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
                 </a>
-                <h1 class="text-xl font-bold">Live ticket</h1>
+                <h1 class="text-xl font-bold">{{ in_array($position->status, ['COMPLETED', 'CANCELLED', 'SKIPPED'], true) ? 'Ticket details' : 'Live ticket' }}</h1>
             </div>
         </header>
 
         <main class="relative z-10 -mt-7 px-5 pb-7">
             @if (session('status'))<p class="mb-4 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-customer-green shadow-sm" role="status">{{ session('status') }}</p>@endif
 
+            @if (in_array($position->status, ['COMPLETED', 'CANCELLED', 'SKIPPED'], true))
+                <article class="overflow-visible rounded-[1.5rem] bg-white p-5 shadow-[0_18px_42px_-25px_rgba(21,17,63,0.62)] ring-1 ring-customer-line/50 sm:p-6" aria-labelledby="ticket-heading">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold uppercase tracking-[0.14em] text-customer-muted">Ticket number</p>
+                            <h2 id="ticket-heading" class="mt-2 font-sora text-[clamp(2.5rem,14vw,4rem)] font-extrabold leading-none tracking-[-0.08em] text-customer-indigo">{{ $position->ticketNumber }}</h2>
+                        </div>
+                        <p class="customer-status-badge shrink-0 bg-customer-indigo/10 text-customer-indigo">{{ $status['label'] }}</p>
+                    </div>
+
+                    <div class="customer-ticket-divider relative -mx-5 mt-6 px-5 pt-6 sm:-mx-6 sm:px-6">
+                        <div class="space-y-5">
+                            <div>
+                                <p class="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-customer-muted">Final status</p>
+                                <p class="mt-1 text-2xl font-bold tracking-[-0.035em] text-customer-navy">{{ $status['heading'] }}</p>
+                                <p class="mt-2 text-sm leading-5 text-customer-muted">{{ $status['message'] }}</p>
+                            </div>
+
+                            <dl class="space-y-4 rounded-2xl bg-customer-canvas px-4 py-4">
+                                @if ($context['business'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Business</dt><dd class="mt-1 font-bold">{{ $context['business']->name }}</dd></div>@endif
+                                @if ($context['branch'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Branch</dt><dd class="mt-1 font-semibold">{{ $context['branch']->name }}</dd></div>@endif
+                                @if ($context['service'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Service</dt><dd class="mt-1 font-semibold">{{ $context['service']->name }}</dd></div>@endif
+                            </dl>
+                        </div>
+                    </div>
+                </article>
+
+                <a class="customer-utility-button mt-4" href="{{ route('tickets.show', ['tab' => 'history']) }}">Back to history</a>
+            @else
             <article @class([
                 'overflow-visible rounded-[1.5rem] bg-white p-5 shadow-[0_18px_42px_-25px_rgba(21,17,63,0.62)] ring-1 sm:p-6',
                 'ring-customer-yellow/70' => $status['label'] === 'CALLED',
@@ -92,6 +121,7 @@
                 <dialog class="m-auto w-[min(calc(100%-2rem),24rem)] rounded-[1.5rem] bg-white p-0 text-customer-navy shadow-2xl backdrop:bg-customer-navy/70" data-leave-dialog>
                     <div class="p-5"><h2 class="text-xl font-bold">Leave this queue?</h2><p class="mt-2 text-sm leading-5 text-customer-muted">Your current ticket will be cancelled. You will need to join again for a new ticket.</p><form class="mt-5" method="POST" action="{{ route('queue-entries.cancel', [$ownership->queueId, $ownership->entryId]) }}">@csrf<button class="customer-destructive-button" type="submit">Yes, leave queue</button></form><button class="customer-secondary-button mt-3" type="button" data-close-leave-dialog>Keep my ticket</button></div>
                 </dialog>
+            @endif
             @endif
         </main>
     </div>

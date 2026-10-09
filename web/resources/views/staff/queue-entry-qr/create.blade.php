@@ -42,9 +42,9 @@
             </section>
         @endif
 
-        <section class="staff-form-card mt-5" aria-labelledby="camera-heading">
+        <section class="staff-form-card mt-5" aria-labelledby="camera-heading" data-qr-scanner>
             <h2 id="camera-heading" class="staff-card-title">Use camera</h2>
-            <p class="mt-2 text-sm leading-6 text-staff-muted">Allow camera access to scan the customer&rsquo;s QR code on supported browsers.</p>
+            <p class="mt-2 text-sm leading-6 text-staff-muted">Allow camera access to scan the customer&rsquo;s QR code. Manual entry remains available below.</p>
             <div class="relative mt-4 hidden aspect-video overflow-hidden rounded-xl bg-staff-ink" data-qr-camera-wrap>
                 <video class="size-full object-cover" playsinline muted data-qr-camera></video>
             </div>
@@ -63,57 +63,3 @@
         </form>
     </div>
 @endsection
-
-@push('scripts')
-    <script>
-        (() => {
-            const start = document.querySelector('[data-qr-start]');
-            const video = document.querySelector('[data-qr-camera]');
-            const wrap = document.querySelector('[data-qr-camera-wrap]');
-            const status = document.querySelector('[data-qr-camera-status]');
-            const credential = document.querySelector('#credential');
-            let stream = null;
-            let submitted = false;
-
-            const stop = () => {
-                stream?.getTracks().forEach((track) => track.stop());
-                stream = null;
-            };
-
-            start?.addEventListener('click', async () => {
-                if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
-                    status.textContent = 'Camera scanning is not supported here. Use the manual credential field below.';
-                    return;
-                }
-
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
-                    video.srcObject = stream;
-                    await video.play();
-                    wrap.classList.remove('hidden');
-                    status.textContent = 'Point the camera at the customer QR code.';
-                    const detector = new BarcodeDetector({ formats: ['qr_code'] });
-                    const scan = async () => {
-                        if (submitted || !stream) return;
-                        const codes = await detector.detect(video);
-                        const value = codes[0]?.rawValue?.trim();
-                        if (value) {
-                            submitted = true;
-                            credential.value = value;
-                            stop();
-                            credential.form.requestSubmit();
-                            return;
-                        }
-                        window.requestAnimationFrame(scan);
-                    };
-                    scan();
-                } catch {
-                    status.textContent = 'Camera access was unavailable. Use the manual credential field below.';
-                    stop();
-                }
-            });
-
-            window.addEventListener('pagehide', stop, { once: true });
-        })();
-    </script>
-@endpush

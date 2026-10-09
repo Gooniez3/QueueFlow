@@ -286,6 +286,44 @@ class CustomerTicketStatusTest extends TestCase
             ->assertDontSee('guestToken');
     }
 
+    public function test_completed_ticket_uses_read_only_history_details_without_live_controls(): void
+    {
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10' => Http::response(['id' => 10, 'name' => 'Authoritative Clinic', 'description' => null, 'createdAt' => '2026-01-01T00:00:00Z']),
+            'http://localhost:8080/api/v1/businesses/10/branches/21' => Http::response(['id' => 21, 'businessId' => 10, 'name' => 'Authoritative Branch', 'address' => '1 Real Street', 'latitude' => null, 'longitude' => null, 'timezone' => 'UTC', 'createdAt' => '2026-01-01T00:00:00Z']),
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services/31' => Http::response(['id' => 31, 'branchId' => 21, 'name' => 'Authoritative Service', 'description' => null, 'durationMinutes' => 30, 'active' => true, 'createdAt' => '2026-01-01T00:00:00Z']),
+        ]);
+
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('position')
+            ->once()
+            ->with(91, 301)
+            ->andReturn($this->position(status: 'COMPLETED'));
+        $customerQueueService->shouldNotReceive('issueQrCredential');
+
+        $response = $this->withSession($this->ownershipSession())
+            ->get(route('queue-entries.show', [91, 301]));
+
+        $response->assertOk()
+            ->assertSee('Ticket details')
+            ->assertSee('A023')
+            ->assertSee('COMPLETED')
+            ->assertSee('Authoritative Clinic')
+            ->assertSee('Authoritative Branch')
+            ->assertSee('Authoritative Service')
+            ->assertSee('href="'.route('tickets.show', ['tab' => 'history']).'"', false)
+            ->assertSee('Back to history')
+            ->assertDontSee('Live ticket')
+            ->assertDontSee('QR unavailable')
+            ->assertDontSee('Refresh status')
+            ->assertDontSee('people ahead')
+            ->assertDontSee('estimated wait')
+            ->assertDontSee('Leave queue')
+            ->assertDontSee('data:image/svg+xml', false)
+            ->assertDontSee('raw-guest-token')
+            ->assertDontSee('guestToken');
+    }
+
     public function test_missing_local_ownership_is_safe_without_position_request(): void
     {
         $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
