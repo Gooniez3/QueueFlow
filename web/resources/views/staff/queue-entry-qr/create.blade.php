@@ -48,7 +48,10 @@
             <div class="relative mt-4 hidden aspect-video overflow-hidden rounded-xl bg-staff-ink" data-qr-camera-wrap>
                 <video class="size-full object-cover" playsinline muted data-qr-camera></video>
             </div>
-            <button class="staff-secondary-button mt-4" type="button" data-qr-start>Enable camera</button>
+            <div class="mt-4 flex flex-wrap gap-3">
+                <button class="staff-secondary-button" type="button" data-qr-start>Enable camera</button>
+                <button class="staff-secondary-button" type="button" data-qr-stop hidden disabled>Stop camera</button>
+            </div>
             <p class="mt-3 text-xs text-staff-muted" data-qr-camera-status role="status"></p>
         </section>
 

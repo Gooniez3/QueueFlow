@@ -39,7 +39,7 @@ class QueueEntryQrController extends Controller
 
             return view('staff.queue-entry-qr.create', compact('businessId', 'branchId', 'verification'));
         } catch (QueueFlowApiException $exception) {
-            if (in_array($exception->status, [400, 403, 404, 409], true)) {
+            if (in_array($exception->status, [400, 403, 404, 409, 410], true)) {
                 return back()->with('error', 'That ticket QR is invalid, expired, or unavailable.');
             }
 

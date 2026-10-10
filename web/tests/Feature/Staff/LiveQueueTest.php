@@ -3,6 +3,7 @@
 namespace Tests\Feature\Staff;
 
 use App\Exceptions\QueueFlowApiException;
+use App\Services\QueueFlowQrService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
@@ -49,6 +50,31 @@ class LiveQueueTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request->url() === 'http://localhost:8080/api/v1/staff/queue-entry-qr/verify'
             && $request->hasHeader('Authorization', 'Bearer inert-spring-token')
             && $request->data()['credential'] === 'opaque-qr-credential');
+    }
+
+    public function test_staff_qr_verification_handles_expired_credentials_without_leaking_them(): void
+    {
+        $this->fake();
+        $credential = 'expired-credential-must-not-leak';
+        $qrService = $this->mock(QueueFlowQrService::class);
+        $qrService->shouldReceive('verify')
+            ->once()
+            ->with($credential)
+            ->andThrow(new QueueFlowApiException(
+                'Internal expiration details',
+                410,
+            ));
+
+        $response = $this->from(route('staff.queue-entry-qr.create', [10, 101]))
+            ->authenticated()
+            ->post(route('staff.queue-entry-qr.verify', [10, 101]), [
+                'credential' => $credential,
+            ]);
+
+        $response->assertRedirect(route('staff.queue-entry-qr.create', [10, 101]))
+            ->assertSessionHas('error', 'That ticket QR is invalid, expired, or unavailable.')
+            ->assertSessionMissing('credential')
+            ->assertDontSee($credential);
     }
 
     public function test_staff_branch_stream_forwards_only_safe_events_with_server_side_token(): void
