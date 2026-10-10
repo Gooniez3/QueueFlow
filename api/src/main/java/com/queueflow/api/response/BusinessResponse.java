@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 
 public record BusinessResponse(
         Long id,
+        String publicCode,
         String name,
         String description,
         BusinessCategory category,
