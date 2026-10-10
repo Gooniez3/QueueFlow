@@ -157,6 +157,10 @@
         @apply inline-flex min-h-12 w-full items-center justify-center rounded-full bg-customer-indigo px-5 py-3 text-sm font-bold text-white transition hover:bg-customer-indigo-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo;
     }
 
+    .customer-utility-button {
+        @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-customer-line bg-white px-5 py-3 text-sm font-semibold text-customer-indigo transition hover:bg-customer-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo;
+    }
+
     .customer-destructive-button {
         @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-red-500 bg-transparent px-5 py-3 text-sm font-bold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600;
     }
@@ -183,6 +187,29 @@
         background: rgb(74 53 255 / 14%);
         content: '';
         pointer-events: none;
+    }
+
+    .customer-ticket-divider {
+        @apply relative border-t border-dashed border-customer-line;
+    }
+
+    .customer-ticket-divider::before,
+    .customer-ticket-divider::after {
+        position: absolute;
+        top: -0.45rem;
+        width: 0.9rem;
+        height: 0.9rem;
+        border-radius: 9999px;
+        background: #f7f6f2;
+        content: '';
+    }
+
+    .customer-ticket-divider::before {
+        left: -1.7rem;
+    }
+
+    .customer-ticket-divider::after {
+        right: -1.7rem;
     }
 
     .customer-status-badge {

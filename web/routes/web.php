@@ -13,6 +13,7 @@ use App\Http\Controllers\Staff\BranchController;
 use App\Http\Controllers\Staff\BusinessController;
 use App\Http\Controllers\Staff\LiveQueueController;
 use App\Http\Controllers\Staff\QueueController as StaffQueueController;
+use App\Http\Controllers\Staff\QueueEntryQrController;
 use App\Http\Controllers\Staff\RealtimeController;
 use App\Http\Controllers\Staff\RegisteredStaffController;
 use App\Http\Controllers\Staff\ServiceController;
@@ -113,6 +114,15 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
             Route::get('/businesses/{businessId}/branches/{branchId}/queues', [LiveQueueController::class, 'index'])
                 ->whereNumber(['businessId', 'branchId'])
                 ->name('live-queues.index');
+
+            Route::get('/businesses/{businessId}/branches/{branchId}/queue-entry-qr', [QueueEntryQrController::class, 'create'])
+                ->whereNumber(['businessId', 'branchId'])
+                ->middleware('queueflow.branch.member')
+                ->name('queue-entry-qr.create');
+            Route::post('/businesses/{businessId}/branches/{branchId}/queue-entry-qr', [QueueEntryQrController::class, 'verify'])
+                ->whereNumber(['businessId', 'branchId'])
+                ->middleware('queueflow.branch.member')
+                ->name('queue-entry-qr.verify');
 
             Route::get('/businesses/{businessId}/branches/{branchId}/events', [RealtimeController::class, 'branch'])
                 ->whereNumber(['businessId', 'branchId'])

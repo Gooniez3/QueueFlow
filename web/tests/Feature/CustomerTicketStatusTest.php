@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Data\QueueEntryQrCredentialData;
 use App\Data\QueuePositionData;
 use App\Exceptions\QueueFlowApiException;
 use App\Services\QueueFlowCustomerQueueService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
@@ -44,11 +46,17 @@ class CustomerTicketStatusTest extends TestCase
             ->assertSeeInOrder(['A023', 'B014'])
             ->assertSee('href="'.route('queue-entries.show', [91, 301]).'"', false)
             ->assertSee('href="'.route('queue-entries.show', [92, 401]).'"', false)
+            ->assertSee('Authoritative Clinic')
+            ->assertSee('Authoritative Service')
             ->assertDontSee('first-raw-guest-token')
             ->assertDontSee('second-raw-guest-token')
-            ->assertDontSee('Central branch')
             ->assertDontSee('guestToken')
             ->assertDontSee('Idempotency-Key')
+            ->assertDontSee('data-demo-qr', false)
+            ->assertDontSee('QF-301')
+            ->assertDontSee('Party size')
+            ->assertDontSee('Joined')
+            ->assertDontSee('Central branch')
             ->assertDontSee('queueflow.customer.join_attempts');
     }
 
@@ -71,8 +79,8 @@ class CustomerTicketStatusTest extends TestCase
             $this->ownership(96, 306, 'A006', 'skipped-token'),
         ];
 
-        $response = $this->withSession($this->ownershipSession($entries))
-            ->get(route('tickets.show'));
+        $session = $this->withSession($this->ownershipSession($entries));
+        $response = $session->get(route('tickets.show'));
 
         $response->assertOk()
             ->assertViewHas('activeTickets', fn (array $tickets): bool => count($tickets) === 3)
@@ -85,14 +93,11 @@ class CustomerTicketStatusTest extends TestCase
                 'A002',
                 'SERVING',
                 'A003',
-                'Ticket history',
-                'COMPLETED',
-                'A004',
-                'CANCELLED',
-                'A005',
-                'SKIPPED',
-                'A006',
             ])
+            ->assertDontSee('Ticket history')
+            ->assertDontSee('A004')
+            ->assertDontSee('A005')
+            ->assertDontSee('A006')
             ->assertDontSee('waiting-token')
             ->assertDontSee('called-token')
             ->assertDontSee('serving-token')
@@ -103,11 +108,67 @@ class CustomerTicketStatusTest extends TestCase
             ->assertSessionHas('queueflow.customer.entries.95:305.guestToken', 'cancelled-token')
             ->assertSessionHas('queueflow.customer.entries.96:306.guestToken', 'skipped-token');
 
-        Http::assertSentCount(6);
+        $historyResponse = $session->get(route('tickets.show', ['tab' => 'history']));
+
+        $historyResponse->assertOk()
+            ->assertSeeInOrder([
+                'Ticket history',
+                'COMPLETED',
+                'A004',
+                'CANCELLED',
+                'A005',
+                'SKIPPED',
+                'A006',
+            ])
+            ->assertDontSee('Active tickets')
+            ->assertDontSee('A001')
+            ->assertDontSee('A002')
+            ->assertDontSee('A003');
+
+        Http::assertSentCount(12);
         Http::assertSent(fn (Request $request): bool => $request->hasHeader(
             'X-Guest-Token',
             'cancelled-token',
         ));
+    }
+
+    public function test_ticket_tabs_default_to_active_and_invalid_values_fall_back_safely(): void
+    {
+        $this->fakePositions([
+            301 => [91, 'A001', 'WAITING'],
+            304 => [94, 'A004', 'COMPLETED'],
+        ]);
+        $session = $this->withSession($this->ownershipSession([
+            $this->ownership(91, 301, 'A001', 'waiting-token'),
+            $this->ownership(94, 304, 'A004', 'completed-token'),
+        ]));
+
+        $response = $session->get(route('tickets.show', ['tab' => 'unknown']));
+
+        $response->assertOk()
+            ->assertViewHas('tab', 'active')
+            ->assertSee('Active')
+            ->assertSee('A001')
+            ->assertDontSee('A004')
+            ->assertDontSee('No active tickets');
+    }
+
+    public function test_history_tab_keeps_terminal_tickets_accessible(): void
+    {
+        $this->fakePositions([
+            304 => [94, 'A004', 'COMPLETED'],
+        ]);
+
+        $response = $this->withSession($this->ownershipSession([
+            $this->ownership(94, 304, 'A004', 'completed-token'),
+        ]))->get(route('tickets.show', ['tab' => 'history']));
+
+        $response->assertOk()
+            ->assertSee('Ticket history')
+            ->assertSee('A004')
+            ->assertSee('href="'.route('queue-entries.show', [94, 304]).'"', false)
+            ->assertSee('aria-current="page"', false)
+            ->assertDontSee('raw-guest-token');
     }
 
     public function test_ticket_index_position_failure_uses_safe_customer_error_and_preserves_ownership(): void
@@ -153,6 +214,12 @@ class CustomerTicketStatusTest extends TestCase
 
     public function test_owned_detail_uses_exact_identifiers_and_spring_position_values(): void
     {
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10' => Http::response(['id' => 10, 'name' => 'Authoritative Clinic', 'description' => null, 'createdAt' => '2026-01-01T00:00:00Z']),
+            'http://localhost:8080/api/v1/businesses/10/branches/21' => Http::response(['id' => 21, 'businessId' => 10, 'name' => 'Authoritative Branch', 'address' => '1 Real Street', 'latitude' => null, 'longitude' => null, 'timezone' => 'UTC', 'createdAt' => '2026-01-01T00:00:00Z']),
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services/31' => Http::response(['id' => 31, 'branchId' => 21, 'name' => 'Authoritative Service', 'description' => null, 'durationMinutes' => 30, 'active' => true, 'createdAt' => '2026-01-01T00:00:00Z']),
+        ]);
+
         $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
         $customerQueueService->shouldReceive('position')
             ->once()
@@ -164,18 +231,27 @@ class CustomerTicketStatusTest extends TestCase
 
         $response->assertOk()
             ->assertViewIs('tickets.show')
-            ->assertSeeInOrder(['Ticket number', 'A023', 'Current status'])
+            ->assertSeeInOrder(['Queue number', 'A023', 'Current status'])
             ->assertSee('WAITING')
             ->assertSee('A023')
             ->assertSee("You're in the queue")
-            ->assertSee('People ahead')
+            ->assertSee('people ahead')
             ->assertSee('7')
-            ->assertSee('Estimated wait')
-            ->assertSee('83 minutes')
-            ->assertSee('data-demo-qr', false)
-            ->assertSee('Saved in this browser')
-            ->assertSee('Owned ticket')
-            ->assertDontSee('Central branch')
+            ->assertSee('estimated wait')
+            ->assertSee('83 min')
+            ->assertSee('QR unavailable')
+            ->assertDontSee('text-ellipsis', false)
+            ->assertDontSee('overflow-hidden', false)
+            ->assertDontSee('data-demo-qr', false)
+            ->assertDontSee('QF-301')
+            ->assertDontSee('Party size')
+            ->assertDontSee('Joined')
+            ->assertDontSee('Today')
+            ->assertDontSee('QueueFlow Clinic')
+            ->assertDontSee('General consultation')
+            ->assertSee('Authoritative Clinic')
+            ->assertSee('Authoritative Service')
+            ->assertSee('Authoritative Branch')
             ->assertDontSee('Ready now')
             ->assertDontSee('raw-guest-token')
             ->assertDontSee('guestToken')
@@ -183,6 +259,69 @@ class CustomerTicketStatusTest extends TestCase
             ->assertDontSee('queueflow.customer.join_attempts')
             ->assertDontSee('Authorization')
             ->assertDontSee('Bearer');
+    }
+
+    public function test_owned_live_ticket_renders_spring_issued_qr_without_exposing_guest_token(): void
+    {
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('position')
+            ->once()
+            ->andReturn($this->position());
+        $customerQueueService->shouldReceive('issueQrCredential')
+            ->once()
+            ->with(91, 301)
+            ->andReturn(new QueueEntryQrCredentialData(
+                credential: 'opaque-qr-credential',
+                expiresAt: CarbonImmutable::parse('2026-10-08T12:00:00Z'),
+            ));
+
+        $response = $this->withSession($this->ownershipSession())
+            ->get(route('queue-entries.show', [91, 301]));
+
+        $response->assertOk()
+            ->assertSee('data:image/svg+xml', false)
+            ->assertSee('alt="QR credential for A023"', false)
+            ->assertDontSee('opaque-qr-credential')
+            ->assertDontSee('raw-guest-token')
+            ->assertDontSee('guestToken');
+    }
+
+    public function test_completed_ticket_uses_read_only_history_details_without_live_controls(): void
+    {
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10' => Http::response(['id' => 10, 'name' => 'Authoritative Clinic', 'description' => null, 'createdAt' => '2026-01-01T00:00:00Z']),
+            'http://localhost:8080/api/v1/businesses/10/branches/21' => Http::response(['id' => 21, 'businessId' => 10, 'name' => 'Authoritative Branch', 'address' => '1 Real Street', 'latitude' => null, 'longitude' => null, 'timezone' => 'UTC', 'createdAt' => '2026-01-01T00:00:00Z']),
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services/31' => Http::response(['id' => 31, 'branchId' => 21, 'name' => 'Authoritative Service', 'description' => null, 'durationMinutes' => 30, 'active' => true, 'createdAt' => '2026-01-01T00:00:00Z']),
+        ]);
+
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('position')
+            ->once()
+            ->with(91, 301)
+            ->andReturn($this->position(status: 'COMPLETED'));
+        $customerQueueService->shouldNotReceive('issueQrCredential');
+
+        $response = $this->withSession($this->ownershipSession())
+            ->get(route('queue-entries.show', [91, 301]));
+
+        $response->assertOk()
+            ->assertSee('Ticket details')
+            ->assertSee('A023')
+            ->assertSee('COMPLETED')
+            ->assertSee('Authoritative Clinic')
+            ->assertSee('Authoritative Branch')
+            ->assertSee('Authoritative Service')
+            ->assertSee('href="'.route('tickets.show', ['tab' => 'history']).'"', false)
+            ->assertSee('Back to history')
+            ->assertDontSee('Live ticket')
+            ->assertDontSee('QR unavailable')
+            ->assertDontSee('Refresh status')
+            ->assertDontSee('people ahead')
+            ->assertDontSee('estimated wait')
+            ->assertDontSee('Leave queue')
+            ->assertDontSee('data:image/svg+xml', false)
+            ->assertDontSee('raw-guest-token')
+            ->assertDontSee('guestToken');
     }
 
     public function test_missing_local_ownership_is_safe_without_position_request(): void
@@ -218,8 +357,8 @@ class CustomerTicketStatusTest extends TestCase
             ->assertSee($heading);
 
         if ($status === 'WAITING') {
-            $response->assertSee('People ahead')
-                ->assertSee('Estimated wait');
+            $response->assertSee('people ahead')
+                ->assertSee('estimated wait');
         } else {
             $response->assertDontSee('People ahead')
                 ->assertDontSee('Estimated wait')
@@ -456,6 +595,9 @@ class CustomerTicketStatusTest extends TestCase
                         'entryId' => $entryId,
                         'queueId' => $queueId,
                         'publicCode' => 'public-queue-code',
+                        'businessName' => 'Authoritative Clinic',
+                        'branchName' => 'Authoritative Branch',
+                        'serviceName' => 'Authoritative Service',
                         'serviceId' => 31,
                         'ticketSequence' => $entryId,
                         'ticketNumber' => $ticketNumber,
@@ -464,6 +606,18 @@ class CustomerTicketStatusTest extends TestCase
                         'estimatedWaitMinutes' => 40,
                     ]);
                 }
+            }
+
+            if ($request->url() === 'http://localhost:8080/api/v1/businesses/10') {
+                return Http::response(['id' => 10, 'name' => 'Authoritative Clinic', 'description' => null, 'createdAt' => '2026-01-01T00:00:00Z']);
+            }
+
+            if ($request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21') {
+                return Http::response(['id' => 21, 'businessId' => 10, 'name' => 'Authoritative Branch', 'address' => '1 Real Street', 'latitude' => null, 'longitude' => null, 'timezone' => 'UTC', 'createdAt' => '2026-01-01T00:00:00Z']);
+            }
+
+            if ($request->url() === 'http://localhost:8080/api/v1/businesses/10/branches/21/services/31') {
+                return Http::response(['id' => 31, 'branchId' => 21, 'name' => 'Authoritative Service', 'description' => null, 'durationMinutes' => 30, 'active' => true, 'createdAt' => '2026-01-01T00:00:00Z']);
             }
 
             throw new \RuntimeException("Unexpected QueueFlow request: {$request->method()} {$request->url()}");

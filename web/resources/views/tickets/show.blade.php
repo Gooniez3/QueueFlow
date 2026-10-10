@@ -1,44 +1,128 @@
 @extends('layouts.app')
 
-@section('title', 'Ticket '.$ownership->ticketNumber.' - QueueFlow')
+@section('title', 'Ticket '.$position->ticketNumber.' - QueueFlow')
 @section('body-class', 'bg-[#f7f6f2] text-customer-navy')
 
 @section('content')
     <div class="customer-page customer-page-narrow">
         <x-customer-navigation />
-        <header class="customer-hero pb-16"><div class="relative z-10 flex items-center justify-between gap-3"><a class="customer-back-link" href="{{ route('tickets.show') }}" aria-label="Back to My Tickets"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg></a><div class="text-center"><p class="text-xs text-white/65">My ticket</p><h1 class="text-xl font-bold">Live ticket</h1></div><span class="rounded-full bg-white/15 px-3 py-2 text-xs font-bold">History</span></div></header>
+        <header class="customer-hero pb-16">
+            <div class="relative z-10 flex items-center gap-3">
+                <a class="customer-back-link" href="{{ route('tickets.show') }}" aria-label="Back to Tickets">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
+                </a>
+                <h1 class="text-xl font-bold">{{ in_array($position->status, ['COMPLETED', 'CANCELLED', 'SKIPPED'], true) ? 'Ticket details' : 'Live ticket' }}</h1>
+            </div>
+        </header>
 
         <main class="relative z-10 -mt-7 px-5 pb-7">
             @if (session('status'))<p class="mb-4 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-customer-green shadow-sm" role="status">{{ session('status') }}</p>@endif
 
-            <article class="rounded-[1.6rem] bg-white p-5 shadow-[0_16px_38px_-25px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40">
-                <div class="flex items-start justify-between gap-3"><div><p class="font-bold">QueueFlow ticket</p><p class="text-xs text-customer-muted">Saved in this browser</p></div><p @class(['customer-status-badge', 'bg-customer-yellow text-customer-navy' => $status['label'] === 'CALLED', 'bg-customer-green/10 text-customer-green' => in_array($status['label'], ['WAITING', 'SERVING'], true), 'bg-customer-indigo/10 text-customer-indigo' => ! in_array($status['label'], ['CALLED', 'WAITING', 'SERVING'], true)])>{{ $status['label'] }}</p></div>
+            @if (in_array($position->status, ['COMPLETED', 'CANCELLED', 'SKIPPED'], true))
+                <article class="overflow-visible rounded-[1.5rem] bg-white p-5 shadow-[0_18px_42px_-25px_rgba(21,17,63,0.62)] ring-1 ring-customer-line/50 sm:p-6" aria-labelledby="ticket-heading">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold uppercase tracking-[0.14em] text-customer-muted">Ticket number</p>
+                            <h2 id="ticket-heading" class="mt-2 font-sora text-[clamp(2.5rem,14vw,4rem)] font-extrabold leading-none tracking-[-0.08em] text-customer-indigo">{{ $position->ticketNumber }}</h2>
+                        </div>
+                        <p class="customer-status-badge shrink-0 bg-customer-indigo/10 text-customer-indigo">{{ $status['label'] }}</p>
+                    </div>
 
-                <div class="mt-5 grid grid-cols-[1fr_7rem] items-center gap-4">
-                    <div><p class="text-[0.65rem] font-bold tracking-[0.13em] text-customer-muted">Ticket number</p><p class="mt-1 break-words text-5xl leading-none font-bold tracking-[-0.055em] text-customer-indigo">{{ $ownership->ticketNumber }}</p><p class="mt-4 text-[0.65rem] font-bold tracking-[0.12em] text-customer-muted">Current status</p><h2 class="mt-1 text-xl font-bold">{{ $status['heading'] }}</h2></div>
-                    <div><x-demo-qr :pattern="$presentation['qrPattern']" /><p class="mt-2 text-center text-[0.6rem] text-customer-muted">Presentation QR</p></div>
+                    <div class="customer-ticket-divider relative -mx-5 mt-6 px-5 pt-6 sm:-mx-6 sm:px-6">
+                        <div class="space-y-5">
+                            <div>
+                                <p class="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-customer-muted">Final status</p>
+                                <p class="mt-1 text-2xl font-bold tracking-[-0.035em] text-customer-navy">{{ $status['heading'] }}</p>
+                                <p class="mt-2 text-sm leading-5 text-customer-muted">{{ $status['message'] }}</p>
+                            </div>
+
+                            <dl class="space-y-4 rounded-2xl bg-customer-canvas px-4 py-4">
+                                @if ($context['business'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Business</dt><dd class="mt-1 font-bold">{{ $context['business']->name }}</dd></div>@endif
+                                @if ($context['branch'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Branch</dt><dd class="mt-1 font-semibold">{{ $context['branch']->name }}</dd></div>@endif
+                                @if ($context['service'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Service</dt><dd class="mt-1 font-semibold">{{ $context['service']->name }}</dd></div>@endif
+                            </dl>
+                        </div>
+                    </div>
+                </article>
+
+                <a class="customer-utility-button mt-4" href="{{ route('tickets.show', ['tab' => 'history']) }}">Back to history</a>
+            @else
+            <article @class([
+                'overflow-visible rounded-[1.5rem] bg-white p-5 shadow-[0_18px_42px_-25px_rgba(21,17,63,0.62)] ring-1 sm:p-6',
+                'ring-customer-yellow/70' => $status['label'] === 'CALLED',
+                'ring-customer-green/30' => in_array($status['label'], ['WAITING', 'SERVING'], true),
+                'ring-customer-line/50' => ! in_array($status['label'], ['CALLED', 'WAITING', 'SERVING'], true),
+            ]) aria-labelledby="ticket-heading">
+                <div class="flex items-start justify-between gap-3">
+                    @if ($context['business'] || $context['service'])
+                        <div class="min-w-0">
+                            @if ($context['business'])<p class="truncate font-bold">{{ $context['business']->name }}</p>@endif
+                            @if ($context['service'])<p class="truncate text-sm text-customer-muted">{{ $context['service']->name }}</p>@endif
+                        </div>
+                    @endif
+                    <p @class([
+                        'customer-status-badge shrink-0',
+                        'bg-customer-yellow text-customer-navy' => $status['label'] === 'CALLED',
+                        'bg-customer-green/10 text-customer-green' => in_array($status['label'], ['WAITING', 'SERVING'], true),
+                        'bg-customer-indigo/10 text-customer-indigo' => ! in_array($status['label'], ['CALLED', 'WAITING', 'SERVING'], true),
+                    ])>{{ $status['label'] }}</p>
                 </div>
-                <p class="mt-3 text-sm leading-5 text-customer-muted">{{ $status['message'] }}</p>
 
-                @if ($status['showWaitingPosition'])
-                    <dl class="mt-5 grid grid-cols-2 gap-3 border-t border-dashed border-customer-line pt-5"><div><dt class="text-xs text-customer-muted">People ahead</dt><dd class="mt-1 text-2xl font-bold">{{ $position->peopleAhead }}</dd></div><div><dt class="text-xs text-customer-muted">Estimated wait</dt><dd class="mt-1 text-2xl font-bold">{{ $position->estimatedWaitMinutes }} {{ $position->estimatedWaitMinutes === 1 ? 'minute' : 'minutes' }}</dd></div></dl>
-                @endif
+                <div class="mt-6 grid grid-cols-[minmax(0,1fr)_6.25rem] items-start gap-3 sm:grid-cols-[minmax(0,1fr)_8rem] sm:gap-5">
+                    <div class="min-w-0">
+                        <p class="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-customer-muted">Queue number</p>
+                        <h2 id="ticket-heading" class="mt-1 whitespace-nowrap font-sora text-[clamp(2.25rem,11vw,3.5rem)] font-extrabold leading-none tracking-[-0.08em] text-customer-indigo">{{ $position->ticketNumber }}</h2>
 
-                <dl class="mt-5 grid grid-cols-2 gap-y-4 border-t border-dashed border-customer-line pt-5 text-xs"><div><dt class="text-customer-muted">Ticket ID</dt><dd class="mt-1 font-bold">QF-{{ $ownership->entryId }}</dd></div><div><dt class="text-customer-muted">Date</dt><dd class="mt-1 font-bold">{{ $presentation['date'] }}</dd></div><div><dt class="text-customer-muted">Joined</dt><dd class="mt-1 font-bold">{{ $presentation['joinedAt'] }}</dd></div><div><dt class="text-customer-muted">Party size</dt><dd class="mt-1 font-bold">{{ $presentation['partySize'] }}</dd></div></dl>
-                <div class="mt-5 flex items-center gap-3 rounded-2xl bg-customer-canvas p-4"><span class="grid size-9 shrink-0 place-items-center rounded-full bg-customer-indigo/10 text-customer-indigo"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-5" /></svg></span><div><p class="text-sm font-bold">Owned ticket</p><p class="text-xs text-customer-muted">Available in this browser session</p></div></div>
+                        @if ($status['showWaitingPosition'])
+                            <div class="mt-4 space-y-1 text-sm leading-5">
+                                <p><strong class="tabular-nums">{{ $position->peopleAhead }}</strong> <span class="text-customer-muted">{{ $position->peopleAhead === 1 ? 'person' : 'people' }} ahead</span></p>
+                                <p><strong class="tabular-nums">{{ $position->estimatedWaitMinutes }} min</strong> <span class="text-customer-muted">estimated wait</span></p>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="grid aspect-square place-items-center rounded-2xl border border-customer-line bg-customer-canvas px-2 text-center">
+                        @if ($qrDataUri)
+                            <img class="size-full rounded-lg" src="{{ $qrDataUri }}" alt="QR credential for {{ $position->ticketNumber }}" />
+                        @else
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-[0.14em] text-customer-muted">QR unavailable</p>
+                                <p class="mt-1 text-xs font-semibold text-customer-navy">Refresh ticket</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="customer-ticket-divider relative -mx-5 mt-6 px-5 pt-6 sm:-mx-6 sm:px-6">
+                    <div class="text-center">
+                        <p class="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-customer-muted">Current status</p>
+                        <p class="mt-1 text-2xl font-bold tracking-[-0.035em] text-customer-navy">{{ $status['heading'] }}</p>
+                        <p class="mt-2 text-sm leading-5 text-customer-muted">{{ $status['message'] }}</p>
+                        @if ($context['service'] || $context['branch'])
+                            <div class="mt-6 rounded-2xl bg-customer-canvas px-4 py-4 text-left">
+                                @if ($context['service'])<p class="font-bold">{{ $context['service']->name }}</p>@endif
+                                @if ($context['branch'])
+                                    <p class="mt-1 text-sm font-semibold text-customer-navy">{{ $context['branch']->name }}</p>
+                                    <p class="mt-1 text-xs leading-5 text-customer-muted">{{ $context['branch']->address }}</p>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                </div>
             </article>
 
-            <a class="customer-secondary-button mt-5" href="{{ route('queue-entries.show', [$ownership->queueId, $ownership->entryId]) }}">Refresh status</a>
+            <a class="customer-utility-button mt-4" href="{{ route('queue-entries.show', [$ownership->queueId, $ownership->entryId]) }}">Refresh status</a>
 
             @if ($status['canCancel'])
-                <button class="customer-destructive-button mt-4" type="button" data-open-leave-dialog>Leave queue</button>
+                <div class="mt-5 border-t border-customer-line/70 pt-5">
+                    <p class="text-xs text-customer-muted">Need to leave before you're called?</p>
+                    <button class="customer-destructive-button mt-3" type="button" data-open-leave-dialog>Leave queue</button>
+                </div>
                 <span class="sr-only">Cancel ticket</span>
                 <dialog class="m-auto w-[min(calc(100%-2rem),24rem)] rounded-[1.5rem] bg-white p-0 text-customer-navy shadow-2xl backdrop:bg-customer-navy/70" data-leave-dialog>
                     <div class="p-5"><h2 class="text-xl font-bold">Leave this queue?</h2><p class="mt-2 text-sm leading-5 text-customer-muted">Your current ticket will be cancelled. You will need to join again for a new ticket.</p><form class="mt-5" method="POST" action="{{ route('queue-entries.cancel', [$ownership->queueId, $ownership->entryId]) }}">@csrf<button class="customer-destructive-button" type="submit">Yes, leave queue</button></form><button class="customer-secondary-button mt-3" type="button" data-close-leave-dialog>Keep my ticket</button></div>
                 </dialog>
             @endif
-
-            <a class="customer-text-link mt-5" href="{{ route('tickets.show') }}">&larr;&nbsp; Back to My Tickets</a>
+            @endif
         </main>
     </div>
 @endsection

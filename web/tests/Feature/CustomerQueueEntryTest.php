@@ -324,7 +324,7 @@ class CustomerQueueEntryTest extends TestCase
             ->assertDontSee('Cancel ticket')
             ->assertDontSee('raw-guest-token');
 
-        $this->get(route('tickets.show'))
+        $this->get(route('tickets.show', ['tab' => 'history']))
             ->assertOk()
             ->assertSee('A023')
             ->assertSee('href="'.$detailUrl.'"', false)

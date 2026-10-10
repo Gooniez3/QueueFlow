@@ -11,6 +11,7 @@ use App\Http\Requests\Staff\UpdateBusinessRequest;
 use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowAuthService;
 use App\Services\StaffCatalogService;
+use App\Support\BusinessCategories;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -93,6 +94,7 @@ class BusinessController extends Controller
     {
         return view('staff.businesses.create', [
             'authContext' => $request->attributes->get('queueflow.auth'),
+            'categories' => BusinessCategories::all(),
         ]);
     }
 
@@ -106,6 +108,7 @@ class BusinessController extends Controller
                     $token,
                     $data['name'],
                     $data['description'] ?? null,
+                    $data['category'],
                 ),
             );
         } catch (QueueFlowApiException $exception) {
@@ -130,6 +133,7 @@ class BusinessController extends Controller
         return view('staff.businesses.edit', [
             'authContext' => $request->attributes->get('queueflow.auth'),
             'business' => $this->apiClient->business($businessId),
+            'categories' => BusinessCategories::all(),
         ]);
     }
 
@@ -144,6 +148,7 @@ class BusinessController extends Controller
                     $token,
                     $data['name'],
                     $this->normalizeNullableDescription($data['description'] ?? null),
+                    $data['category'],
                 ),
             );
         } catch (QueueFlowApiException $exception) {

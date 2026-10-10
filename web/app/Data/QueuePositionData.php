@@ -14,6 +14,9 @@ final readonly class QueuePositionData
         public string $status,
         public int $peopleAhead,
         public int $estimatedWaitMinutes,
+        public ?string $businessName = null,
+        public ?string $branchName = null,
+        public ?string $serviceName = null,
     ) {}
 
     /**
@@ -31,6 +34,9 @@ final readonly class QueuePositionData
             status: (string) $data['status'],
             peopleAhead: (int) $data['peopleAhead'],
             estimatedWaitMinutes: (int) $data['estimatedWaitMinutes'],
+            businessName: isset($data['businessName']) ? (string) $data['businessName'] : null,
+            branchName: isset($data['branchName']) ? (string) $data['branchName'] : null,
+            serviceName: isset($data['serviceName']) ? (string) $data['serviceName'] : null,
         );
     }
 }

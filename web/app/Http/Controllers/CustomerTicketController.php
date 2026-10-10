@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Data\GuestQueueOwnershipData;
 use App\Exceptions\GuestQueueOwnershipException;
-use App\Presentation\CustomerDemoPresentation;
+use App\Exceptions\QueueFlowApiException;
 use App\Services\GuestQueueOwnershipStore;
+use App\Services\QueueFlowApiClient;
 use App\Services\QueueFlowCustomerQueueService;
+use App\Services\QueueFlowQrRenderer;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CustomerTicketController extends Controller
@@ -13,18 +17,20 @@ class CustomerTicketController extends Controller
     public function __construct(
         private readonly GuestQueueOwnershipStore $ownershipStore,
         private readonly QueueFlowCustomerQueueService $customerQueueService,
-        private readonly CustomerDemoPresentation $demoPresentation,
+        private readonly QueueFlowApiClient $apiClient,
+        private readonly QueueFlowQrRenderer $qrRenderer,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $classifiedTickets = $this->customerQueueService->classifiedOwnedTickets();
+        $tab = $request->query('tab') === 'history' ? 'history' : 'active';
 
         return view('tickets.index', [
             'activeTickets' => $classifiedTickets['active'],
             'historyTickets' => $classifiedTickets['history'],
             'unclassifiedTickets' => $classifiedTickets['unclassified'],
-            'presentation' => $this->demoPresentation->ticketDetails(),
+            'tab' => $tab,
         ]);
     }
 
@@ -44,12 +50,55 @@ class CustomerTicketController extends Controller
             'The requested ticket was not found.',
         );
 
+        $qrDataUri = null;
+
+        if (in_array($position->status, ['WAITING', 'CALLED', 'SERVING'], true)) {
+            try {
+                $credential = $this->customerQueueService->issueQrCredential($queueId, $entryId);
+                $qrDataUri = $this->qrRenderer->render($credential->credential);
+            } catch (QueueFlowApiException) {
+                // The ticket remains usable when QR issuance is unavailable.
+            } catch (\Throwable) {
+                // Rendering a QR must never make an owned ticket unavailable.
+            }
+        }
+
         return view('tickets.show', [
             'ownership' => $ownership,
             'position' => $position,
             'status' => $this->statusPresentation($position->status),
-            'presentation' => $this->demoPresentation->ticketDetails(),
+            'context' => $this->ticketContext($ownership),
+            'qrDataUri' => $qrDataUri,
         ]);
+    }
+
+    /** @return array{business: ?object, branch: ?object, service: ?object} */
+    private function ticketContext(GuestQueueOwnershipData $ownership): array
+    {
+        $context = ['business' => null, 'branch' => null, 'service' => null];
+
+        try {
+            $context['business'] = $this->apiClient->business($ownership->businessId);
+        } catch (\Throwable) {
+        }
+
+        try {
+            $context['branch'] = $this->apiClient->branch($ownership->businessId, $ownership->branchId);
+        } catch (\Throwable) {
+        }
+
+        if ($ownership->serviceId !== null) {
+            try {
+                $context['service'] = $this->apiClient->service(
+                    $ownership->businessId,
+                    $ownership->branchId,
+                    $ownership->serviceId,
+                );
+            } catch (\Throwable) {
+            }
+        }
+
+        return $context;
     }
 
     /**

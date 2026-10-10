@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Data\BranchData;
 use App\Data\BusinessData;
+use App\Data\PublicQueueBoardData;
 use App\Data\ServiceData;
 use App\Data\TodayQueueData;
 use App\Exceptions\QueueFlowApiException;
@@ -31,11 +32,12 @@ class CustomerServiceDiscoveryTest extends TestCase
             ->assertSee('General Consultation')
             ->assertSee('Accepting customers')
             ->assertSee('QUEUE OPEN')
+            ->assertSee('WAITING NOW')
+            ->assertSee('3')
             ->assertSee('20 min')
             ->assertSee('Join queue')
-            ->assertSee('YOUR NUMBER')
-            ->assertSee('A-???')
-            ->assertSee('The preview is not your issued number.')
+            ->assertDontSee('A-???')
+            ->assertSee('Spring issues your real ticket number after you join.')
             ->assertSee('href="'.route('branches.show', [10, 21]).'"', false)
             ->assertSee('data-customer-join-form', false)
             ->assertSee('action="'.route('queue-entries.store', 91).'"', false)
@@ -50,6 +52,81 @@ class CustomerServiceDiscoveryTest extends TestCase
             ->assertDontSee('?idempotencyKey=', false)
             ->assertDontSee('Authorization')
             ->assertDontSee('Bearer');
+    }
+
+    public function test_active_branch_services_render_with_authoritative_waiting_counts(): void
+    {
+        $apiClient = $this->mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('business')->once()->with(10)->andReturn($this->business());
+        $apiClient->shouldReceive('branch')->once()->with(10, 21)->andReturn($this->branch());
+        $apiClient->shouldReceive('service')->once()->with(10, 21, 31)->andReturn($this->service());
+        $apiClient->shouldReceive('services')->once()->with(10, 21)->andReturn([
+            $this->service(),
+            new ServiceData(
+                id: 32,
+                branchId: 21,
+                name: 'Health Screening',
+                description: 'Preventive screening.',
+                durationMinutes: 30,
+                active: true,
+                createdAt: CarbonImmutable::parse('2026-09-30T10:15:30+08:00'),
+            ),
+        ]);
+        $apiClient->shouldReceive('publicQueueBoard')->with(91)->andReturn($this->board(91, 3));
+        $apiClient->shouldReceive('publicQueueBoard')->with(92)->andReturn($this->board(92, 7));
+
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->with(10, 21, 31)->andReturn($this->queue('OPEN'));
+        $customerQueueService->shouldReceive('applicableQueue')->once()->with(10, 21, 32)->andReturn($this->queue('OPEN', 92, 32));
+
+        $response = $this->get(route('services.show', [10, 21, 31]));
+
+        $response->assertOk()
+            ->assertSee('Health Screening')
+            ->assertSee('7 waiting')
+            ->assertSee('href="'.route('services.show', [10, 21, 32]).'"', false)
+            ->assertDontSee('Vaccination')
+            ->assertDontSee('4 waiting');
+    }
+
+    public function test_inactive_and_cross_branch_services_are_not_rendered_as_alternatives(): void
+    {
+        $apiClient = $this->mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('business')->once()->with(10)->andReturn($this->business());
+        $apiClient->shouldReceive('branch')->once()->with(10, 21)->andReturn($this->branch());
+        $apiClient->shouldReceive('service')->once()->with(10, 21, 31)->andReturn($this->service());
+        $apiClient->shouldReceive('services')->once()->with(10, 21)->andReturn([
+            $this->service(),
+            new ServiceData(33, 21, 'Inactive Service', null, 15, false, CarbonImmutable::parse('2026-09-30T10:15:30+08:00')),
+            new ServiceData(34, 99, 'Other Branch Service', null, 15, true, CarbonImmutable::parse('2026-09-30T10:15:30+08:00')),
+        ]);
+        $apiClient->shouldReceive('publicQueueBoard')->with(91)->andReturn($this->board(91, 0));
+
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->with(10, 21, 31)->andReturn($this->queue('OPEN'));
+
+        $this->get(route('services.show', [10, 21, 31]))
+            ->assertOk()
+            ->assertDontSee('Inactive Service')
+            ->assertDontSee('Other Branch Service');
+    }
+
+    public function test_missing_board_metrics_are_rendered_as_unavailable(): void
+    {
+        $apiClient = $this->mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('business')->once()->with(10)->andReturn($this->business());
+        $apiClient->shouldReceive('branch')->once()->with(10, 21)->andReturn($this->branch());
+        $apiClient->shouldReceive('service')->once()->with(10, 21, 31)->andReturn($this->service());
+        $apiClient->shouldReceive('services')->once()->with(10, 21)->andReturn([$this->service()]);
+        $apiClient->shouldReceive('publicQueueBoard')->with(91)->andThrow(new QueueFlowApiException('Unavailable', 503));
+
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->with(10, 21, 31)->andReturn($this->queue('OPEN'));
+
+        $this->get(route('services.show', [10, 21, 31]))
+            ->assertOk()
+            ->assertSee('WAITING NOW')
+            ->assertSee('—');
     }
 
     #[DataProvider('unavailableQueueStates')]
@@ -188,6 +265,8 @@ class CustomerServiceDiscoveryTest extends TestCase
         $apiClient->shouldReceive('business')->once()->with(10)->andReturn($this->business());
         $apiClient->shouldReceive('branch')->once()->with(10, 21)->andReturn($this->branch());
         $apiClient->shouldReceive('service')->once()->with(10, 21, 31)->andReturn($this->service());
+        $apiClient->shouldReceive('services')->with(10, 21)->andReturn([$this->service()])->zeroOrMoreTimes();
+        $apiClient->shouldReceive('publicQueueBoard')->with(91)->andReturn($this->board(91, 3))->zeroOrMoreTimes();
     }
 
     private function business(): BusinessData
@@ -227,16 +306,21 @@ class CustomerServiceDiscoveryTest extends TestCase
         );
     }
 
-    private function queue(string $status): TodayQueueData
+    private function queue(string $status, int $id = 91, ?int $serviceId = 31): TodayQueueData
     {
         return new TodayQueueData(
-            id: 91,
+            id: $id,
             branchId: 21,
-            serviceId: 31,
+            serviceId: $serviceId,
             name: 'General Care',
             businessDate: '2026-10-03',
             ticketPrefix: 'A',
             status: $status,
         );
+    }
+
+    private function board(int $queueId, int $waitingCount): PublicQueueBoardData
+    {
+        return new PublicQueueBoardData($queueId, 'General Care', 'OPEN', null, null, $waitingCount, []);
     }
 }

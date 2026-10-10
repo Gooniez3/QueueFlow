@@ -13,6 +13,9 @@ class QueuePositionDataTest extends TestCase
             'entryId' => 301,
             'queueId' => 91,
             'publicCode' => 'public-queue-code',
+            'businessName' => 'Authoritative Clinic',
+            'branchName' => 'Authoritative Branch',
+            'serviceName' => 'Authoritative Service',
             'serviceId' => 31,
             'ticketSequence' => 23,
             'ticketNumber' => 'A023',
@@ -24,6 +27,9 @@ class QueuePositionDataTest extends TestCase
         $this->assertSame(301, $position->entryId);
         $this->assertSame(91, $position->queueId);
         $this->assertSame('public-queue-code', $position->publicCode);
+        $this->assertSame('Authoritative Clinic', $position->businessName);
+        $this->assertSame('Authoritative Branch', $position->branchName);
+        $this->assertSame('Authoritative Service', $position->serviceName);
         $this->assertSame(31, $position->serviceId);
         $this->assertSame(23, $position->ticketSequence);
         $this->assertSame('A023', $position->ticketNumber);
