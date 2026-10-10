@@ -146,6 +146,20 @@ public class SecurityConfig {
                                 "/api/v1/queues/*/entries/*/qr-credential"
                         ).permitAll()
 
+                        // Customer notifications.
+// Guests authenticate ownership using X-Guest-Token.
+// Registered customers use their bearer token.
+// CustomerNotificationService verifies queue entry ownership.
+                       .requestMatchers(
+                            HttpMethod.GET,
+                            "/api/v1/queues/*/entries/*/notifications"
+                        ).permitAll()
+
+                        .requestMatchers(
+                             HttpMethod.POST,
+                             "/api/v1/queues/*/entries/*/notifications/*/read"
+                        ).permitAll()
+
                         // Business creation and all other mutations
                         // require authentication.
                         .anyRequest().authenticated()
