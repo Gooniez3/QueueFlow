@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 
 public record BranchResponse(
         Long id,
+        String publicCode,
         Long businessId,
         String name,
         String address,
