@@ -29,7 +29,12 @@
         @case('search')
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-4-4" />
-            @break
+        @break
+
+        @case('scan')
+            <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
+            <path d="M8 8h8v8H8z" />
+        @break
 
         @case('business')
             <path d="M4 20V5h10v15M14 10h6v10M8 9h2M8 13h2M8 17h2M4 20h16" />

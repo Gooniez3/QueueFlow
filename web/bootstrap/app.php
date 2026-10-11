@@ -9,6 +9,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -244,6 +245,20 @@ return Application::configure(basePath: dirname(__DIR__))
                     'Back to discovery',
                 ),
             };
+        });
+
+        $exceptions->render(function (HttpExceptionInterface $exception, Request $request) use ($customerError) {
+            if (! $request->routeIs('queue-entries.store') || $exception->getStatusCode() !== 409) {
+                return null;
+            }
+
+            return $customerError(
+                'Queue no longer available',
+                'The queue is no longer accepting joins. Please refresh and try again.',
+                409,
+                route('home'),
+                'Back to discovery',
+            );
         });
 
         $exceptions->shouldRenderJsonWhen(

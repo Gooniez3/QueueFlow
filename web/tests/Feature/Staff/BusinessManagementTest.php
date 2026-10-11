@@ -98,6 +98,7 @@ class BusinessManagementTest extends TestCase
         $response = $this->withAuthentication([])->post('/staff/businesses', [
             'name' => 'Riverbend Clinic',
             'description' => 'Neighbourhood care.',
+            'category' => 'HEALTH',
         ]);
 
         $response->assertRedirect(route('staff.businesses.show', 30))
@@ -111,6 +112,7 @@ class BusinessManagementTest extends TestCase
             && $request->data() === [
                 'name' => 'Riverbend Clinic',
                 'description' => 'Neighbourhood care.',
+                'category' => 'HEALTH',
             ]);
         Http::assertSentCount(3);
     }
@@ -141,7 +143,7 @@ class BusinessManagementTest extends TestCase
 
         $response = $this->withAuthentication([])
             ->from('/staff/businesses/create')
-            ->post('/staff/businesses', ['name' => 'Northstar Health']);
+            ->post('/staff/businesses', ['name' => 'Northstar Health', 'category' => 'HEALTH']);
 
         $response->assertRedirect('/staff/businesses/create')
             ->assertSessionHasErrors([
@@ -174,7 +176,7 @@ class BusinessManagementTest extends TestCase
         ]);
 
         $response = $this->withAuthentication([])
-            ->post('/staff/businesses', ['name' => 'Riverbend Clinic']);
+            ->post('/staff/businesses', ['name' => 'Riverbend Clinic', 'category' => 'HEALTH']);
 
         $response->assertRedirect(route('staff.login'))
             ->assertSessionHas('error', 'Your session has expired. Please sign in again.')
@@ -193,7 +195,7 @@ class BusinessManagementTest extends TestCase
         ]);
 
         $response = $this->withAuthentication([])
-            ->post('/staff/businesses', ['name' => 'Riverbend Clinic']);
+            ->post('/staff/businesses', ['name' => 'Riverbend Clinic', 'category' => 'HEALTH']);
 
         $response->assertForbidden()
             ->assertSee('You are not authorized to access this staff resource.')
@@ -280,6 +282,7 @@ class BusinessManagementTest extends TestCase
             ->put(route('staff.businesses.update', 10), [
                 'name' => 'Updated Northstar',
                 'description' => '   ',
+                'category' => 'HEALTH',
             ]);
 
         $response->assertRedirect(route('staff.businesses.show', 10))
@@ -291,6 +294,7 @@ class BusinessManagementTest extends TestCase
             && $request->data() === [
                 'name' => 'Updated Northstar',
                 'description' => null,
+                'category' => 'HEALTH',
             ]);
     }
 
@@ -323,6 +327,7 @@ class BusinessManagementTest extends TestCase
         $this->withAuthentication([$membership])
             ->put(route('staff.businesses.update', 10), [
                 'name' => 'Updated Northstar',
+                'category' => 'HEALTH',
             ])
             ->assertForbidden()
             ->assertSee('You are not authorized to access this staff resource.')
@@ -344,6 +349,7 @@ class BusinessManagementTest extends TestCase
         $this->withAuthentication([$membership])
             ->put(route('staff.businesses.update', 10), [
                 'name' => 'Updated Northstar',
+                'category' => 'HEALTH',
             ])
             ->assertServiceUnavailable()
             ->assertSee('QueueFlow is temporarily unavailable. Please try again later.')
@@ -360,7 +366,7 @@ class BusinessManagementTest extends TestCase
         $this->get(route('staff.businesses.edit', 10))
             ->assertRedirect(route('staff.login'));
 
-        $this->put(route('staff.businesses.update', 10), ['name' => 'Updated Northstar'])
+        $this->put(route('staff.businesses.update', 10), ['name' => 'Updated Northstar', 'category' => 'HEALTH'])
             ->assertRedirect(route('staff.login'));
     }
 

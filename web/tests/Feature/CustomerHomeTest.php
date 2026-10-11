@@ -29,10 +29,9 @@ class CustomerHomeTest extends TestCase
             ->assertSee('No ticket yet.')
             ->assertSee('Open scanner')
             ->assertSee('LIVE QUEUE')
-            ->assertSee('Northstar Health')
-            ->assertSee('Harbour Services')
-            ->assertSee('href="'.route('businesses.show', 10).'"', false)
-            ->assertSee('href="'.route('businesses.show', 20).'"', false)
+            ->assertSee('No active ticket')
+            ->assertDontSee('href="'.route('businesses.show', 10).'"', false)
+            ->assertDontSee('href="'.route('businesses.show', 20).'"', false)
             ->assertSee('data-customer-navigation', false)
             ->assertSee('data-active-destination="home"', false)
             ->assertSee('data-customer-bottom-navigation', false)
@@ -64,7 +63,7 @@ class CustomerHomeTest extends TestCase
         $this->get(route('home'))
             ->assertOk()
             ->assertSee('No ticket yet.')
-            ->assertSee('QueueFlow Clinic')
+            ->assertSee('No active ticket')
             ->assertSee('Open scanner');
 
         Http::assertSentCount(1);
@@ -80,6 +79,11 @@ class CustomerHomeTest extends TestCase
             'http://localhost:8080/api/v1/queues/91/entries/301/position' => Http::response(
                 $this->position(91, 301, 'A023', 'WAITING', 5, 15),
             ),
+            'http://localhost:8080/api/v1/queues/91/board' => Http::response($this->board('A021', 'A022', ['A024'])),
+            'http://localhost:8080/api/v1/queues/91/entries/301/qr-credential' => Http::response([
+                'credential' => 'opaque-home-credential',
+                'expiresAt' => '2026-10-01T10:15:30+08:00',
+            ]),
         ]);
 
         $response = $this->withSession($this->ownershipSession([
@@ -93,8 +97,61 @@ class CustomerHomeTest extends TestCase
             ->assertSee('A023')
             ->assertSee('5')
             ->assertSee('15 min')
-            ->assertSee('data-demo-qr', false)
+            ->assertSee('data:image/svg+xml', false)
+            ->assertSee('A021')
+            ->assertSee('A022')
+            ->assertSee('A024')
             ->assertDontSee('raw-home-token');
+    }
+
+    public function test_customer_home_uses_empty_board_values_without_fabricating_numbers(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::response([]),
+            'http://localhost:8080/api/v1/queues/91/entries/301/position' => Http::response(
+                $this->position(91, 301, 'A023', 'WAITING'),
+            ),
+            'http://localhost:8080/api/v1/queues/91/board' => Http::response($this->board(null, null, [])),
+            'http://localhost:8080/api/v1/queues/91/entries/301/qr-credential' => Http::response([
+                'credential' => 'opaque-home-credential',
+                'expiresAt' => '2026-10-01T10:15:30+08:00',
+            ]),
+        ]);
+
+        $this->withSession($this->ownershipSession([
+            $this->ownership(91, 301, 'A023', 'raw-home-token'),
+        ]))->get(route('home'))
+            ->assertOk()
+            ->assertSee('>—</p>', false)
+            ->assertDontSee('A021')
+            ->assertDontSee('A022')
+            ->assertDontSee('A024')
+            ->assertDontSee('raw-home-token');
+    }
+
+    public function test_customer_home_keeps_ticket_usable_when_qr_issuance_fails(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses' => Http::response([]),
+            'http://localhost:8080/api/v1/queues/91/entries/301/position' => Http::response(
+                $this->position(91, 301, 'A023', 'WAITING'),
+            ),
+            'http://localhost:8080/api/v1/queues/91/board' => Http::response($this->board('A021', null, [])),
+            'http://localhost:8080/api/v1/queues/91/entries/301/qr-credential' => Http::response([
+                'message' => 'QR issuance unavailable',
+            ], 503),
+        ]);
+
+        $this->withSession($this->ownershipSession([
+            $this->ownership(91, 301, 'A023', 'raw-home-token'),
+        ]))->get(route('home'))
+            ->assertOk()
+            ->assertSee('A023')
+            ->assertSee('QR unavailable')
+            ->assertDontSee('raw-home-token')
+            ->assertDontSee('QR issuance unavailable');
     }
 
     #[DataProvider('terminalStatuses')]
@@ -324,6 +381,20 @@ class CustomerHomeTest extends TestCase
             'status' => $status,
             'peopleAhead' => $peopleAhead,
             'estimatedWaitMinutes' => $estimatedWaitMinutes,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function board(?string $nowServing, ?string $calling, array $upcoming): array
+    {
+        return [
+            'queueId' => 91,
+            'name' => 'General Consultation',
+            'status' => 'OPEN',
+            'nowServing' => $nowServing,
+            'calling' => $calling,
+            'waitingCount' => count($upcoming),
+            'upcomingTicketNumbers' => $upcoming,
         ];
     }
 }

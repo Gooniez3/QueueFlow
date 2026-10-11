@@ -67,5 +67,33 @@
         @case('chevron-right')
             <path d="m9 18 6-6-6-6" />
             @break
+
+        @case('hospital')
+            <path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h6M12 4v6M9 13h2M13 13h2M9 17h2M13 17h2" />
+            @break
+
+        @case('landmark')
+            <path d="m3 10 9-6 9 6M5 10h14M6 10v8M10 10v8M14 10v8M18 10v8M3 21h18M4 18h16" />
+            @break
+
+        @case('building-2')
+            <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 8h2a2 2 0 0 1 2 2v11M8 7h4M8 11h4M8 15h4M8 19h4M18 13h.01M18 17h.01" />
+            @break
+
+        @case('utensils')
+            <path d="M7 3v7M4 3v4a3 3 0 0 0 6 0V3M7 10v11M17 3v18M17 3c2 2 3 4.5 3 7h-3" />
+            @break
+
+        @case('calendar-days')
+            <rect x="3" y="4.5" width="18" height="16" rx="2" />
+            <path d="M16 2.5v4M8 2.5v4M3 9.5h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01" />
+            @break
+
+        @case('shopping-bag')
+            <path d="M5 8h14l-1 13H6L5 8ZM9 8V6a3 3 0 0 1 6 0v2" />
+            @break
+
+        @default
+            <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 8h2a2 2 0 0 1 2 2v11M8 7h4M8 11h4M8 15h4M8 19h4" />
     @endswitch
 </svg>

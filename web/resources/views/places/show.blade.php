@@ -9,30 +9,54 @@
 
         <header class="customer-hero pb-10">
             <div class="relative z-10 flex items-center justify-between gap-3">
-                <a class="customer-back-link" href="{{ route('places.index') }}" aria-label="Back to place categories"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg></a>
+                <a class="customer-back-link" href="{{ route('places.index') }}" aria-label="Back to places"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg></a>
                 <h1 class="truncate text-xl font-bold">{{ $category['title'] }}</h1>
-                <span class="grid size-11 place-items-center rounded-full bg-white/15"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 4 4" /></svg></span>
+                <span class="grid size-11 place-items-center rounded-full bg-white/15" aria-hidden="true"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 4 4" /></svg></span>
             </div>
         </header>
 
         <main class="px-5 pt-4 pb-7">
-            <div class="flex gap-2 overflow-x-auto pb-1" aria-label="Presentation filters">
-                <span class="shrink-0 rounded-full bg-customer-navy px-4 py-2 text-xs font-bold text-white">Near me</span>
-                <span class="shrink-0 rounded-full bg-white px-4 py-2 text-xs font-bold">Open now</span>
-                <span class="shrink-0 rounded-full bg-white px-4 py-2 text-xs font-bold">Shortest wait</span>
-            </div>
+            <form class="flex items-center gap-3 rounded-full bg-white px-5 py-2 ring-1 ring-customer-line/40" method="GET" action="{{ route('places.show', $category['slug']) }}" role="search">
+                <label class="sr-only" for="category-search">Search this category</label>
+                <svg class="size-5 shrink-0 text-customer-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 4 4" /></svg>
+                <input class="min-h-11 min-w-0 grow border-0 bg-transparent text-sm outline-none placeholder:text-customer-muted/80 focus:ring-0" id="category-search" name="search" type="search" value="{{ $category['search'] }}" placeholder="Search businesses or services" />
+                <button class="min-h-11 shrink-0 rounded-full bg-customer-indigo px-4 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo" type="submit">Search</button>
+            </form>
 
-            <section class="mt-4 grid gap-3" aria-label="Places">
-                @foreach ($category['places'] as $place)
-                    <article class="flex items-center gap-3 rounded-[1.4rem] bg-white p-4 shadow-[0_12px_30px_-24px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40">
-                        <span @class(['grid size-14 shrink-0 place-items-center rounded-2xl text-base font-bold text-white', 'bg-customer-indigo' => $place['tone'] === 'indigo', 'bg-teal-600' => $place['tone'] === 'teal', 'bg-blue-500' => $place['tone'] === 'blue', 'bg-red-500' => $place['tone'] === 'red', 'bg-purple-600' => $place['tone'] === 'purple'])>{{ $place['initials'] }}</span>
-                        <div class="min-w-0 grow"><h2 class="truncate text-sm font-bold">{{ $place['name'] }}</h2><p class="mt-1 truncate text-xs text-customer-muted">{{ $place['area'] }} &middot; {{ $place['distance'] }}</p><p class="mt-1 flex items-center gap-1 text-xs text-customer-muted"><span class="size-2 rounded-full bg-customer-green"></span>{{ $place['open'] ? 'Open now' : 'Closed' }}</p></div>
-                        <div class="text-right"><p class="text-2xl leading-none font-bold tabular-nums">{{ str_pad((string) $place['waiting'], 2, '0', STR_PAD_LEFT) }}</p><p class="text-[0.65rem] text-customer-muted">waiting</p><span @class(['mt-2 block h-1 w-10 rounded-full', 'bg-customer-green' => $place['waiting'] <= 5, 'bg-amber-500' => $place['waiting'] > 5 && $place['waiting'] < 10, 'bg-red-500' => $place['waiting'] >= 10])></span></div>
+            <section class="mt-6 grid gap-4" aria-label="Businesses in {{ $category['title'] }}">
+                @forelse ($category['businesses'] as $business)
+                    <article class="rounded-[1.4rem] bg-white p-4 shadow-[0_12px_30px_-24px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40">
+                        <a class="flex items-start gap-3" href="{{ route('businesses.show', $business['id']) }}">
+                            <span class="customer-resource-icon shrink-0">{{ mb_strtoupper(mb_substr($business['name'], 0, 2)) }}</span>
+                            <span class="min-w-0 grow"><span class="block break-words text-sm font-bold">{{ $business['name'] }}</span><span class="mt-1 block text-xs text-customer-muted">{{ $business['description'] ?: 'View locations and available services' }}</span></span>
+                            <span class="customer-resource-action shrink-0" aria-hidden="true">&rsaquo;</span>
+                        </a>
+                        <div class="mt-4 border-t border-customer-line/70 pt-3">
+                            @foreach ($business['branches'] as $branch)
+                                <div class="py-2 first:pt-0 last:pb-0">
+                                    <a class="block min-h-11 rounded-xl px-2 py-2 hover:bg-customer-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo" href="{{ route('branches.show', [$business['id'], $branch['id']]) }}">
+                                        <span class="block text-sm font-semibold">{{ $branch['name'] }}</span>
+                                        <span class="mt-1 block text-xs text-customer-muted">{{ $branch['address'] }}</span>
+                                    </a>
+                                    @if ($branch['services'] !== [])
+                                        <div class="mt-1 flex flex-wrap gap-2 px-2">
+                                            @foreach ($branch['services'] as $service)
+                                                <a class="inline-flex min-h-9 items-center rounded-full bg-customer-canvas px-3 text-xs font-semibold text-customer-indigo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo" href="{{ route('services.show', [$business['id'], $branch['id'], $service->id]) }}">{{ $service->name }}</a>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
                     </article>
-                @endforeach
+                @empty
+                    <div class="customer-empty-state text-center">
+                        <p class="text-lg font-bold">No places match this category.</p>
+                        <p class="mt-2 text-sm text-customer-muted">Try another category or search term.</p>
+                        <a class="customer-text-link mt-3" href="{{ route('places.index') }}">Browse all places</a>
+                    </div>
+                @endforelse
             </section>
-            <p class="mt-4 text-center text-[0.68rem] text-customer-muted">Locations, distance and wait indicators are temporary presentation data.</p>
-            <a class="customer-secondary-button mt-5" href="{{ route('home') }}">Browse real QueueFlow businesses</a>
         </main>
     </div>
 @endsection

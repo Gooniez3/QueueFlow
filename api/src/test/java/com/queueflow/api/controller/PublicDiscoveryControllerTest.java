@@ -149,6 +149,21 @@ class PublicDiscoveryControllerTest {
                 true
         );
 
+        Business clinic =
+                createBusiness(
+                        "Riverside Care",
+                        "Community care",
+                        BusinessCategory.HEALTH
+                );
+
+        createBranch(
+                clinic,
+                "Main Clinic",
+                "9 Health Avenue",
+                null,
+                null
+        );
+
         mockMvc.perform(
                         get("/api/v1/public/discovery")
                                 .param(
@@ -187,6 +202,19 @@ class PublicDiscoveryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()")
                         .value(1));
+
+        mockMvc.perform(
+                        get("/api/v1/public/discovery")
+                                .param(
+                                        "search",
+                                        "clinic"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()")
+                        .value(1))
+                .andExpect(jsonPath("$[0].category")
+                        .value("HEALTH"));
     }
 
     @Test

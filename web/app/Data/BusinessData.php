@@ -11,6 +11,7 @@ final readonly class BusinessData
         public string $name,
         public ?string $description,
         public CarbonImmutable $createdAt,
+        public ?string $category = null,
     ) {}
 
     /**
@@ -25,6 +26,7 @@ final readonly class BusinessData
                 ? (string) $data['description']
                 : null,
             createdAt: CarbonImmutable::parse($data['createdAt']),
+            category: isset($data['category']) ? (string) $data['category'] : null,
         );
     }
 }
