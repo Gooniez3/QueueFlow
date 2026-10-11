@@ -60,6 +60,7 @@ class CustomerExperienceController extends Controller
             ->map(fn (array $category): array => [
                 'name' => $category['label'],
                 'slug' => $category['slug'],
+                'icon' => $category['icon'],
                 'count' => $counts->get($category['value'], 0),
             ])
             ->all();
