@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Data\CustomerOwnedTicketData;
 use App\Data\CustomerQueueTicketData;
 use App\Data\GuestQueueOwnershipData;
+use App\Data\QueueEntryQrCredentialData;
 use App\Data\QueuePositionData;
 use App\Data\TodayQueueData;
 use App\Exceptions\GuestQueueOwnershipException;
@@ -90,6 +91,22 @@ class QueueFlowCustomerQueueService
         }
 
         return $this->apiClient->queuePosition(
+            $queueId,
+            $entryId,
+            token: null,
+            guestToken: $ownership->guestToken(),
+        );
+    }
+
+    public function issueQrCredential(int $queueId, int $entryId): QueueEntryQrCredentialData
+    {
+        $ownership = $this->ownershipStore->find($queueId, $entryId);
+
+        if ($ownership === null) {
+            throw GuestQueueOwnershipException::missing();
+        }
+
+        return $this->apiClient->issueQueueEntryQrCredential(
             $queueId,
             $entryId,
             token: null,

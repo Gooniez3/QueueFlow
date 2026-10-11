@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Staff;
 
+use App\Support\BusinessCategories;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -25,6 +26,7 @@ class UpdateBusinessRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
+            'category' => ['required', 'string', 'in:'.implode(',', array_column(BusinessCategories::all(), 'value'))],
         ];
     }
 }

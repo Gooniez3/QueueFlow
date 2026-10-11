@@ -72,6 +72,17 @@
                 @enderror
             </div>
 
+            <div class="staff-field">
+                <label class="staff-field-label" for="category">Category</label>
+                <select class="staff-field-control @error('category') staff-field-control-error @enderror" id="category" name="category" required>
+                    <option value="">Select a category</option>
+                    @foreach ($categories as $category)
+                        <option value="{{ $category['value'] }}" @selected(old('category') === $category['value'])>{{ $category['label'] }}</option>
+                    @endforeach
+                </select>
+                @error('category')<p class="staff-field-error">{{ $message }}</p>@enderror
+            </div>
+
             <div class="flex flex-col-reverse gap-3 border-t border-staff-line pt-6 sm:flex-row sm:items-center">
                 <a class="staff-secondary-button" href="{{ route('staff.businesses.index') }}">Cancel</a>
                 <button class="staff-primary-button" type="submit">Create business</button>

@@ -6,6 +6,7 @@ use App\Data\AuthUserData;
 use App\Data\BranchData;
 use App\Data\BusinessData;
 use App\Data\LoginData;
+use App\Data\PublicDiscoveryData;
 use App\Data\PublicQueueBoardData;
 use App\Data\PublicQueueResolveData;
 use App\Data\RegisteredUserData;
@@ -20,6 +21,47 @@ use Tests\TestCase;
 
 class QueueFlowApiClientTest extends TestCase
 {
+    public function test_it_fetches_public_discovery_with_trimmed_search_and_category_filters(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/public/discovery*' => Http::response([
+                [
+                    'businessId' => 10,
+                    'businessName' => 'Northstar Health',
+                    'businessDescription' => 'Clinic',
+                    'category' => 'HEALTH',
+                    'branchId' => 101,
+                    'branchName' => 'Riverside Clinic',
+                    'address' => '1 Main Street',
+                    'latitude' => null,
+                    'longitude' => null,
+                    'distanceKm' => null,
+                    'services' => [[
+                        'serviceId' => 501,
+                        'name' => 'General Consultation',
+                        'description' => null,
+                        'durationMinutes' => 20,
+                    ]],
+                ],
+            ]),
+        ]);
+
+        $results = app(QueueFlowApiClient::class)->publicDiscovery(
+            search: 'clinic',
+            category: 'HEALTH',
+        );
+
+        $this->assertCount(1, $results);
+        $this->assertInstanceOf(PublicDiscoveryData::class, $results[0]);
+        $this->assertSame('HEALTH', $results[0]->category);
+        $this->assertSame('General Consultation', $results[0]->services[0]->name);
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+            && $request->url() === 'http://localhost:8080/api/v1/public/discovery?search=clinic&category=HEALTH'
+            && ! $request->hasHeader('Authorization'));
+    }
+
     public function test_it_fetches_businesses_from_queueflow_api(): void
     {
         Http::preventStrayRequests();

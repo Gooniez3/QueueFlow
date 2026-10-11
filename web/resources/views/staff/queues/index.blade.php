@@ -122,6 +122,7 @@
                         </div>
 
                         <div class="flex flex-wrap gap-2" aria-label="Queue controls">
+                            <a class="staff-secondary-button" href="{{ route('staff.queue-entry-qr.create', [$business->id, $branch->id]) }}"><x-staff.icon class="size-4" name="scan" />Scan ticket</a>
                             <a class="staff-secondary-button" href="{{ route('queues.board.show', $selectedQueue->publicCode) }}" target="_blank" rel="noopener noreferrer"><x-staff.icon class="size-4" name="queues" />View board</a>
 
                             @if ($selectedQueue->status === 'OPEN')

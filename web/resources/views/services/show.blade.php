@@ -61,15 +61,16 @@
                         <a class="customer-text-link mt-4" href="{{ route('branches.show', [$business->id, $branch->id]) }}">Choose another service <span aria-hidden="true">&rsaquo;</span></a>
                     </div>
                 @elseif ($queue->status === 'OPEN')
-                    <div class="mt-3 grid gap-2" aria-label="Presentation service alternatives">
-                        @foreach ($presentation['alternatives'] as $alternative)
-                            <div class="flex items-center justify-between gap-3 rounded-[1.15rem] bg-white p-4 shadow-[0_10px_30px_-24px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40 opacity-75">
-                                <div><p class="text-sm font-bold">{{ $alternative['name'] }}</p><p class="mt-1 text-xs text-customer-muted">{{ $alternative['waiting'] }} waiting</p></div>
-                                <div class="flex items-center gap-3"><span class="text-xs font-bold">{{ $alternative['estimatedWaitMinutes'] === 0 ? 'No wait' : $alternative['estimatedWaitMinutes'].' min' }}</span><span class="size-7 rounded-full border-2 border-customer-line"></span></div>
-                            </div>
-                        @endforeach
-                        <p class="text-center text-[0.65rem] text-customer-muted">Alternative service rows are presentation previews.</p>
-                    </div>
+                    @if ($alternativeServices !== [])
+                        <div class="mt-3 grid gap-2" aria-label="Other branch services">
+                            @foreach ($alternativeServices as $alternative)
+                                <a class="flex items-center justify-between gap-3 rounded-[1.15rem] bg-white p-4 shadow-[0_10px_30px_-24px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40 opacity-75" href="{{ route('services.show', [$business->id, $branch->id, $alternative['id']]) }}">
+                                    <div class="min-w-0"><p class="truncate text-sm font-bold">{{ $alternative['name'] }}</p><p class="mt-1 truncate text-xs text-customer-muted">{{ $alternative['description'] ?: $alternative['durationMinutes'].' minute service' }}</p></div>
+                                    <div class="flex shrink-0 items-center gap-3"><span class="text-xs font-bold">{{ $alternative['waitingCount'] === null ? '—' : $alternative['waitingCount'].' waiting' }}</span><span class="size-7 rounded-full border-2 border-customer-line" aria-hidden="true"></span></div>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
 
                     <div class="mt-5 flex items-center justify-between gap-4"><div><p class="text-sm font-bold">Party size</p><p class="text-xs text-customer-muted">Number of people</p></div><div class="flex items-center gap-4"><span class="grid size-10 place-items-center rounded-full border border-customer-line text-xl text-customer-muted">&minus;</span><strong>1</strong><span class="grid size-10 place-items-center rounded-full border border-customer-line text-xl text-customer-muted">&plus;</span></div></div>
 
@@ -82,7 +83,7 @@
                             <span class="size-2 rounded-full bg-customer-green" aria-hidden="true"></span>
                         </div>
                         <p class="mt-2 text-sm leading-5 text-white/65">{{ $queue->name }} is open for {{ $service->name }}.</p>
-                        <div class="mt-4 flex items-end justify-between gap-4 border-t border-white/15 pt-4"><div><p class="text-[0.65rem] font-bold tracking-[0.12em] text-white/55">YOUR NUMBER &middot; PREVIEW</p><p class="mt-1 text-3xl font-bold text-customer-yellow">{{ $presentation['number'] }}</p></div><div class="text-right text-xs"><p><strong>{{ $presentation['peopleAhead'] }}</strong> people ahead</p><p class="mt-1"><strong>{{ $presentation['estimatedWaitMinutes'] }} min</strong> estimated wait</p></div></div>
+                        <div class="mt-4 flex items-end justify-between gap-4 border-t border-white/15 pt-4"><div><p class="text-[0.65rem] font-bold tracking-[0.12em] text-white/55">WAITING NOW</p><p class="mt-1 text-3xl font-bold text-customer-yellow">{{ $selectedBoard?->waitingCount ?? '—' }}</p></div><div class="text-right text-xs"><p>Ticket number issued after joining</p><p class="mt-1 text-white/55">Queue status: {{ ucfirst(strtolower($queue->status)) }}</p></div></div>
                     </div>
 
                     <form class="mt-7" method="POST" action="{{ route('queue-entries.store', $queue->id) }}" data-customer-join-form>
@@ -90,7 +91,7 @@
                         <input type="hidden" name="businessId" value="{{ $business->id }}">
                         <input type="hidden" name="branchId" value="{{ $branch->id }}">
                         <input type="hidden" name="serviceId" value="{{ $service->id }}">
-                        <p class="mb-3 text-center text-xs text-customer-muted">The preview is not your issued number. Spring will issue and securely save the real ticket.</p>
+                        <p class="mb-3 text-center text-xs text-customer-muted">Spring issues your real ticket number after you join.</p>
                         <button class="customer-primary-button" type="submit">Get my ticket</button>
                         <span class="sr-only">Join queue</span>
                     </form>
