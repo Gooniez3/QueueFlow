@@ -185,6 +185,7 @@ public class BranchService {
 
         return new BranchResponse(
                 branch.getId(),
+                branch.getPublicCode(),
                 branch.getBusiness().getId(),
                 branch.getName(),
                 branch.getAddress(),

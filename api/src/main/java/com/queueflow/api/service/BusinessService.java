@@ -148,6 +148,7 @@ public class BusinessService {
 
         return new BusinessResponse(
                 business.getId(),
+                business.getPublicCode(),
                 business.getName(),
                 business.getDescription(),
                 business.getCategory(),

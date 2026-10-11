@@ -102,6 +102,8 @@ public class SecurityConfig {
                                 "/api/v1/queues/{queueId}/board",
                                 "/api/v1/public/queues/resolve/{publicCode}",
                                 "/api/v1/public/discovery",
+                                "/api/v1/public/businesses/resolve/{publicCode}",
+                                "/api/v1/public/branches/resolve/{publicCode}",
                                 "/api/v1/public/queues/{publicCode}/events"
                         ).permitAll()
 

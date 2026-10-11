@@ -3,6 +3,7 @@ package com.queueflow.api.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "branch")
@@ -15,6 +16,9 @@ public class Branch {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "business_id", nullable = false)
     private Business business;
+
+    @Column(name = "public_code", nullable = false, unique = true, length = 36, updatable = false)
+    private String publicCode;
 
     @Column(nullable = false, length = 150)
     private String name;
@@ -57,6 +61,10 @@ public class Branch {
     @PrePersist
     protected void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
+        if (publicCode == null) {
+            publicCode = "br_" + UUID.randomUUID().toString().replace("-", "");
+        }
+
         createdAt = now;
         updatedAt = now;
     }
@@ -64,6 +72,10 @@ public class Branch {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = OffsetDateTime.now();
+    }
+
+    public String getPublicCode() {
+        return publicCode;
     }
 
     public Long getId() {
