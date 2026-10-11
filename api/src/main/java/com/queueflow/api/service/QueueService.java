@@ -748,6 +748,24 @@ public class QueueService {
                 dashboardQueues
         );
     }
+
+    @Transactional
+   public QueueStaffEntryResponse startServingFromQr(
+        Long queueId,
+        Long entryId,
+        Long staffUserId,
+        String idempotencyKey,
+        String credentialHash
+ ) {
+    return startServingInternal(
+            queueId,
+            entryId,
+            staffUserId,
+            idempotencyKey,
+            "QR_CHECK_IN",
+            credentialHash
+    );
+ }
     @Transactional
     public QueueStaffEntryResponse callNext(
             Long queueId,
@@ -961,15 +979,33 @@ public class QueueService {
                 savedEntry
         );
     }
-    @Transactional
-    public QueueStaffEntryResponse startServing(
-            Long queueId,
-            Long entryId,
-            Long staffUserId,
-            String idempotencyKey
-    ) {
-        String normalizedIdempotencyKey =
-                normalizeIdempotencyKey(idempotencyKey);
+   @Transactional
+  public QueueStaffEntryResponse startServing(
+        Long queueId,
+        Long entryId,
+        Long staffUserId,
+        String idempotencyKey
+ ) {
+    return startServingInternal(
+            queueId,
+            entryId,
+            staffUserId,
+            idempotencyKey,
+            "START_SERVING",
+            null
+    );
+ }
+
+private QueueStaffEntryResponse startServingInternal(
+        Long queueId,
+        Long entryId,
+        Long staffUserId,
+        String idempotencyKey,
+        String operation,
+        String credentialHash
+ ) {
+    String normalizedIdempotencyKey =
+            normalizeIdempotencyKey(idempotencyKey);
 
         Queue queue = queueRepository
                 .findByIdForUpdate(queueId)
@@ -997,13 +1033,14 @@ public class QueueService {
                 );
 
         QueueStaffEntryResponse replay =
-                replayStaffMutation(
-                        queue,
-                        staffUserId,
-                        entryId,
-                        "START_SERVING",
-                        normalizedIdempotencyKey
-                );
+              replayStaffMutation(
+                queue,
+                staffUserId,
+                entryId,
+                operation,
+                normalizedIdempotencyKey,
+                credentialHash
+              );
 
         if (replay != null) {
             return replay;
@@ -1056,11 +1093,12 @@ public class QueueService {
                 queueEntryRepository.save(entry);
 
         saveStaffMutationIdempotency(
-                queue,
-                staffUserId,
-                savedEntry,
-                "START_SERVING",
-                normalizedIdempotencyKey
+        queue,
+        staffUserId,
+        savedEntry,
+        operation,
+        normalizedIdempotencyKey,
+                credentialHash
         );
 
         eventPublisher.publishEvent(
@@ -1299,6 +1337,19 @@ public class QueueService {
             String operation,
             String normalizedIdempotencyKey
     ) {
+        return replayStaffMutation(
+                queue, staffUserId, requestedEntryId,
+                operation, normalizedIdempotencyKey, null
+        );
+    }
+    private QueueStaffEntryResponse replayStaffMutation(
+            Queue queue,
+            Long staffUserId,
+            Long requestedEntryId,
+            String operation,
+            String normalizedIdempotencyKey,
+            String credentialHash
+    ) {
 
         if (normalizedIdempotencyKey == null) {
             return null;
@@ -1341,7 +1392,14 @@ public class QueueService {
             );
         }
 
-        return toStaffEntryResponse(
+                if ("QR_CHECK_IN".equals(operation)
+                && (credentialHash == null
+                || !credentialHash.equals(existing.getQrCredentialHash()))) {
+            throw new IllegalStateException(
+                    "Idempotency-Key was already used with a different request"
+            );
+        }
+return toStaffEntryResponse(
                 existing.getQueueEntry()
         );
     }
@@ -1352,6 +1410,23 @@ public class QueueService {
             QueueEntry queueEntry,
             String operation,
             String normalizedIdempotencyKey
+    ) {
+        saveStaffMutationIdempotency(
+                queue,
+                staffUserId,
+                queueEntry,
+                operation,
+                normalizedIdempotencyKey,
+                null
+        );
+    }
+    private void saveStaffMutationIdempotency(
+            Queue queue,
+            Long staffUserId,
+            QueueEntry queueEntry,
+            String operation,
+            String normalizedIdempotencyKey,
+            String credentialHash
     ) {
 
         if (normalizedIdempotencyKey == null) {
@@ -1378,6 +1453,7 @@ public class QueueService {
                         OffsetDateTime.now().plusHours(24)
                 );
 
+        record.setQrCredentialHash(credentialHash);
         staffMutationIdempotencyRepository.save(record);
     }
 

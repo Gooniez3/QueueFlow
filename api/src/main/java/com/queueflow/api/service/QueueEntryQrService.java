@@ -11,6 +11,8 @@ import com.queueflow.api.response.QueueEntryQrCredentialResponse;
 import com.queueflow.api.response.QueueEntryQrVerificationResponse;
 import com.queueflow.api.security.AuthTokenService;
 import com.queueflow.api.security.QrCredentialEncryptionService;
+import com.queueflow.api.repository.QueueRepository;
+import com.queueflow.api.response.QueueStaffEntryResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,18 +44,25 @@ public class QueueEntryQrService {
     private final BusinessAuthorizationService
             businessAuthorizationService;
 
+    private final QueueService queueService;
+    private final QueueRepository queueRepository;
+
     public QueueEntryQrService(
             QueueEntryRepository queueEntryRepository,
             QueueEntryQrCredentialRepository qrCredentialRepository,
             AuthTokenService authTokenService,
             BusinessAuthorizationService businessAuthorizationService,
-            QrCredentialEncryptionService qrCredentialEncryptionService
+            QrCredentialEncryptionService qrCredentialEncryptionService,
+            QueueService queueService,
+                QueueRepository queueRepository
     ) {
         this.queueEntryRepository = queueEntryRepository;
         this.qrCredentialRepository = qrCredentialRepository;
         this.authTokenService = authTokenService;
         this.businessAuthorizationService = businessAuthorizationService;
         this.qrCredentialEncryptionService = qrCredentialEncryptionService;
+        this.queueService = queueService;
+        this.queueRepository = queueRepository;
     }
 
     @Transactional
@@ -169,6 +178,93 @@ public class QueueEntryQrService {
             rawCredential,
             expiresAt
     );
+  }
+
+    @Transactional
+    public QueueStaffEntryResponse checkIn(
+        String rawCredential,
+        Long staffUserId,
+        String idempotencyKey
+  ) {
+    String credentialHash =
+            authTokenService.hashToken(rawCredential);
+
+    // Resolve the ticket and its queue.
+    QueueEntryQrCredential found =
+            qrCredentialRepository
+                    .findByCredentialHash(credentialHash)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "QR credential not found"
+                            )
+                    );
+
+    Long entryId = found.getQueueEntry().getId();
+    Long queueId = found.getQueueEntry().getQueue().getId();
+
+    // Acquire locks in queue -> entry -> credential order.
+    queueRepository.findByIdForUpdate(queueId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Queue not found with id: " + queueId
+                    )
+            );
+
+    QueueEntry entry = queueEntryRepository
+            .findByIdForUpdate(entryId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Queue entry not found with id: " + entryId
+                    )
+            );
+
+    QueueEntryQrCredential credential =
+            qrCredentialRepository
+                    .findByCredentialHashForUpdate(credentialHash)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "QR credential not found"
+                            )
+                    );
+
+    if (!credential.getQueueEntry().getId().equals(entry.getId())
+            || !entry.getQueue().getId().equals(queueId)) {
+        throw new IllegalStateException(
+                "QR credential ticket association changed"
+        );
+    }
+
+    Long branchId = entry.getQueue().getBranch().getId();
+    Long businessId =
+            entry.getQueue().getBranch().getBusiness().getId();
+
+    businessAuthorizationService.requireBranchAccess(
+            staffUserId,
+            businessId,
+            branchId
+    );
+
+    OffsetDateTime now = OffsetDateTime.now();
+
+    if (credential.isRevoked()) {
+        throw new QrCredentialInactiveException(
+                "QR credential has been revoked"
+        );
+    }
+
+    if (credential.isExpired(now)) {
+        throw new QrCredentialInactiveException(
+                "QR credential has expired"
+        );
+    }
+
+    return queueService.startServingFromQr(
+                queueId,
+                entryId,
+                staffUserId,
+                idempotencyKey,
+                credentialHash
+        );
   }
 
     @Transactional(readOnly = true)

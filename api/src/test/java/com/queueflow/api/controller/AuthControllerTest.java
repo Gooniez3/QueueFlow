@@ -1,40 +1,74 @@
 package com.queueflow.api.controller;
 
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.entity.AuthSession;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.entity.Branch;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.entity.Business;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.entity.StaffMembership;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.entity.StaffRole;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.entity.UserAccount;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.AuthSessionRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.BranchRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.BusinessRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.QueueEntryRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.QueueRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.ServiceRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.StaffMembershipRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import com.queueflow.api.repository.UserAccountRepository;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.junit.jupiter.api.BeforeEach;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.junit.jupiter.api.Test;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.springframework.test.web.servlet.MockMvc;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import java.nio.charset.StandardCharsets;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import java.security.MessageDigest;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import java.time.OffsetDateTime;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import java.util.HexFormat;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import java.util.List;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import java.util.Optional;
 
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import static org.assertj.core.api.Assertions.assertThat;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import com.queueflow.api.repository.StaffMutationIdempotencyRepository;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -71,9 +105,13 @@ class AuthControllerTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private StaffMutationIdempotencyRepository staffMutationIdempotencyRepository;
+
     @BeforeEach
     void setUp() {
         authSessionRepository.deleteAll();
+        staffMutationIdempotencyRepository.deleteAll();
         queueEntryRepository.deleteAll();
         queueRepository.deleteAll();
         staffMembershipRepository.deleteAll();

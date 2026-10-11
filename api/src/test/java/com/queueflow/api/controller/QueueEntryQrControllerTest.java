@@ -3,6 +3,7 @@ package com.queueflow.api.controller;
 import com.queueflow.api.entity.*;
 import com.queueflow.api.repository.*;
 import com.queueflow.api.security.AuthTokenService;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import com.queueflow.api.entity.Queue;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -62,18 +64,22 @@ class QueueEntryQrControllerTest {
     @Autowired
     private AuthTokenService authTokenService;
 
+    @Autowired
+    private StaffMutationIdempotencyRepository staffMutationIdempotencyRepository;
+
     @BeforeEach
     void cleanDatabase() {
-        authSessionRepository.deleteAll();
-        qrCredentialRepository.deleteAll();
-        queueEntryRepository.deleteAll();
-        queueRepository.deleteAll();
-        staffMembershipRepository.deleteAll();
-        serviceRepository.deleteAll();
-        branchRepository.deleteAll();
-        businessRepository.deleteAll();
-        userAccountRepository.deleteAll();
-    }
+      authSessionRepository.deleteAll();
+      staffMutationIdempotencyRepository.deleteAll();
+      qrCredentialRepository.deleteAll();
+      queueEntryRepository.deleteAll();
+      queueRepository.deleteAll();
+      staffMembershipRepository.deleteAll();
+      serviceRepository.deleteAll();
+      branchRepository.deleteAll();
+      businessRepository.deleteAll();
+      userAccountRepository.deleteAll();
+ }
 
     @Test
     void shouldGenerateUniqueCredentialAndPersistOnlyHash()
@@ -1135,6 +1141,332 @@ class QueueEntryQrControllerTest {
                         .findByQueueEntryIdAndRevokedAtIsNull(entry.getId())
         ).hasSize(1);
     }
+
+    @Test
+    void shouldAllowOnlyOneConcurrentQrCheckIn() throws Exception {
+        Setup setup = createSetup();
+
+        UserAccount customer = createUser(
+                "concurrent-checkin-customer@example.com",
+                "password123"
+        );
+
+        QueueEntry entry = createEntry(
+                setup.queue(),
+                setup.service(),
+                customer,
+                1
+        );
+
+        entry.setStatus(QueueEntryStatus.CALLED);
+        queueEntryRepository.saveAndFlush(entry);
+
+        String customerToken = loginAndGetToken(
+                "concurrent-checkin-customer@example.com",
+                "password123"
+        );
+
+        String credential = issueCredential(
+                setup.queue().getId(),
+                entry.getId(),
+                customerToken
+        );
+
+        String staffToken = createStaffAndLogin(
+                setup.business(),
+                setup.branch(),
+                "concurrent-checkin-staff@example.com"
+        );
+
+        java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newFixedThreadPool(2);
+
+        java.util.concurrent.CountDownLatch ready =
+                new java.util.concurrent.CountDownLatch(2);
+
+        java.util.concurrent.CountDownLatch start =
+                new java.util.concurrent.CountDownLatch(1);
+
+        java.util.concurrent.Callable<Integer> request = () -> {
+            ready.countDown();
+
+            if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Start signal timed out");
+            }
+
+            return mockMvc.perform(
+                    post("/api/v1/staff/queue-entry-qr/check-in")
+                            .header("Authorization", "Bearer " + staffToken)
+                            .header(
+                                    "Idempotency-Key",
+                                    java.util.UUID.randomUUID().toString()
+                            )
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                        "credential": "%s"
+                                    }
+                                    """.formatted(credential))
+            ).andReturn().getResponse().getStatus();
+        };
+
+        try {
+            java.util.concurrent.Future<Integer> first =
+                    executor.submit(request);
+
+            java.util.concurrent.Future<Integer> second =
+                    executor.submit(request);
+
+            assertThat(
+                    ready.await(10, java.util.concurrent.TimeUnit.SECONDS)
+            ).isTrue();
+
+            start.countDown();
+
+            int firstStatus =
+                    first.get(30, java.util.concurrent.TimeUnit.SECONDS);
+
+            int secondStatus =
+                    second.get(30, java.util.concurrent.TimeUnit.SECONDS);
+
+            assertThat(java.util.List.of(firstStatus, secondStatus))
+                    .containsExactlyInAnyOrder(200, 409);
+
+            QueueEntry updatedEntry =
+                    queueEntryRepository.findById(entry.getId())
+                            .orElseThrow();
+
+            assertThat(updatedEntry.getStatus())
+                    .isEqualTo(QueueEntryStatus.SERVING);
+
+            assertThat(updatedEntry.getServingAt()).isNotNull();
+
+            assertThat(staffMutationIdempotencyRepository.count())
+                    .isEqualTo(1);
+
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldStartServingWhenStaffChecksInCalledTicket()
+        throws Exception {
+
+    Setup setup = createSetup();
+
+    UserAccount customer =
+            createUser(
+                    "checkin-customer@example.com",
+                    "password123"
+            );
+
+    QueueEntry entry =
+            createEntry(
+                    setup.queue(),
+                    setup.service(),
+                    customer,
+                    1
+            );
+
+    entry.setStatus(QueueEntryStatus.CALLED);
+    queueEntryRepository.saveAndFlush(entry);
+
+    String customerToken =
+            loginAndGetToken(
+                    "checkin-customer@example.com",
+                    "password123"
+            );
+
+    String credential =
+            issueCredential(
+                    setup.queue().getId(),
+                    entry.getId(),
+                    customerToken
+            );
+
+    String staffToken =
+            createStaffAndLogin(
+                    setup.business(),
+                    setup.branch(),
+                    "checkin-staff@example.com"
+            );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/staff/queue-entry-qr/check-in"
+                    )
+                            .header(
+                                    "Authorization",
+                                    "Bearer " + staffToken
+                            )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content("""
+                                    {
+                                        "credential": "%s"
+                                    }
+                                    """.formatted(credential))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status")
+                    .value("SERVING"));
+
+    QueueEntry updatedEntry =
+            queueEntryRepository.findById(entry.getId())
+                    .orElseThrow();
+
+    assertThat(updatedEntry.getStatus())
+            .isEqualTo(QueueEntryStatus.SERVING);
+
+    assertThat(updatedEntry.getServingAt())
+            .isNotNull();
+  }
+
+  @Test
+  void shouldReplayQrCheckInWithSameIdempotencyKey()
+        throws Exception {
+
+    Setup setup = createSetup();
+
+    UserAccount customer = createUser(
+            "retry-qr-customer@example.com",
+            "password123"
+    );
+
+    QueueEntry entry = createEntry(
+            setup.queue(),
+            setup.service(),
+            customer,
+            1
+    );
+
+    entry.setStatus(QueueEntryStatus.CALLED);
+    queueEntryRepository.saveAndFlush(entry);
+
+    String customerToken = loginAndGetToken(
+            "retry-qr-customer@example.com",
+            "password123"
+    );
+
+    String credential = issueCredential(
+            setup.queue().getId(),
+            entry.getId(),
+            customerToken
+    );
+
+    String staffToken = createStaffAndLogin(
+            setup.business(),
+            setup.branch(),
+            "retry-qr-staff@example.com"
+    );
+
+    String key = "77777777-7777-4777-8777-777777777777";
+
+    for (int i = 0; i < 2; i++) {
+        mockMvc.perform(
+                post("/api/v1/staff/queue-entry-qr/check-in")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                    "credential": "%s"
+                                }
+                                """.formatted(credential))
+        )
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.entryId").value(entry.getId()))
+        .andExpect(jsonPath("$.status").value("SERVING"));
+    }
+
+    assertThat(queueEntryRepository.findById(entry.getId())
+            .orElseThrow().getStatus())
+            .isEqualTo(QueueEntryStatus.SERVING);
+
+    assertThat(staffMutationIdempotencyRepository.count())
+            .isEqualTo(1);
+  }
+   @Test
+   void shouldRejectDifferentQrCredentialWithSameIdempotencyKey()
+        throws Exception {
+
+    Setup setup = createSetup();
+
+    UserAccount customer = createUser(
+            "mismatch-customer@example.com",
+            "password123"
+    );
+
+    QueueEntry entry = createEntry(
+            setup.queue(),
+            setup.service(),
+            customer,
+            1
+    );
+
+    entry.setStatus(QueueEntryStatus.CALLED);
+    queueEntryRepository.saveAndFlush(entry);
+
+    String customerToken = loginAndGetToken(
+            "mismatch-customer@example.com",
+            "password123"
+    );
+
+    String originalCredential = issueCredential(
+            setup.queue().getId(),
+            entry.getId(),
+            customerToken
+    );
+
+    String staffToken = createStaffAndLogin(
+            setup.business(),
+            setup.branch(),
+            "mismatch-staff@example.com"
+    );
+
+    String key = "88888888-8888-4888-8888-888888888888";
+
+    mockMvc.perform(
+            post("/api/v1/staff/queue-entry-qr/check-in")
+                    .header("Authorization", "Bearer " + staffToken)
+                    .header("Idempotency-Key", key)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "credential": "%s"
+                            }
+                            """.formatted(originalCredential))
+    )
+    .andExpect(status().isOk());
+
+    // Create another valid credential for the same ticket.
+    QueueEntryQrCredential anotherCredential =
+            new QueueEntryQrCredential(
+                    entry,
+                    authTokenService.hashToken(
+                            "different-credential"
+                    ),
+                    OffsetDateTime.now().plusHours(1)
+            );
+
+    qrCredentialRepository.saveAndFlush(anotherCredential);
+
+    mockMvc.perform(
+            post("/api/v1/staff/queue-entry-qr/check-in")
+                    .header("Authorization", "Bearer " + staffToken)
+                    .header("Idempotency-Key", key)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                                "credential": "different-credential"
+                            }
+                            """)
+    )
+    .andExpect(status().isConflict());
+  }
     private String issueCredential(
             Long queueId,
             Long entryId,
