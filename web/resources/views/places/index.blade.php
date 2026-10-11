@@ -24,7 +24,7 @@
                 <div class="mt-4 grid grid-cols-2 gap-3">
                     @forelse ($categories as $category)
                         <a class="relative flex min-h-36 flex-col items-center justify-center rounded-[1.4rem] bg-white px-3 py-4 text-center shadow-[0_12px_30px_-24px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/40 transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-customer-indigo" href="{{ route('places.show', $category['slug']) }}{{ $search !== '' ? '?search='.urlencode($search) : '' }}">
-                            <span class="grid size-16 place-items-center rounded-full border-[7px] border-customer-indigo/15 bg-customer-indigo text-xl font-bold text-white" aria-hidden="true">{{ mb_strtoupper(mb_substr($category['name'], 0, 1)) }}</span>
+                            <span class="grid size-16 place-items-center rounded-full border-[7px] border-customer-indigo/15 bg-customer-indigo text-white" aria-hidden="true"><x-customer-icon class="size-7" :name="$category['icon']" /></span>
                             <span class="mt-3 text-sm font-bold leading-4">{{ $category['name'] }}</span>
                             <span class="mt-1 text-xs text-customer-muted">{{ $category['count'] }} {{ $category['count'] === 1 ? 'place' : 'places' }}</span>
                             <span class="absolute top-3 right-3 grid size-7 place-items-center rounded-full bg-customer-canvas text-customer-indigo" aria-hidden="true">&rsaquo;</span>

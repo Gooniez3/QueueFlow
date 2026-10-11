@@ -181,6 +181,12 @@ public class PublicDiscoveryService {
             return true;
         }
 
+        if (response.category() != null
+                && (contains(response.category().getLabel(), search)
+                || contains(response.category().name(), search))) {
+            return true;
+        }
+
         if (contains(
                 response.branchName(),
                 search

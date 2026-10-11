@@ -24,6 +24,7 @@ class CustomerExperiencePresentationTest extends TestCase
             ->assertViewIs('places.index')
             ->assertViewHas('categories', fn (array $categories): bool => count($categories) === 6
                 && $categories[0]['name'] === 'Hospital / Clinic'
+                && array_column($categories, 'icon') === ['hospital', 'landmark', 'building-2', 'utensils', 'calendar-days', 'shopping-bag']
                 && $categories[0]['count'] === 1
                 && $categories[2]['count'] === 0)
             ->assertSee('What do you need today?')
@@ -85,6 +86,25 @@ class CustomerExperiencePresentationTest extends TestCase
             ->assertSee('value="closed clinic"', false);
 
         Http::assertSent(fn (Request $request): bool => $request->url() === 'http://localhost:8080/api/v1/public/discovery?search=closed%20clinic');
+    }
+
+    public function test_places_search_renders_authoritative_category_match(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/public/discovery*' => Http::response([
+                $this->discovery(10, 'Riverside Care', 'HEALTH', 101, 'Main Clinic', [501 => 'Consultation']),
+            ]),
+        ]);
+
+        $response = $this->get(route('places.index', ['search' => 'clinic']));
+
+        $response->assertOk()
+            ->assertSee('value="clinic"', false)
+            ->assertSee('Riverside Care')
+            ->assertSee('Hospital / Clinic');
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'http://localhost:8080/api/v1/public/discovery?search=clinic');
     }
 
     public function test_empty_place_category_has_a_truthful_empty_state(): void

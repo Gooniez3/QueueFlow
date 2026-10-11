@@ -4,17 +4,17 @@ namespace App\Support;
 
 final class BusinessCategories
 {
-    /** @return list<array{value: string, slug: string, label: string}> */
+    /** @return list<array{value: string, slug: string, label: string, icon: string}> */
     public static function all(): array
     {
         return [
-            ['value' => 'HEALTH', 'slug' => 'health', 'label' => 'Hospital / Clinic'],
-            ['value' => 'FINANCE', 'slug' => 'finance', 'label' => 'Bank / Service'],
-            ['value' => 'PUBLIC_SERVICE', 'slug' => 'public-service', 'label' => 'Public Service'],
-            ['value' => 'RESTAURANT', 'slug' => 'restaurant', 'label' => 'Restaurant'],
-            ['value' => 'EVENT', 'slug' => 'event', 'label' => 'Event'],
-            ['value' => 'RETAIL_TECH', 'slug' => 'retail-tech', 'label' => 'Retail / Tech'],
-            ['value' => 'OTHER', 'slug' => 'other', 'label' => 'Other'],
+            ['value' => 'HEALTH', 'slug' => 'health', 'label' => 'Hospital / Clinic', 'icon' => 'hospital'],
+            ['value' => 'FINANCE', 'slug' => 'finance', 'label' => 'Bank / Service', 'icon' => 'landmark'],
+            ['value' => 'PUBLIC_SERVICE', 'slug' => 'public-service', 'label' => 'Public Service', 'icon' => 'building-2'],
+            ['value' => 'RESTAURANT', 'slug' => 'restaurant', 'label' => 'Restaurant', 'icon' => 'utensils'],
+            ['value' => 'EVENT', 'slug' => 'event', 'label' => 'Event', 'icon' => 'calendar-days'],
+            ['value' => 'RETAIL_TECH', 'slug' => 'retail-tech', 'label' => 'Retail / Tech', 'icon' => 'shopping-bag'],
+            ['value' => 'OTHER', 'slug' => 'other', 'label' => 'Other', 'icon' => 'building-2'],
         ];
     }
 
