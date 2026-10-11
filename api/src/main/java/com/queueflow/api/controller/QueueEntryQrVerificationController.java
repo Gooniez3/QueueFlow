@@ -4,6 +4,7 @@ import com.queueflow.api.request.VerifyQueueEntryQrRequest;
 import com.queueflow.api.response.QueueEntryQrVerificationResponse;
 import com.queueflow.api.security.AuthUserPrincipal;
 import com.queueflow.api.service.QueueEntryQrService;
+import com.queueflow.api.response.QueueStaffEntryResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -36,4 +37,23 @@ public class QueueEntryQrVerificationController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/check-in")
+    public ResponseEntity<QueueStaffEntryResponse> checkIn(
+        @AuthenticationPrincipal AuthUserPrincipal principal,
+        @Valid @RequestBody VerifyQueueEntryQrRequest request,
+        @RequestHeader(
+                value = "Idempotency-Key",
+                required = false
+        ) String idempotencyKey
+  ) {
+    QueueStaffEntryResponse response =
+            queueEntryQrService.checkIn(
+                    request.credential(),
+                    principal.userId(),
+                    idempotencyKey
+            );
+
+    return ResponseEntity.ok(response);
+  }
 }

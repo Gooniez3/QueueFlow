@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
 
+
 @Entity
 @Table(
         name = "staff_mutation_idempotency",
@@ -45,6 +46,12 @@ public class StaffMutationIdempotency {
             length = 36
     )
     private String idempotencyKey;
+
+    @Column(
+        name = "qr_credential_hash",
+        length = 64
+    )
+    private String qrCredentialHash;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -109,4 +116,12 @@ public class StaffMutationIdempotency {
     public OffsetDateTime getExpiresAt() {
         return expiresAt;
     }
+
+    public String getQrCredentialHash() {
+    return qrCredentialHash;
+}
+
+public void setQrCredentialHash(String qrCredentialHash) {
+    this.qrCredentialHash = qrCredentialHash;
+ }
 }
