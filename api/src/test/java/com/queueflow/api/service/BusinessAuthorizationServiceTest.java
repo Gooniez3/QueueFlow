@@ -300,6 +300,56 @@ class BusinessAuthorizationServiceTest {
                 );
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(
+            value = StaffRole.class,
+            names = {"OWNER", "MANAGER", "STAFF"}
+    )
+    void shouldRestrictBusinessWideBranchAccessByRole(
+            StaffRole role
+    ) {
+        UserAccount user = createUser(
+                "wide-access-" + role.name().toLowerCase() + "@example.com"
+        );
+
+        Business business = businessRepository.save(
+                new Business("Role Access Business", "Security test")
+        );
+
+        Branch branch = branchRepository.save(
+                new Branch(
+                        business,
+                        "Protected Branch",
+                        "123 Test Street",
+                        null,
+                        null
+                )
+        );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user, business, null, role
+                )
+        );
+
+        if (role == StaffRole.OWNER || role == StaffRole.MANAGER) {
+            assertThat(
+                    businessAuthorizationService.requireBranchAccess(
+                            user.getId(),
+                            business.getId(),
+                            branch.getId()
+                    ).getRole()
+            ).isEqualTo(role);
+        } else {
+            assertThatThrownBy(() ->
+                    businessAuthorizationService.requireBranchAccess(
+                            user.getId(),
+                            business.getId(),
+                            branch.getId()
+                    )
+            ).isInstanceOf(AccessDeniedException.class);
+        }
+    }
     private UserAccount createUser(
             String email
     ) {

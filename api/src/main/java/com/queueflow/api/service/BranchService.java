@@ -34,9 +34,15 @@ public class BranchService {
 
     @Transactional
     public BranchResponse createBranch(
+            Long userId,
             Long businessId,
             CreateBranchRequest request
     ) {
+
+        businessAuthorizationService.requireBusinessOwner(
+                userId,
+                businessId
+        );
 
         Business business = businessRepository
                 .findById(businessId)

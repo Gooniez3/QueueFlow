@@ -522,6 +522,44 @@ class QueueControllerTest {
     }
 
     @Test
+    void shouldRejectBusinessWideStaffCreatingQueue() throws Exception {
+        Business business = createBusiness();
+        Branch branch = createBranch(business, "Asia/Singapore");
+
+        UserAccount user = createUser(
+                "business-wide-queue-staff@example.com",
+                "password123"
+        );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user,
+                        business,
+                        null,
+                        StaffRole.STAFF
+                )
+        );
+
+        String token = loginAndGetToken(
+                "business-wide-queue-staff@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                post(
+                        "/api/v1/businesses/{businessId}/branches/{branchId}/queues",
+                        business.getId(),
+                        branch.getId()
+                )
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(sharedQueueRequest())
+        )
+                .andExpect(status().isForbidden());
+
+        assertThat(queueRepository.count()).isZero();
+    }
+    @Test
     void shouldRejectQueueCreationForDifferentBranch() throws Exception {
 
     Business business = createBusiness();
@@ -1013,7 +1051,7 @@ class QueueControllerTest {
                         user,
                         business,
                         null,
-                        StaffRole.STAFF
+                        StaffRole.MANAGER
                 )
         );
 
@@ -1038,7 +1076,7 @@ class QueueControllerTest {
                         user,
                         business,
                         null,
-                        StaffRole.STAFF
+                        StaffRole.MANAGER
                 )
         );
 
