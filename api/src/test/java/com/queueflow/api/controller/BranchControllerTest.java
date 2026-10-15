@@ -319,6 +319,40 @@ class BranchControllerTest {
     }
 
     @Test
+    void shouldDenyStaffCreatingBranch() throws Exception {
+        Business business = businessRepository.save(
+                new Business("Staff Restricted Business", "Security test")
+        );
+
+        UserAccount user = createUser(
+                "restricted-branch-staff@example.com",
+                "password123"
+        );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user,
+                        business,
+                        null,
+                        StaffRole.STAFF
+                )
+        );
+
+        String token = loginAndGetToken(
+                "restricted-branch-staff@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                post("/api/v1/businesses/{businessId}/branches",
+                        business.getId())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validBranchRequest())
+        )
+                .andExpect(status().isForbidden());
+    }
+    @Test
     void shouldCreateBranchWhenUserHasBusinessMembership()
             throws Exception {
 
@@ -339,7 +373,7 @@ class BranchControllerTest {
                         user,
                         business,
                         null,
-                        StaffRole.STAFF
+                        StaffRole.OWNER
                 );
 
         staffMembershipRepository.save(membership);
@@ -450,7 +484,7 @@ class BranchControllerTest {
                         user,
                         business,
                         null,
-                        StaffRole.STAFF
+                        StaffRole.OWNER
                 );
 
         staffMembershipRepository.save(membership);
@@ -517,7 +551,7 @@ class BranchControllerTest {
                         user,
                         business,
                         null,
-                        StaffRole.STAFF
+                        StaffRole.OWNER
                 );
 
         staffMembershipRepository.save(membership);

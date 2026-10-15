@@ -41,13 +41,15 @@ public class ServiceController {
             @Valid @RequestBody CreateServiceRequest request
     ) {
 
-        businessAuthorizationService.requireMembership(
+        businessAuthorizationService.requireBranchManagementAccess(
                 principal.userId(),
-                businessId
+                businessId,
+                branchId
         );
 
         ServiceResponse response =
                 serviceService.createService(
+                        principal.userId(),
                         businessId,
                         branchId,
                         request
