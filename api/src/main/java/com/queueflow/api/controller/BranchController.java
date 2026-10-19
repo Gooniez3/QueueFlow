@@ -38,13 +38,14 @@ public class BranchController {
             @Valid @RequestBody CreateBranchRequest request
     ) {
 
-        businessAuthorizationService.requireMembership(
+        businessAuthorizationService.requireBusinessOwner(
                 principal.userId(),
                 businessId
         );
 
         BranchResponse response =
                 branchService.createBranch(
+                        principal.userId(),
                         businessId,
                         request
                 );

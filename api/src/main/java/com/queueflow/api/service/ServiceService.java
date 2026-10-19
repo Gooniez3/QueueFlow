@@ -31,10 +31,17 @@ public class ServiceService {
 
     @Transactional
     public ServiceResponse createService(
+            Long userId,
             Long businessId,
             Long branchId,
             CreateServiceRequest request
     ) {
+
+        businessAuthorizationService.requireBranchManagementAccess(
+                userId,
+                businessId,
+                branchId
+        );
 
         Branch branch = requireBranch(
                 businessId,

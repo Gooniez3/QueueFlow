@@ -46,7 +46,14 @@ public class BusinessAuthorizationService {
                 );
 
         if (membership.getBranch() == null) {
-            return membership;
+            if (membership.getRole() == StaffRole.OWNER
+                    || membership.getRole() == StaffRole.MANAGER) {
+                return membership;
+            }
+
+            throw new AccessDeniedException(
+                    "Business-wide branch access requires manager or owner role"
+            );
         }
 
         if (membership.getBranch()

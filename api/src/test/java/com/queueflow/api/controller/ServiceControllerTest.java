@@ -285,6 +285,42 @@ class ServiceControllerTest {
     }
 
     @Test
+    void shouldDenyStaffCreatingService() throws Exception {
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+
+        UserAccount user = createUser(
+                "restricted-service-staff@example.com",
+                "password123"
+        );
+
+        staffMembershipRepository.save(
+                new StaffMembership(
+                        user,
+                        business,
+                        branch,
+                        StaffRole.STAFF
+                )
+        );
+
+        String token = loginAndGetToken(
+                "restricted-service-staff@example.com",
+                "password123"
+        );
+
+        mockMvc.perform(
+                post("/api/v1/businesses/{businessId}/branches/{branchId}/services",
+                        business.getId(),
+                        branch.getId())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validServiceRequest())
+        )
+                .andExpect(status().isForbidden());
+
+        assertThat(serviceRepository.count()).isZero();
+    }
+    @Test
     void shouldCreateServiceWhenUserHasBusinessMembership()
             throws Exception {
 
@@ -301,7 +337,7 @@ class ServiceControllerTest {
                         user,
                         business,
                         null,
-                        StaffRole.STAFF
+                        StaffRole.MANAGER
                 )
         );
 
