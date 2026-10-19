@@ -1,0 +1,29 @@
+﻿# Build outputs
+target/
+*.class
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE and Git
+.git/
+.idea/
+.vscode/
+*.iml
+
+# Logs and archives
+*.log
+logs/
+*.zip
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
