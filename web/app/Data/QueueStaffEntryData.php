@@ -20,6 +20,7 @@ final readonly class QueueStaffEntryData
         public ?CarbonImmutable $servingAt,
         public ?CarbonImmutable $completedAt,
         public ?CarbonImmutable $cancelledAt,
+        public ?int $partySize = null,
     ) {}
 
     /**
@@ -52,6 +53,9 @@ final readonly class QueueStaffEntryData
                 : null,
             cancelledAt: isset($data['cancelledAt'])
                 ? CarbonImmutable::parse((string) $data['cancelledAt'])
+                : null,
+            partySize: isset($data['partySize'])
+                ? (int) $data['partySize']
                 : null,
         );
     }

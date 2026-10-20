@@ -31,6 +31,9 @@ class CustomerQueueEntryController extends Controller
         $business = $this->apiClient->business($businessId);
         $branch = $this->apiClient->branch($businessId, $branchId);
         $service = $this->apiClient->service($businessId, $branchId, $serviceId);
+        $partySize = $request->filled('partySize')
+            ? $request->integer('partySize')
+            : null;
 
         $this->ensureNestedResourcesMatch(
             $business,
@@ -40,6 +43,24 @@ class CustomerQueueEntryController extends Controller
             $branchId,
             $serviceId,
         );
+
+        if ($service->partySizeMode === 'DISABLED' && $partySize !== null) {
+            return back()->withErrors([
+                'partySize' => 'Party size is not enabled for this service.',
+            ])->withInput();
+        }
+
+        if ($service->partySizeMode === 'REQUIRED' && $partySize === null) {
+            return back()->withErrors([
+                'partySize' => 'Please select your party size.',
+            ])->withInput();
+        }
+
+        if ($partySize !== null && $partySize > $service->maxPartySize) {
+            return back()->withErrors([
+                'partySize' => "Party size must not exceed {$service->maxPartySize}.",
+            ])->withInput();
+        }
 
         $queue = $this->customerQueueService->applicableQueue(
             $businessId,
@@ -67,9 +88,14 @@ class CustomerQueueEntryController extends Controller
                 $serviceId,
                 $queue,
                 $idempotencyKey,
+                $partySize,
             );
         } catch (QueueFlowApiException $exception) {
-            if (in_array($exception->status, [400, 403, 404, 409], true)) {
+            $isIdempotencyConflict = $exception->status === 409
+                && str_contains($exception->getMessage(), 'Idempotency-Key was already used');
+
+            if (in_array($exception->status, [400, 403, 404, 409], true)
+                && ! $isIdempotencyConflict) {
                 $this->joinAttemptStore->forget(
                     $businessId,
                     $branchId,

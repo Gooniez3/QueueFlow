@@ -17,6 +17,7 @@ import com.queueflow.api.repository.StaffMembershipRepository;
 import com.queueflow.api.repository.UserAccountRepository;
 import com.queueflow.api.security.AuthTokenService;
 import com.queueflow.api.repository.GuestJoinIdempotencyRepository;
+import com.queueflow.api.entity.PartySizeMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,7 +96,7 @@ class QueueEntryControllerTest {
         guestJoinIdempotencyRepository.deleteAll();
     }
 
-    @Test
+@Test
     void shouldAllowGuestToJoinServiceQueue()
             throws Exception {
 
@@ -250,6 +251,232 @@ class QueueEntryControllerTest {
                 .getGuestTokenHash())
                 .isNull();
     }
+
+    @Test
+    void shouldAllowJoinWithoutPartySizeWhenDisabled() throws Exception {
+        Business business = createBusiness();
+        Branch branch = createBranch(business);
+        com.queueflow.api.entity.Service service =
+                createService(branch, "Computer Repair");
+
+        Queue queue = createServiceQueue(branch, service, "R");
+
+        mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.partySize").doesNotExist());
+
+        assertThat(queueEntryRepository.findAll()).hasSize(1);
+        assertThat(queueEntryRepository.findAll().getFirst().getPartySize())
+                .isNull();
+    }
+
+@Test
+void shouldRejectPartySizeWhenDisabled() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Computer Repair");
+
+    Queue queue = createServiceQueue(branch, service, "R");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"partySize\": 2}"))
+            .andExpect(status().isBadRequest());
+
+    assertThat(queueEntryRepository.count()).isZero();
+}
+
+@Test
+void shouldAllowOptionalPartySizeToBeOmitted() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "General Service");
+
+    service.setPartySizeMode(PartySizeMode.OPTIONAL);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "A");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.partySize").doesNotExist());
+
+    assertThat(queueEntryRepository.findAll()).hasSize(1);
+    assertThat(queueEntryRepository.findAll().getFirst().getPartySize())
+            .isNull();
+}
+
+@Test
+void shouldAllowOptionalPartySizeWhenProvided() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "General Service");
+
+    service.setPartySizeMode(PartySizeMode.OPTIONAL);
+    service.setMaxPartySize(10);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "A");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"partySize\": 4}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.partySize").value(4))
+            .andExpect(jsonPath("$.ticketNumber").value("A001"));
+
+    assertThat(queueEntryRepository.findAll()).hasSize(1);
+    assertThat(queueEntryRepository.findAll().getFirst().getPartySize())
+            .isEqualTo(4);
+}
+
+@Test
+void shouldRejectMissingPartySizeWhenRequired() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Restaurant Table");
+
+    service.setPartySizeMode(PartySizeMode.REQUIRED);
+    service.setMaxPartySize(8);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "T");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isBadRequest());
+
+    assertThat(queueEntryRepository.count()).isZero();
+}
+
+@Test
+void shouldAllowValidRequiredPartySize() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Restaurant Table");
+
+    service.setPartySizeMode(PartySizeMode.REQUIRED);
+    service.setMaxPartySize(8);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "T");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"partySize\": 4}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.partySize").value(4))
+            .andExpect(jsonPath("$.ticketSequence").value(1))
+            .andExpect(jsonPath("$.ticketNumber").value("T001"));
+
+    assertThat(queueEntryRepository.findAll()).hasSize(1);
+    assertThat(queueEntryRepository.findAll().getFirst().getPartySize())
+            .isEqualTo(4);
+}
+
+@Test
+void shouldRejectPartySizeAboveServiceMaximum() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Restaurant Table");
+
+    service.setPartySizeMode(PartySizeMode.REQUIRED);
+    service.setMaxPartySize(5);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "T");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"partySize\": 6}"))
+            .andExpect(status().isBadRequest());
+
+    assertThat(queueEntryRepository.count()).isZero();
+}
+
+@Test
+void shouldRejectZeroPartySize() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Restaurant Table");
+
+    service.setPartySizeMode(PartySizeMode.REQUIRED);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "T");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"partySize\": 0}"))
+            .andExpect(status().isBadRequest());
+
+    assertThat(queueEntryRepository.count()).isZero();
+}
+
+@Test
+void shouldAllowPartySizeAtMaximumBoundary() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Group Booking");
+
+    service.setPartySizeMode(PartySizeMode.REQUIRED);
+    service.setMaxPartySize(100);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "G");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"partySize\": 100}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.partySize").value(100));
+
+    assertThat(queueEntryRepository.findAll()).hasSize(1);
+    assertThat(queueEntryRepository.findAll().getFirst().getPartySize())
+            .isEqualTo(100);
+}
+
+@Test
+void shouldIssueOneTicketForEntireParty() throws Exception {
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Restaurant Table");
+
+    service.setPartySizeMode(PartySizeMode.REQUIRED);
+    service.setMaxPartySize(10);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "T");
+
+    mockMvc.perform(post("/api/v1/queues/{queueId}/entries", queue.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"partySize\": 5}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.ticketNumber").value("T001"))
+            .andExpect(jsonPath("$.partySize").value(5));
+
+    assertThat(queueEntryRepository.count()).isEqualTo(1);
+
+    Queue updatedQueue = queueRepository.findById(queue.getId())
+            .orElseThrow();
+
+    assertThat(updatedQueue.getNextTicketSequence()).isEqualTo(2);
+}
+
 
     @Test
     void shouldRejectJoinWhenServiceSpecificQueueServiceIsInactive()
@@ -2070,6 +2297,55 @@ void shouldReplayGuestJoinWithSameIdempotencyKey()
     assertThat(updatedQueue.getNextTicketSequence())
             .isEqualTo(2);
 }
+
+
+@Test
+void shouldRejectSameIdempotencyKeyWithDifferentPartySize()
+        throws Exception {
+
+    Business business = createBusiness();
+    Branch branch = createBranch(business);
+
+    com.queueflow.api.entity.Service service =
+            createService(branch, "Computer Repair");
+
+    service.setPartySizeMode(PartySizeMode.REQUIRED);
+    service.setMaxPartySize(10);
+    serviceRepository.saveAndFlush(service);
+
+    Queue queue = createServiceQueue(branch, service, "R");
+
+    String idempotencyKey =
+            "66666666-6666-4666-8666-666666666666";
+
+    mockMvc.perform(
+                    post("/api/v1/queues/{queueId}/entries", queue.getId())
+                            .header("Idempotency-Key", idempotencyKey)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"partySize\":2}")
+            )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.partySize").value(2));
+
+    mockMvc.perform(
+                    post("/api/v1/queues/{queueId}/entries", queue.getId())
+                            .header("Idempotency-Key", idempotencyKey)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"partySize\":4}")
+            )
+            .andExpect(status().isConflict());
+
+    assertThat(queueEntryRepository.count()).isEqualTo(1);
+    assertThat(guestJoinIdempotencyRepository.count()).isEqualTo(1);
+
+    QueueEntry savedEntry = queueEntryRepository.findAll().getFirst();
+    assertThat(savedEntry.getPartySize()).isEqualTo(2);
+
+    Queue updatedQueue = queueRepository.findById(queue.getId())
+            .orElseThrow();
+    assertThat(updatedQueue.getNextTicketSequence()).isEqualTo(2);
+}
+
 
 @Test
 void shouldRejectSameIdempotencyKeyWithDifferentService()

@@ -40,6 +40,7 @@
                                 @if ($context['business'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Business</dt><dd class="mt-1 font-bold">{{ $context['business']->name }}</dd></div>@endif
                                 @if ($context['branch'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Branch</dt><dd class="mt-1 font-semibold">{{ $context['branch']->name }}</dd></div>@endif
                                 @if ($context['service'])<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Service</dt><dd class="mt-1 font-semibold">{{ $context['service']->name }}</dd></div>@endif
+                                @if ($position->partySize !== null)<div><dt class="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-customer-muted">Party size</dt><dd class="mt-1 font-semibold">{{ $position->partySize }} {{ $position->partySize === 1 ? 'person' : 'people' }}</dd></div>@endif
                             </dl>
                         </div>
                     </div>
@@ -72,6 +73,10 @@
                     <div class="min-w-0">
                         <p class="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-customer-muted">Queue number</p>
                         <h2 id="ticket-heading" class="mt-1 whitespace-nowrap font-sora text-[clamp(2.25rem,11vw,3.5rem)] font-extrabold leading-none tracking-[-0.08em] text-customer-indigo">{{ $position->ticketNumber }}</h2>
+
+                        @if ($position->partySize !== null)
+                            <p class="mt-3 text-sm font-semibold text-customer-navy">Party of {{ $position->partySize }}</p>
+                        @endif
 
                         @if ($status['showWaitingPosition'])
                             <div class="mt-4 space-y-1 text-sm leading-5">

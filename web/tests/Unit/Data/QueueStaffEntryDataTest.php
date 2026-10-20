@@ -24,6 +24,7 @@ class QueueStaffEntryDataTest extends TestCase
             'servingAt' => null,
             'completedAt' => null,
             'cancelledAt' => null,
+            'partySize' => 4,
         ]);
 
         $this->assertSame(301, $entry->entryId);
@@ -40,5 +41,6 @@ class QueueStaffEntryDataTest extends TestCase
         $this->assertNull($entry->servingAt);
         $this->assertNull($entry->completedAt);
         $this->assertNull($entry->cancelledAt);
+        $this->assertSame(4, $entry->partySize);
     }
 }

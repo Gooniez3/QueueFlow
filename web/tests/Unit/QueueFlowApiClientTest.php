@@ -1056,6 +1056,45 @@ class QueueFlowApiClientTest extends TestCase
             ]);
     }
 
+    public function test_it_forwards_service_party_size_configuration(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/21/services' => Http::response([
+                'id' => 31,
+                'branchId' => 21,
+                'name' => 'Group Consultation',
+                'description' => null,
+                'durationMinutes' => 30,
+                'active' => true,
+                'createdAt' => '2030-04-15T10:30:00+08:00',
+                'partySizeMode' => 'REQUIRED',
+                'maxPartySize' => 12,
+            ], 201),
+        ]);
+
+        $service = app(QueueFlowApiClient::class)->createService(
+            10,
+            21,
+            'inert-service-token',
+            'Group Consultation',
+            null,
+            30,
+            'REQUIRED',
+            12,
+        );
+
+        $this->assertSame('REQUIRED', $service->partySizeMode);
+        $this->assertSame(12, $service->maxPartySize);
+        Http::assertSent(fn (Request $request): bool => $request->data() === [
+            'name' => 'Group Consultation',
+            'description' => null,
+            'durationMinutes' => 30,
+            'partySizeMode' => 'REQUIRED',
+            'maxPartySize' => 12,
+        ]);
+    }
+
     public function test_it_preserves_service_api_errors(): void
     {
         Http::preventStrayRequests();

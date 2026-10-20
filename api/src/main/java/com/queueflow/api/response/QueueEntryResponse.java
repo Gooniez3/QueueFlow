@@ -13,6 +13,31 @@ public record QueueEntryResponse(
         String ticketNumber,
         QueueEntryStatus status,
         OffsetDateTime joinedAt,
-        String guestToken
+        String guestToken,
+        Integer partySize
 ) {
+    public QueueEntryResponse(
+            Long id,
+            Long queueId,
+            Long serviceId,
+            Long userId,
+            Integer ticketSequence,
+            String ticketNumber,
+            QueueEntryStatus status,
+            OffsetDateTime joinedAt,
+            String guestToken
+    ) {
+        this(
+                id,
+                queueId,
+                serviceId,
+                userId,
+                ticketSequence,
+                ticketNumber,
+                status,
+                joinedAt,
+                guestToken,
+                null
+        );
+    }
 }

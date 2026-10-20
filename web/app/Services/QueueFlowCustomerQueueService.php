@@ -48,14 +48,23 @@ class QueueFlowCustomerQueueService
         int $serviceId,
         TodayQueueData $queue,
         #[\SensitiveParameter] ?string $idempotencyKey = null,
+        ?int $partySize = null,
     ): CustomerQueueTicketData {
         $joinKey = $idempotencyKey ?? (string) Str::uuid();
-        $entry = $this->apiClient->joinQueue(
-            $queue->id,
-            $serviceId,
-            token: null,
-            idempotencyKey: $joinKey,
-        );
+        $entry = $partySize === null
+            ? $this->apiClient->joinQueue(
+                $queue->id,
+                $serviceId,
+                token: null,
+                idempotencyKey: $joinKey,
+            )
+            : $this->apiClient->joinQueue(
+                $queue->id,
+                $serviceId,
+                token: null,
+                idempotencyKey: $joinKey,
+                partySize: $partySize,
+            );
 
         if ($entry->guestToken === null || $entry->guestToken === '') {
             throw GuestQueueOwnershipException::missingGuestToken();

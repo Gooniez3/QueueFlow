@@ -124,6 +124,25 @@ class QueueFlowQueueApiClientTest extends TestCase
         ) && ! $request->hasHeader('Authorization'));
     }
 
+    public function test_guest_join_sends_and_maps_party_size(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:8080/api/v1/queues/91/entries' => Http::response([
+                ...$this->queueEntryResponse(guestToken: 'inert-guest-token'),
+                'partySize' => 6,
+            ], 201),
+        ]);
+
+        $entry = app(QueueFlowApiClient::class)->joinQueue(91, 31, partySize: 6);
+
+        $this->assertSame(6, $entry->partySize);
+        Http::assertSent(fn (Request $request): bool => $request->data() === [
+            'serviceId' => 31,
+            'partySize' => 6,
+        ]);
+    }
+
     public function test_registered_user_can_join_with_bearer_authentication(): void
     {
         Http::preventStrayRequests();

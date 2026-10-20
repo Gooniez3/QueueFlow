@@ -1,5 +1,8 @@
 package com.queueflow.api.request;
 
+import com.queueflow.api.entity.PartySizeMode;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -18,7 +21,20 @@ public record CreateServiceRequest(
 
         @NotNull(message = "Duration is required")
         @Positive(message = "Duration must be greater than 0")
-        Integer durationMinutes
+        Integer durationMinutes,
+
+        PartySizeMode partySizeMode,
+
+        @Min(value = 1, message = "Maximum party size must be at least 1")
+        @Max(value = 100, message = "Maximum party size must not exceed 100")
+        Integer maxPartySize
 
 ) {
+    public CreateServiceRequest(
+            String name,
+            String description,
+            Integer durationMinutes
+    ) {
+        this(name, description, durationMinutes, null, null);
+    }
 }

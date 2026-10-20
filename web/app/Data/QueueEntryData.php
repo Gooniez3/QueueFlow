@@ -16,6 +16,7 @@ final readonly class QueueEntryData
         public string $status,
         public CarbonImmutable $joinedAt,
         #[\SensitiveParameter] public ?string $guestToken,
+        public ?int $partySize = null,
     ) {}
 
     /**
@@ -36,6 +37,9 @@ final readonly class QueueEntryData
             joinedAt: CarbonImmutable::parse((string) $data['joinedAt']),
             guestToken: isset($data['guestToken'])
                 ? (string) $data['guestToken']
+                : null,
+            partySize: isset($data['partySize'])
+                ? (int) $data['partySize']
                 : null,
         );
     }

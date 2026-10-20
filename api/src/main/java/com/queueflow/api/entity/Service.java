@@ -27,6 +27,13 @@ public class Service {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "party_size_mode", nullable = false, length = 20)
+    private PartySizeMode partySizeMode = PartySizeMode.DISABLED;
+
+    @Column(name = "max_party_size", nullable = false)
+    private Integer maxPartySize = 20;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -103,6 +110,22 @@ public class Service {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public PartySizeMode getPartySizeMode() {
+        return partySizeMode;
+    }
+
+    public void setPartySizeMode(PartySizeMode partySizeMode) {
+        this.partySizeMode = partySizeMode;
+    }
+
+    public Integer getMaxPartySize() {
+        return maxPartySize;
+    }
+
+    public void setMaxPartySize(Integer maxPartySize) {
+        this.maxPartySize = maxPartySize;
     }
 
     public OffsetDateTime getCreatedAt() {

@@ -17,6 +17,7 @@ public record QueuePositionResponse(
         String ticketNumber,
         QueueEntryStatus status,
         Integer peopleAhead,
-        Integer estimatedWaitMinutes
+        Integer estimatedWaitMinutes,
+        Integer partySize
 ) {
 }

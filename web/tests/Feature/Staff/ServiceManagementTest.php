@@ -75,6 +75,54 @@ class ServiceManagementTest extends TestCase
             ]);
     }
 
+    public function test_service_creation_forwards_party_size_configuration(): void
+    {
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/services' => Http::response([
+                ...$this->service(),
+                'partySizeMode' => 'REQUIRED',
+                'maxPartySize' => 12,
+            ], 201),
+        ]);
+
+        $this->authenticated()
+            ->post('/staff/businesses/10/branches/101/services', [
+                'name' => 'General Consultation',
+                'description' => 'Standard appointment.',
+                'durationMinutes' => 20,
+                'partySizeMode' => 'REQUIRED',
+                'maxPartySize' => 12,
+            ])
+            ->assertRedirect(route('staff.services.show', [10, 101, 501]));
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->data() === [
+                'name' => 'General Consultation',
+                'description' => 'Standard appointment.',
+                'durationMinutes' => 20,
+                'partySizeMode' => 'REQUIRED',
+                'maxPartySize' => 12,
+            ]);
+    }
+
+    public function test_service_form_rejects_invalid_party_size_configuration(): void
+    {
+        $this->fake();
+
+        $this->authenticated()
+            ->from('/staff/businesses/10/branches/101/services/create')
+            ->post('/staff/businesses/10/branches/101/services', [
+                'name' => 'General Consultation',
+                'durationMinutes' => 20,
+                'partySizeMode' => 'UNKNOWN',
+                'maxPartySize' => 101,
+            ])
+            ->assertRedirect('/staff/businesses/10/branches/101/services/create')
+            ->assertSessionHasErrors(['partySizeMode', 'maxPartySize']);
+
+        Http::assertSentCount(1);
+    }
+
     public function test_service_form_requires_a_positive_integer_duration(): void
     {
         $this->fake();
@@ -354,6 +402,55 @@ class ServiceManagementTest extends TestCase
             ->assertSee('value="0" selected', false)
             ->assertSee('action="'.route('staff.services.update', [10, 101, 501]).'"', false)
             ->assertDontSee('inert-spring-token');
+    }
+
+    public function test_service_edit_page_loads_saved_party_size_configuration(): void
+    {
+        $membership = $this->membership('MANAGER', 101);
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/services/501' => Http::response([
+                ...$this->service(),
+                'partySizeMode' => 'OPTIONAL',
+                'maxPartySize' => 8,
+            ]),
+            'http://localhost:8080/api/v1/businesses/10' => Http::response($this->business()),
+        ], $membership);
+
+        $this->authenticated($membership)
+            ->get(route('staff.services.edit', [10, 101, 501]))
+            ->assertOk()
+            ->assertSee('value="OPTIONAL" selected', false)
+            ->assertSee('name="maxPartySize"', false)
+            ->assertSee('value="8"', false);
+    }
+
+    public function test_service_update_forwards_party_size_configuration(): void
+    {
+        $membership = $this->membership('OWNER');
+        $this->fake([
+            'http://localhost:8080/api/v1/businesses/10/branches/101/services/501' => Http::sequence()
+                ->push($this->service())
+                ->push([
+                    ...$this->service(),
+                    'partySizeMode' => 'OPTIONAL',
+                    'maxPartySize' => 8,
+                ]),
+        ], $membership);
+
+        $this->authenticated($membership)
+            ->put(route('staff.services.update', [10, 101, 501]), [
+                'name' => 'General Consultation',
+                'description' => 'Standard appointment.',
+                'durationMinutes' => 20,
+                'active' => '1',
+                'partySizeMode' => 'OPTIONAL',
+                'maxPartySize' => 8,
+            ])
+            ->assertRedirect(route('staff.services.show', [10, 101, 501]));
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+            && $request->data()['partySizeMode'] === 'OPTIONAL'
+            && $request->data()['maxPartySize'] === 8);
     }
 
     public function test_service_update_can_deactivate_service_and_normalizes_blank_description(): void

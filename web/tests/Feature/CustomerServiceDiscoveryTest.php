@@ -54,6 +54,44 @@ class CustomerServiceDiscoveryTest extends TestCase
             ->assertDontSee('Bearer');
     }
 
+    public function test_disabled_party_size_hides_selector(): void
+    {
+        $this->mockDiscoveryResources($this->service(partySizeMode: 'DISABLED'));
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->andReturn($this->queue('OPEN'));
+
+        $this->get(route('services.show', [10, 21, 31]))
+            ->assertOk()
+            ->assertDontSee('name="partySize"', false);
+    }
+
+    public function test_optional_party_size_renders_skippable_selector_with_configured_maximum(): void
+    {
+        $this->mockDiscoveryResources($this->service(partySizeMode: 'OPTIONAL', maxPartySize: 3));
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->andReturn($this->queue('OPEN'));
+
+        $this->get(route('services.show', [10, 21, 31]))
+            ->assertOk()
+            ->assertSee('name="partySize"', false)
+            ->assertSee('Skip party size')
+            ->assertSee('3 people')
+            ->assertDontSee('4 people');
+    }
+
+    public function test_required_party_size_renders_required_selector(): void
+    {
+        $this->mockDiscoveryResources($this->service(partySizeMode: 'REQUIRED', maxPartySize: 8));
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->andReturn($this->queue('OPEN'));
+
+        $this->get(route('services.show', [10, 21, 31]))
+            ->assertOk()
+            ->assertSee('name="partySize"', false)
+            ->assertSee('required', false)
+            ->assertSee('Select party size');
+    }
+
     public function test_active_branch_services_render_with_authoritative_waiting_counts(): void
     {
         $apiClient = $this->mock(QueueFlowApiClient::class);
@@ -259,13 +297,14 @@ class CustomerServiceDiscoveryTest extends TestCase
         ];
     }
 
-    private function mockDiscoveryResources(): void
+    private function mockDiscoveryResources(?ServiceData $service = null): void
     {
+        $service ??= $this->service();
         $apiClient = $this->mock(QueueFlowApiClient::class);
         $apiClient->shouldReceive('business')->once()->with(10)->andReturn($this->business());
         $apiClient->shouldReceive('branch')->once()->with(10, 21)->andReturn($this->branch());
-        $apiClient->shouldReceive('service')->once()->with(10, 21, 31)->andReturn($this->service());
-        $apiClient->shouldReceive('services')->with(10, 21)->andReturn([$this->service()])->zeroOrMoreTimes();
+        $apiClient->shouldReceive('service')->once()->with(10, 21, 31)->andReturn($service);
+        $apiClient->shouldReceive('services')->with(10, 21)->andReturn([$service])->zeroOrMoreTimes();
         $apiClient->shouldReceive('publicQueueBoard')->with(91)->andReturn($this->board(91, 3))->zeroOrMoreTimes();
     }
 
@@ -293,8 +332,11 @@ class CustomerServiceDiscoveryTest extends TestCase
         );
     }
 
-    private function service(int $branchId = 21): ServiceData
-    {
+    private function service(
+        int $branchId = 21,
+        string $partySizeMode = 'DISABLED',
+        int $maxPartySize = 20,
+    ): ServiceData {
         return new ServiceData(
             id: 31,
             branchId: $branchId,
@@ -303,6 +345,8 @@ class CustomerServiceDiscoveryTest extends TestCase
             durationMinutes: 20,
             active: true,
             createdAt: CarbonImmutable::parse('2026-09-30T10:15:30+08:00'),
+            partySizeMode: $partySizeMode,
+            maxPartySize: $maxPartySize,
         );
     }
 

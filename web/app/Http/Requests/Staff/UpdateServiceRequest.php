@@ -27,6 +27,8 @@ class UpdateServiceRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'durationMinutes' => ['required', 'integer', 'min:1'],
             'active' => ['required', 'boolean'],
+            'partySizeMode' => ['sometimes', 'string', 'in:DISABLED,OPTIONAL,REQUIRED'],
+            'maxPartySize' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];
     }
 }

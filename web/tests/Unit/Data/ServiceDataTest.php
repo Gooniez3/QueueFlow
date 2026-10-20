@@ -26,8 +26,28 @@ class ServiceDataTest extends TestCase
         $this->assertSame('Standard medical consultation', $service->description);
         $this->assertSame(20, $service->durationMinutes);
         $this->assertTrue($service->active);
+        $this->assertSame('DISABLED', $service->partySizeMode);
+        $this->assertSame(20, $service->maxPartySize);
         $this->assertInstanceOf(CarbonImmutable::class, $service->createdAt);
         $this->assertSame('2030-04-15T10:30:00+08:00', $service->createdAt->format('Y-m-d\TH:i:sP'));
+    }
+
+    public function test_maps_configured_party_size_settings(): void
+    {
+        $service = ServiceData::fromArray([
+            'id' => 33,
+            'branchId' => 21,
+            'name' => 'Group Consultation',
+            'description' => null,
+            'durationMinutes' => 30,
+            'active' => true,
+            'createdAt' => '2030-04-15T10:30:00Z',
+            'partySizeMode' => 'REQUIRED',
+            'maxPartySize' => 12,
+        ]);
+
+        $this->assertSame('REQUIRED', $service->partySizeMode);
+        $this->assertSame(12, $service->maxPartySize);
     }
 
     public function test_maps_null_description_and_inactive_state(): void

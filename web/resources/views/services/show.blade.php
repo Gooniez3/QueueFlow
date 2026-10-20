@@ -72,8 +72,6 @@
                         </div>
                     @endif
 
-                    <div class="mt-5 flex items-center justify-between gap-4"><div><p class="text-sm font-bold">Party size</p><p class="text-xs text-customer-muted">Number of people</p></div><div class="flex items-center gap-4"><span class="grid size-10 place-items-center rounded-full border border-customer-line text-xl text-customer-muted">&minus;</span><strong>1</strong><span class="grid size-10 place-items-center rounded-full border border-customer-line text-xl text-customer-muted">&plus;</span></div></div>
-
                     <div class="mt-5 rounded-[1.25rem] bg-customer-navy p-5 text-white">
                         <div class="flex items-center justify-between gap-3">
                             <div>
@@ -91,6 +89,21 @@
                         <input type="hidden" name="businessId" value="{{ $business->id }}">
                         <input type="hidden" name="branchId" value="{{ $branch->id }}">
                         <input type="hidden" name="serviceId" value="{{ $service->id }}">
+                        @if ($service->partySizeMode !== 'DISABLED')
+                            <div class="mb-5 rounded-[1.15rem] bg-white p-4 shadow-[0_10px_30px_-24px_rgba(21,17,63,0.55)] ring-1 ring-customer-line/60">
+                                <label class="text-sm font-bold" for="partySize">Party size @if ($service->partySizeMode === 'OPTIONAL')<span class="font-normal text-customer-muted">(optional)</span>@endif</label>
+                                <p class="mt-1 text-xs text-customer-muted" id="party-size-help">Select the number of people in your party, up to {{ $service->maxPartySize }}.</p>
+                                <select class="mt-3 w-full rounded-xl border border-customer-line bg-white px-4 py-3 text-base text-customer-navy outline-none focus:border-customer-indigo focus:ring-3 focus:ring-customer-indigo/10 @error('partySize') border-red-700 @enderror" id="partySize" name="partySize" aria-describedby="party-size-help @error('partySize') partySize-error @enderror" @if ($service->partySizeMode === 'REQUIRED') required @endif @error('partySize') aria-invalid="true" @enderror>
+                                    <option value="">{{ $service->partySizeMode === 'REQUIRED' ? 'Select party size' : 'Skip party size' }}</option>
+                                    @for ($size = 1; $size <= $service->maxPartySize; $size++)
+                                        <option value="{{ $size }}" @selected((string) old('partySize') === (string) $size)>{{ $size }} {{ $size === 1 ? 'person' : 'people' }}</option>
+                                    @endfor
+                                </select>
+                                @error('partySize')
+                                    <p class="mt-2 text-xs font-semibold text-red-700" id="partySize-error">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        @endif
                         <p class="mb-3 text-center text-xs text-customer-muted">Spring issues your real ticket number after you join.</p>
                         <button class="customer-primary-button" type="submit">Get my ticket</button>
                         <span class="sr-only">Join queue</span>
