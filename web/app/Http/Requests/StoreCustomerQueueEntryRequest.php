@@ -21,6 +21,7 @@ class StoreCustomerQueueEntryRequest extends FormRequest
             'businessId' => ['required', 'integer', 'min:1'],
             'branchId' => ['required', 'integer', 'min:1'],
             'serviceId' => ['required', 'integer', 'min:1'],
+            'partySize' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }
 }

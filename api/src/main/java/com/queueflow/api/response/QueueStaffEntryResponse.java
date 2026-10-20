@@ -17,6 +17,7 @@ public record QueueStaffEntryResponse(
         OffsetDateTime calledAt,
         OffsetDateTime servingAt,
         OffsetDateTime completedAt,
-        OffsetDateTime cancelledAt
+        OffsetDateTime cancelledAt,
+        Integer partySize
 ) {
 }

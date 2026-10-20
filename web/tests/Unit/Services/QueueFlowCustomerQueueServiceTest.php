@@ -231,6 +231,28 @@ class QueueFlowCustomerQueueServiceTest extends TestCase
         );
     }
 
+    public function test_guest_join_forwards_selected_party_size(): void
+    {
+        $idempotencyKey = '66666666-6666-4666-8666-666666666666';
+        $apiClient = Mockery::mock(QueueFlowApiClient::class);
+        $apiClient->shouldReceive('joinQueue')
+            ->once()
+            ->with(91, 31, null, $idempotencyKey, 4)
+            ->andReturn($this->queueEntry());
+        $ownershipStore = Mockery::mock(GuestQueueOwnershipStore::class);
+        $ownershipStore->shouldReceive('store')->once();
+        $service = new QueueFlowCustomerQueueService($apiClient, $ownershipStore);
+
+        $service->joinGuest(
+            10,
+            21,
+            31,
+            $this->todayQueue(serviceId: 31),
+            $idempotencyKey,
+            4,
+        );
+    }
+
     #[DataProvider('preservedApiFailures')]
     public function test_join_failure_is_preserved_without_storing_ownership(int $status): void
     {

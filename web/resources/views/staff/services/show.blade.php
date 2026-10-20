@@ -64,10 +64,10 @@
                     @if ($serviceQueue->serving || $serviceQueue->called)
                         <div class="mt-3 grid gap-3 sm:grid-cols-2">
                             @if ($serviceQueue->serving)
-                                <div class="rounded-2xl bg-staff-ink p-4.5 text-white"><p class="staff-information-label text-staff-sidebar-muted">NOW SERVING</p><p class="mt-1 font-staff-display text-3xl font-extrabold text-staff-amber">{{ $serviceQueue->serving->ticketNumber }}</p></div>
+                                <div class="rounded-2xl bg-staff-ink p-4.5 text-white"><p class="staff-information-label text-staff-sidebar-muted">NOW SERVING</p><p class="mt-1 font-staff-display text-3xl font-extrabold text-staff-amber">{{ $serviceQueue->serving->ticketNumber }}</p>@if ($serviceQueue->serving->partySize !== null)<p class="mt-2 text-xs font-semibold text-white/75">Party of {{ $serviceQueue->serving->partySize }}</p>@endif</div>
                             @endif
                             @if ($serviceQueue->called)
-                                <div class="rounded-2xl bg-staff-warning-soft p-4.5"><p class="staff-information-label text-staff-warning">CALLED</p><p class="mt-1 font-staff-display text-3xl font-extrabold">{{ $serviceQueue->called->ticketNumber }}</p></div>
+                                <div class="rounded-2xl bg-staff-warning-soft p-4.5"><p class="staff-information-label text-staff-warning">CALLED</p><p class="mt-1 font-staff-display text-3xl font-extrabold">{{ $serviceQueue->called->ticketNumber }}</p>@if ($serviceQueue->called->partySize !== null)<p class="mt-2 text-xs font-semibold text-staff-muted">Party of {{ $serviceQueue->called->partySize }}</p>@endif</div>
                             @endif
                         </div>
                     @endif
@@ -81,6 +81,7 @@
                 <dl class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <div class="staff-card-muted-block"><dt class="staff-information-label">DURATION</dt><dd class="mt-1 font-bold">{{ $service->durationMinutes }} minutes</dd></div>
                     <div class="staff-card-muted-block"><dt class="staff-information-label">STATUS</dt><dd class="mt-1 font-bold">{{ $service->active ? 'Active' : 'Inactive' }}</dd></div>
+                    <div class="staff-card-muted-block"><dt class="staff-information-label">PARTY SIZE</dt><dd class="mt-1 font-bold">{{ ucfirst(strtolower($service->partySizeMode)) }}@if ($service->partySizeMode !== 'DISABLED') &middot; up to {{ $service->maxPartySize }}@endif</dd></div>
                     <div class="staff-card-muted-block"><dt class="staff-information-label">QUEUE PREFIX</dt><dd class="mt-1 font-bold">{{ $serviceQueue?->ticketPrefix ?? 'Not available' }}</dd></div>
                     <div class="staff-card-muted-block"><dt class="staff-information-label">BRANCH</dt><dd class="mt-1 break-words font-bold">{{ $branch->name }}</dd></div>
                     <div class="staff-card-muted-block"><dt class="staff-information-label">BUSINESS</dt><dd class="mt-1 break-words font-bold">{{ $business->name }}</dd></div>

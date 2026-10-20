@@ -55,6 +55,17 @@ public class ServiceService {
                         request.description(),
                         request.durationMinutes()
                 );
+        service.setPartySizeMode(
+                request.partySizeMode() != null
+                        ? request.partySizeMode()
+                        : com.queueflow.api.entity.PartySizeMode.DISABLED
+        );
+        service.setMaxPartySize(
+                request.maxPartySize() != null
+                        ? request.maxPartySize()
+                        : 20
+        );
+
 
         com.queueflow.api.entity.Service savedService =
                 serviceRepository.save(service);
@@ -141,6 +152,14 @@ public class ServiceService {
         service.setDurationMinutes(request.durationMinutes());
         service.setActive(request.active());
 
+        if (request.partySizeMode() != null) {
+            service.setPartySizeMode(request.partySizeMode());
+        }
+
+        if (request.maxPartySize() != null) {
+            service.setMaxPartySize(request.maxPartySize());
+        }
+
         return toResponse(serviceRepository.save(service));
     }
 
@@ -211,7 +230,9 @@ public class ServiceService {
                 service.getDescription(),
                 service.getDurationMinutes(),
                 service.isActive(),
-                service.getCreatedAt()
+                service.getCreatedAt(),
+                service.getPartySizeMode(),
+                service.getMaxPartySize()
         );
     }
 }

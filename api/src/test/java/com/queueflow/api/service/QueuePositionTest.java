@@ -154,6 +154,7 @@ class QueuePositionTest {
         );
 
         target.setStatus(QueueEntryStatus.WAITING);
+        target.setPartySize(4);
 
         target = queueEntryRepository.save(target);
 
@@ -178,6 +179,9 @@ class QueuePositionTest {
                 .isEqualTo(longService.getId());
 
         assertThat(response.ticketSequence())
+                .isEqualTo(4);
+
+        assertThat(response.partySize())
                 .isEqualTo(4);
 
         assertThat(response.ticketNumber())

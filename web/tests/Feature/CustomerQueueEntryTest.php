@@ -182,6 +182,120 @@ class CustomerQueueEntryTest extends TestCase
             ->assertDontSee('raw-guest-secret');
     }
 
+    public function test_selected_party_size_is_forwarded_with_one_ticket_request(): void
+    {
+        $this->fakeApi(
+            joinHandler: fn (Request $request) => Http::response([
+                ...$this->queueEntry(),
+                'partySize' => 3,
+            ], 201),
+            servicePartySizeMode: 'REQUIRED',
+            serviceMaxPartySize: 6,
+        );
+
+        $this->post(route('queue-entries.store', 91), [
+            ...$this->joinPayload(),
+            'partySize' => 3,
+        ])->assertRedirect(route('queue-entries.show', [91, 301]));
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->data() === ['serviceId' => 31, 'partySize' => 3]);
+    }
+
+    public function test_optional_party_size_can_be_skipped(): void
+    {
+        $this->fakeApi(
+            joinHandler: fn () => Http::response($this->queueEntry(), 201),
+            servicePartySizeMode: 'OPTIONAL',
+            serviceMaxPartySize: 6,
+        );
+
+        $this->post(route('queue-entries.store', 91), $this->joinPayload())
+            ->assertRedirect(route('queue-entries.show', [91, 301]));
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->data() === ['serviceId' => 31]);
+    }
+
+    public function test_required_party_size_must_be_selected_before_joining(): void
+    {
+        $this->fakeApi(
+            servicePartySizeMode: 'REQUIRED',
+            serviceMaxPartySize: 6,
+        );
+
+        $this->from(route('services.show', [10, 21, 31]))
+            ->post(route('queue-entries.store', 91), $this->joinPayload())
+            ->assertRedirect(route('services.show', [10, 21, 31]))
+            ->assertSessionHasErrors('partySize');
+
+        Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+    }
+
+    public function test_disabled_party_size_rejects_explicit_submission(): void
+    {
+        $this->fakeApi();
+
+        $this->from(route('services.show', [10, 21, 31]))
+            ->post(route('queue-entries.store', 91), [
+                ...$this->joinPayload(),
+                'partySize' => 2,
+            ])
+            ->assertRedirect(route('services.show', [10, 21, 31]))
+            ->assertSessionHasErrors('partySize');
+
+        Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+    }
+
+    public function test_party_size_cannot_exceed_service_maximum(): void
+    {
+        $this->fakeApi(
+            servicePartySizeMode: 'OPTIONAL',
+            serviceMaxPartySize: 4,
+        );
+
+        $this->from(route('services.show', [10, 21, 31]))
+            ->post(route('queue-entries.store', 91), [
+                ...$this->joinPayload(),
+                'partySize' => 5,
+            ])
+            ->assertRedirect(route('services.show', [10, 21, 31]))
+            ->assertSessionHasErrors([
+                'partySize' => 'Party size must not exceed 4.',
+            ]);
+
+        Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+    }
+
+    public function test_conflicting_party_size_retry_keeps_idempotency_attempt(): void
+    {
+        $idempotencyKey = '11111111-1111-4111-8111-111111111111';
+        $this->fakeApi(
+            joinHandler: function (Request $request) use ($idempotencyKey) {
+                $this->assertSame($idempotencyKey, $request->header('Idempotency-Key')[0] ?? null);
+
+                return Http::response([
+                    'message' => 'Idempotency-Key was already used with a different request',
+                ], 409);
+            },
+            servicePartySizeMode: 'REQUIRED',
+            serviceMaxPartySize: 6,
+        );
+
+        $this->withSession([
+            'queueflow.customer.join_attempts' => [
+                '10:21:31:91' => $this->pendingAttempt(31, 91, $idempotencyKey),
+            ],
+        ])->post(route('queue-entries.store', 91), [
+            ...$this->joinPayload(),
+            'partySize' => 4,
+        ])->assertConflict()
+            ->assertSessionHas(
+                'queueflow.customer.join_attempts.10:21:31:91.idempotencyKey',
+                $idempotencyKey,
+            );
+    }
+
     public function test_connection_failure_retains_attempt_and_retry_reuses_same_key(): void
     {
         $sentKeys = [];
@@ -441,6 +555,8 @@ class CustomerQueueEntryTest extends TestCase
         bool $serviceActive = true,
         string $queueStatus = 'OPEN',
         bool $queueMissing = false,
+        string $servicePartySizeMode = 'DISABLED',
+        int $serviceMaxPartySize = 20,
     ): void {
         Http::preventStrayRequests();
         Http::fake(function (Request $request) use (
@@ -451,6 +567,8 @@ class CustomerQueueEntryTest extends TestCase
             $serviceActive,
             $queueStatus,
             $queueMissing,
+            $servicePartySizeMode,
+            $serviceMaxPartySize,
         ) {
             $url = $request->url();
 
@@ -463,7 +581,12 @@ class CustomerQueueEntryTest extends TestCase
             }
 
             if ($url === 'http://localhost:8080/api/v1/businesses/10/branches/21/services/31') {
-                return Http::response($this->service($serviceBranchId, $serviceActive));
+                return Http::response($this->service(
+                    $serviceBranchId,
+                    $serviceActive,
+                    $servicePartySizeMode,
+                    $serviceMaxPartySize,
+                ));
             }
 
             if (str_starts_with(
@@ -516,8 +639,12 @@ class CustomerQueueEntryTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function service(int $branchId, bool $active): array
-    {
+    private function service(
+        int $branchId,
+        bool $active,
+        string $partySizeMode = 'DISABLED',
+        int $maxPartySize = 20,
+    ): array {
         return [
             'id' => 31,
             'branchId' => $branchId,
@@ -526,6 +653,8 @@ class CustomerQueueEntryTest extends TestCase
             'durationMinutes' => 20,
             'active' => $active,
             'createdAt' => '2026-09-30T10:15:30+08:00',
+            'partySizeMode' => $partySizeMode,
+            'maxPartySize' => $maxPartySize,
         ];
     }
 

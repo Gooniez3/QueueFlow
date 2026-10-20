@@ -38,6 +38,9 @@ public class QueueEntry {
     @Column(name = "ticket_sequence", nullable = false)
     private Integer ticketSequence;
 
+    @Column(name = "party_size")
+    private Integer partySize;
+
     @Column(name = "guest_token_hash", length = 255)
     private String guestTokenHash;
 
@@ -143,6 +146,14 @@ public class QueueEntry {
 
     public void setTicketSequence(Integer ticketSequence) {
         this.ticketSequence = ticketSequence;
+    }
+
+    public Integer getPartySize() {
+        return partySize;
+    }
+
+    public void setPartySize(Integer partySize) {
+        this.partySize = partySize;
     }
 
     public String getGuestTokenHash() {

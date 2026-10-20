@@ -19,6 +19,7 @@
         <div class="min-w-0">
             @if ($position->businessName)<p class="truncate font-bold text-customer-navy">{{ $position->businessName }}</p>@endif
             @if ($position->serviceName)<p class="truncate text-sm text-customer-muted">{{ $position->serviceName }}</p>@endif
+            @if ($position->partySize !== null)<p class="mt-1 text-xs font-semibold text-customer-muted">Party of {{ $position->partySize }}</p>@endif
         </div>
         <span @class([
             'customer-status-badge shrink-0',

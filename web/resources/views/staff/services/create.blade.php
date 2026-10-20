@@ -71,6 +71,30 @@
                 @enderror
             </div>
 
+            <div class="grid gap-5 sm:grid-cols-2">
+                <div class="staff-field">
+                    <label class="staff-field-label" for="partySizeMode">Party size</label>
+                    <select class="staff-field-control @error('partySizeMode') staff-field-control-error @enderror" id="partySizeMode" name="partySizeMode" required aria-describedby="party-size-mode-help @error('partySizeMode') partySizeMode-error @enderror" @error('partySizeMode') aria-invalid="true" @enderror>
+                        <option value="DISABLED" @selected(old('partySizeMode', 'DISABLED') === 'DISABLED')>Disabled</option>
+                        <option value="OPTIONAL" @selected(old('partySizeMode') === 'OPTIONAL')>Optional</option>
+                        <option value="REQUIRED" @selected(old('partySizeMode') === 'REQUIRED')>Required</option>
+                    </select>
+                    <p class="staff-field-help" id="party-size-mode-help">Choose whether customers can or must provide the number of people.</p>
+                    @error('partySizeMode')
+                        <p class="staff-field-error" id="partySizeMode-error">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="staff-field">
+                    <label class="staff-field-label" for="maxPartySize">Maximum party size</label>
+                    <input class="staff-field-control @error('maxPartySize') staff-field-control-error @enderror" id="maxPartySize" name="maxPartySize" type="number" min="1" max="100" step="1" inputmode="numeric" required value="{{ old('maxPartySize', 20) }}" aria-describedby="max-party-size-help @error('maxPartySize') maxPartySize-error @enderror" @error('maxPartySize') aria-invalid="true" @enderror>
+                    <p class="staff-field-help" id="max-party-size-help">Allowed range: 1 to 100 people.</p>
+                    @error('maxPartySize')
+                        <p class="staff-field-error" id="maxPartySize-error">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
             <div class="flex flex-col-reverse gap-3 border-t border-staff-line pt-6 sm:flex-row sm:items-center">
                 <a class="staff-secondary-button" href="{{ route('staff.branches.show', [$business->id, $branch->id]) }}">Cancel</a>
                 <button class="staff-primary-button" type="submit">Create service</button>

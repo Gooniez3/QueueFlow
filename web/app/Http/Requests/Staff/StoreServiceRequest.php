@@ -26,6 +26,8 @@ class StoreServiceRequest extends FormRequest
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string'],
             'durationMinutes' => ['required', 'integer', 'min:1'],
+            'partySizeMode' => ['sometimes', 'string', 'in:DISABLED,OPTIONAL,REQUIRED'],
+            'maxPartySize' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];
     }
 }

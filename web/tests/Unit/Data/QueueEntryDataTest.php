@@ -20,6 +20,7 @@ class QueueEntryDataTest extends TestCase
             'status' => 'WAITING',
             'joinedAt' => '2030-04-15T10:30:00+08:00',
             'guestToken' => 'inert-guest-token',
+            'partySize' => 4,
         ]);
 
         $this->assertSame(301, $entry->id);
@@ -32,6 +33,7 @@ class QueueEntryDataTest extends TestCase
         $this->assertInstanceOf(CarbonImmutable::class, $entry->joinedAt);
         $this->assertSame('+08:00', $entry->joinedAt->format('P'));
         $this->assertSame('inert-guest-token', $entry->guestToken);
+        $this->assertSame(4, $entry->partySize);
     }
 
     public function test_maps_registered_user_entry_without_guest_token(): void
@@ -50,6 +52,7 @@ class QueueEntryDataTest extends TestCase
 
         $this->assertSame(42, $entry->userId);
         $this->assertNull($entry->guestToken);
+        $this->assertNull($entry->partySize);
         $this->assertSame('CANCELLED', $entry->status);
     }
 }

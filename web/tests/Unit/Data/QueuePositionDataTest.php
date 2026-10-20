@@ -22,6 +22,7 @@ class QueuePositionDataTest extends TestCase
             'status' => 'WAITING',
             'peopleAhead' => 2,
             'estimatedWaitMinutes' => 40,
+            'partySize' => 4,
         ]);
 
         $this->assertSame(301, $position->entryId);
@@ -36,5 +37,6 @@ class QueuePositionDataTest extends TestCase
         $this->assertSame('WAITING', $position->status);
         $this->assertSame(2, $position->peopleAhead);
         $this->assertSame(40, $position->estimatedWaitMinutes);
+        $this->assertSame(4, $position->partySize);
     }
 }

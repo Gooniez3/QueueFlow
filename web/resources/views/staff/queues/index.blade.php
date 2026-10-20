@@ -191,6 +191,7 @@
 
                         @if ($selectedQueue->serving)
                             <p class="staff-live-ticket text-staff-amber">{{ $selectedQueue->serving->ticketNumber }}</p>
+                            @if ($selectedQueue->serving->partySize !== null)<p class="mt-2 text-sm font-semibold text-white">Party of {{ $selectedQueue->serving->partySize }}</p>@endif
 
                             @if ($selectedQueue->status !== 'CLOSED')
                                 <form method="POST" action="{{ route('staff.live-queues.complete', ['businessId' => $business->id, 'branchId' => $branch->id, 'queueId' => $selectedQueue->queueId, 'entryId' => $selectedQueue->serving->entryId]) }}">
@@ -216,6 +217,7 @@
 
                         @if ($selectedQueue->called)
                             <p class="staff-live-ticket">{{ $selectedQueue->called->ticketNumber }}</p>
+                            @if ($selectedQueue->called->partySize !== null)<p class="mt-2 text-sm font-semibold">Party of {{ $selectedQueue->called->partySize }}</p>@endif
 
                             @if ($selectedQueue->status !== 'CLOSED')
                                 <div class="flex flex-wrap gap-2" aria-label="Called ticket controls">
@@ -267,6 +269,9 @@
                             <li @class(['staff-waiting-row', 'staff-waiting-row-next' => $loop->first])>
                                 <span @class(['staff-waiting-position', 'staff-waiting-position-next' => $loop->first])>{{ $loop->iteration }}</span>
                                 <span class="min-w-0 flex-1 break-words font-staff-display text-lg font-extrabold">{{ $entry->ticketNumber }}</span>
+                                @if ($entry->partySize !== null)
+                                    <span class="text-xs font-semibold text-staff-muted">Party of {{ $entry->partySize }}</span>
+                                @endif
                                 @if ($loop->first)
                                     <span class="staff-live-next-badge">Next up</span>
                                 @endif

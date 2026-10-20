@@ -80,6 +80,8 @@ class ServiceController extends Controller
                     $data['name'],
                     $data['description'] ?? null,
                     (int) $data['durationMinutes'],
+                    $data['partySizeMode'] ?? null,
+                    isset($data['maxPartySize']) ? (int) $data['maxPartySize'] : null,
                 ),
             );
         } catch (QueueFlowApiException $exception) {
@@ -139,6 +141,8 @@ class ServiceController extends Controller
                     $this->normalizeNullableDescription($data['description'] ?? null),
                     (int) $data['durationMinutes'],
                     $request->boolean('active'),
+                    $data['partySizeMode'] ?? null,
+                    isset($data['maxPartySize']) ? (int) $data['maxPartySize'] : null,
                 ),
             );
         } catch (QueueFlowApiException $exception) {
@@ -213,7 +217,7 @@ class ServiceController extends Controller
     {
         $errors = [];
 
-        foreach (['name', 'description', 'durationMinutes'] as $field) {
+        foreach (['name', 'description', 'durationMinutes', 'partySizeMode', 'maxPartySize'] as $field) {
             $message = $exception->validationErrors[$field] ?? null;
 
             if (is_string($message) && $message !== '') {
@@ -233,7 +237,7 @@ class ServiceController extends Controller
     {
         $errors = [];
 
-        foreach (['name', 'description', 'durationMinutes', 'active'] as $field) {
+        foreach (['name', 'description', 'durationMinutes', 'active', 'partySizeMode', 'maxPartySize'] as $field) {
             $message = $exception->validationErrors[$field] ?? null;
 
             if (is_string($message) && $message !== '') {

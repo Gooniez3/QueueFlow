@@ -14,6 +14,8 @@ final readonly class ServiceData
         public int $durationMinutes,
         public bool $active,
         public CarbonImmutable $createdAt,
+        public string $partySizeMode = 'DISABLED',
+        public int $maxPartySize = 20,
     ) {}
 
     /**
@@ -31,6 +33,12 @@ final readonly class ServiceData
             durationMinutes: (int) $data['durationMinutes'],
             active: (bool) $data['active'],
             createdAt: CarbonImmutable::parse((string) $data['createdAt']),
+            partySizeMode: isset($data['partySizeMode'])
+                ? (string) $data['partySizeMode']
+                : 'DISABLED',
+            maxPartySize: isset($data['maxPartySize'])
+                ? (int) $data['maxPartySize']
+                : 20,
         );
     }
 }

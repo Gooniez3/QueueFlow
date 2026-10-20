@@ -349,6 +349,7 @@ class QueueFlowApiClient
         ?int $serviceId = null,
         #[\SensitiveParameter] ?string $token = null,
         #[\SensitiveParameter] ?string $idempotencyKey = null,
+        ?int $partySize = null,
     ): QueueEntryData {
         $request = $this->withQueueCredentials($token);
 
@@ -358,10 +359,16 @@ class QueueFlowApiClient
             ]);
         }
 
+        $payload = ['serviceId' => $serviceId];
+
+        if ($partySize !== null) {
+            $payload['partySize'] = $partySize;
+        }
+
         $response = $this->sendPost(
             $request,
             "/api/v1/queues/{$queueId}/entries",
-            ['serviceId' => $serviceId],
+            $payload,
         );
 
         return QueueEntryData::fromArray($response->json());
@@ -539,15 +546,27 @@ class QueueFlowApiClient
         string $name,
         ?string $description,
         int $durationMinutes,
+        ?string $partySizeMode = null,
+        ?int $maxPartySize = null,
     ): ServiceData {
+        $payload = [
+            'name' => $name,
+            'description' => $description,
+            'durationMinutes' => $durationMinutes,
+        ];
+
+        if ($partySizeMode !== null) {
+            $payload['partySizeMode'] = $partySizeMode;
+        }
+
+        if ($maxPartySize !== null) {
+            $payload['maxPartySize'] = $maxPartySize;
+        }
+
         try {
             $response = $this->client()
                 ->withToken($token)
-                ->post("/api/v1/businesses/{$businessId}/branches/{$branchId}/services", [
-                    'name' => $name,
-                    'description' => $description,
-                    'durationMinutes' => $durationMinutes,
-                ]);
+                ->post("/api/v1/businesses/{$businessId}/branches/{$branchId}/services", $payload);
         } catch (ConnectionException $exception) {
             throw $this->connectionException($exception);
         }
@@ -566,16 +585,28 @@ class QueueFlowApiClient
         ?string $description,
         int $durationMinutes,
         bool $active,
+        ?string $partySizeMode = null,
+        ?int $maxPartySize = null,
     ): ServiceData {
+        $payload = [
+            'name' => $name,
+            'description' => $description,
+            'durationMinutes' => $durationMinutes,
+            'active' => $active,
+        ];
+
+        if ($partySizeMode !== null) {
+            $payload['partySizeMode'] = $partySizeMode;
+        }
+
+        if ($maxPartySize !== null) {
+            $payload['maxPartySize'] = $maxPartySize;
+        }
+
         $response = $this->sendPut(
             $this->client()->withToken($token),
             "/api/v1/businesses/{$businessId}/branches/{$branchId}/services/{$serviceId}",
-            [
-                'name' => $name,
-                'description' => $description,
-                'durationMinutes' => $durationMinutes,
-                'active' => $active,
-            ],
+            $payload,
         );
 
         return ServiceData::fromArray($response->json());

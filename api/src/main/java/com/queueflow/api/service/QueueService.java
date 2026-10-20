@@ -3,6 +3,7 @@ package com.queueflow.api.service;
 import com.queueflow.api.response.PublicQueueResponse;
 import com.queueflow.api.entity.Branch;
 import com.queueflow.api.entity.Queue;
+import com.queueflow.api.entity.PartySizeMode;
 import com.queueflow.api.entity.QueueEntry;
 import com.queueflow.api.entity.QueueEntryStatus;
 import com.queueflow.api.entity.QueueStatus;
@@ -45,6 +46,47 @@ import java.util.UUID;
 @Service
 public class QueueService {
 
+    private Integer validateJoinPartySize(
+            com.queueflow.api.entity.Service service,
+            Integer partySize
+    ) {
+        PartySizeMode mode = service.getPartySizeMode();
+        Integer maxPartySize = service.getMaxPartySize();
+
+        if (mode == null || maxPartySize == null
+                || maxPartySize < 1 || maxPartySize > 100) {
+            throw new IllegalStateException(
+                    "Invalid service party-size configuration"
+            );
+        }
+
+        if (mode == PartySizeMode.DISABLED) {
+            if (partySize != null) {
+                throw new IllegalArgumentException(
+                        "Party size is disabled for this service"
+                );
+            }
+            return null;
+        }
+
+        if (partySize == null) {
+            if (mode == PartySizeMode.REQUIRED) {
+                throw new IllegalArgumentException(
+                        "Party size is required for this service"
+                );
+            }
+            return null;
+        }
+
+        if (partySize < 1 || partySize > maxPartySize) {
+            throw new IllegalArgumentException(
+                    "Party size must be between 1 and "
+                            + maxPartySize
+            );
+        }
+
+        return partySize;
+    }
     private static final List<QueueEntryStatus> ACTIVE_ENTRY_STATUSES =
             List.of(
                     QueueEntryStatus.WAITING,
@@ -318,6 +360,7 @@ public class QueueService {
                         queue,
                         request.serviceId()
                 );
+
          if (userId == null
         && normalizedIdempotencyKey != null) {
 
@@ -346,6 +389,15 @@ public class QueueService {
             QueueEntry existingEntry =
                     existing.getQueueEntry();
 
+            if (!java.util.Objects.equals(
+                    existingEntry.getPartySize(),
+                    request.partySize()
+            )) {
+                throw new IllegalStateException(
+                        "Idempotency-Key was already used with a different request"
+                );
+            }
+
             String guestToken =
                     guestTokenEncryptionService.decrypt(
                             existing.getEncryptedGuestToken()
@@ -369,6 +421,10 @@ public class QueueService {
     }
 }
 
+        Integer validatedPartySize = validateJoinPartySize(
+                service,
+                request.partySize()
+        );
         UserAccount user = null;
         String rawGuestToken = null;
         String guestTokenHash = null;
@@ -423,6 +479,8 @@ public class QueueService {
                 ticketSequence,
                 guestTokenHash
         );
+        queueEntry.setPartySize(validatedPartySize);
+
 
         QueueEntry savedEntry =
                 queueEntryRepository.save(queueEntry);
@@ -704,7 +762,8 @@ public class QueueService {
         ticketNumber,
         entry.getStatus(),
         peopleAhead,
-        estimatedWaitMinutes
+        estimatedWaitMinutes,
+        entry.getPartySize()
    );
     }
 
@@ -1956,7 +2015,8 @@ return toStaffEntryResponse(
                 ticketNumber,
                 entry.getStatus(),
                 entry.getJoinedAt(),
-                guestToken
+                guestToken,
+                entry.getPartySize()
         );
     }
 
@@ -1993,7 +2053,8 @@ return toStaffEntryResponse(
                 entry.getCalledAt(),
                 entry.getServingAt(),
                 entry.getCompletedAt(),
-                entry.getCancelledAt()
+                entry.getCancelledAt(),
+                entry.getPartySize()
         );
     }
     private String normalizeIdempotencyKey(
