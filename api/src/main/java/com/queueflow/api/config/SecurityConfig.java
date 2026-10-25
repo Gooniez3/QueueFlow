@@ -104,6 +104,7 @@ public class SecurityConfig {
                                 "/api/v1/public/discovery",
                                 "/api/v1/public/businesses/resolve/{publicCode}",
                                 "/api/v1/public/branches/resolve/{publicCode}",
+                                "/api/v1/public/services/resolve-entry-code/{entryCode}",
                                 "/api/v1/public/queues/{publicCode}/events"
                         ).permitAll()
 

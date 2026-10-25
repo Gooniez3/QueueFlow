@@ -7,6 +7,7 @@ import com.queueflow.api.repository.ServiceRepository;
 import com.queueflow.api.request.CreateServiceRequest;
 import com.queueflow.api.request.UpdateServiceRequest;
 import com.queueflow.api.response.ServiceResponse;
+import com.queueflow.api.support.QueueEntryCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -232,7 +233,8 @@ public class ServiceService {
                 service.isActive(),
                 service.getCreatedAt(),
                 service.getPartySizeMode(),
-                service.getMaxPartySize()
+                service.getMaxPartySize(),
+                QueueEntryCode.format(service.getQueueEntryCode())
         );
     }
 }

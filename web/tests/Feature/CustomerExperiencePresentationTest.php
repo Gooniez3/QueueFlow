@@ -161,18 +161,19 @@ class CustomerExperiencePresentationTest extends TestCase
             ->assertDontSee('href="#"', false);
     }
 
-    public function test_scanner_uses_camera_progressively_without_a_fake_join_request(): void
+    public function test_scanner_offers_camera_and_manual_preview_without_a_join_request(): void
     {
         $response = $this->get(route('scanner.show'));
 
         $response->assertOk()
             ->assertViewIs('scanner.show')
             ->assertSee('Scan to join a queue')
-            ->assertSee('Enter queue code')
-            ->assertSee('Join with code')
-            ->assertSee('navigator.mediaDevices?.getUserMedia', false)
+            ->assertSee('data-scanner', false)
+            ->assertSee('data-enable-camera', false)
             ->assertSee('customer-scan-line', false)
-            ->assertDontSee('<form', false)
+            ->assertSee('action="'.route('scanner.entry-code.resolve').'"', false)
+            ->assertSee('View queue')
+            ->assertSee('Viewing a queue does not create a ticket.')
             ->assertDontSee('guestToken')
             ->assertDontSee('Idempotency-Key')
             ->assertDontSee('Authorization')

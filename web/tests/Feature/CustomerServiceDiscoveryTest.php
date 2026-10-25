@@ -54,6 +54,55 @@ class CustomerServiceDiscoveryTest extends TestCase
             ->assertDontSee('Bearer');
     }
 
+    public function test_trusted_local_proxy_generates_https_join_url_without_trusting_forwarded_host(): void
+    {
+        $this->mockDiscoveryResources();
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->andReturn($this->queue('OPEN'));
+
+        $response = $this->withServerVariables([
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_HOST' => 'attacker.example',
+        ])->get('http://winds-plug-may-population.trycloudflare.com/businesses/10/branches/21/services/31');
+
+        $response->assertOk()
+            ->assertSee('action="https://winds-plug-may-population.trycloudflare.com/queues/91/entries"', false)
+            ->assertSee('href="https://winds-plug-may-population.trycloudflare.com/businesses/10/branches/21"', false)
+            ->assertDontSee('attacker.example');
+    }
+
+    public function test_local_http_request_keeps_http_join_url(): void
+    {
+        $this->mockDiscoveryResources();
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->andReturn($this->queue('OPEN'));
+
+        $response = $this->withServerVariables([
+            'REMOTE_ADDR' => '127.0.0.1',
+        ])->get('http://127.0.0.1:8001/businesses/10/branches/21/services/31');
+
+        $response->assertOk()
+            ->assertSee('action="http://127.0.0.1:8001/queues/91/entries"', false);
+    }
+
+    public function test_untrusted_client_cannot_spoof_forwarded_scheme_or_host(): void
+    {
+        $this->mockDiscoveryResources();
+        $customerQueueService = $this->mock(QueueFlowCustomerQueueService::class);
+        $customerQueueService->shouldReceive('applicableQueue')->once()->andReturn($this->queue('OPEN'));
+
+        $response = $this->withServerVariables([
+            'REMOTE_ADDR' => '203.0.113.10',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_HOST' => 'attacker.example',
+        ])->get('http://127.0.0.1:8001/businesses/10/branches/21/services/31');
+
+        $response->assertOk()
+            ->assertSee('action="http://127.0.0.1:8001/queues/91/entries"', false)
+            ->assertDontSee('attacker.example');
+    }
+
     public function test_disabled_party_size_hides_selector(): void
     {
         $this->mockDiscoveryResources($this->service(partySizeMode: 'DISABLED'));

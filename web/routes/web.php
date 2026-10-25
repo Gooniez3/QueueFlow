@@ -14,6 +14,7 @@ use App\Http\Controllers\Staff\BusinessController;
 use App\Http\Controllers\Staff\LiveQueueController;
 use App\Http\Controllers\Staff\QueueController as StaffQueueController;
 use App\Http\Controllers\Staff\QueueEntryQrController;
+use App\Http\Controllers\Staff\QueueEntryQrDisplayController;
 use App\Http\Controllers\Staff\RealtimeController;
 use App\Http\Controllers\Staff\RegisteredStaffController;
 use App\Http\Controllers\Staff\ServiceController;
@@ -28,6 +29,9 @@ Route::get('/places/{category}', [CustomerExperienceController::class, 'category
 Route::get('/account', [CustomerExperienceController::class, 'account'])->name('account.show');
 Route::get('/more', [CustomerExperienceController::class, 'more'])->name('more.show');
 Route::get('/scanner', [CustomerExperienceController::class, 'scanner'])->name('scanner.show');
+Route::post('/scanner/resolve-entry-code', [CustomerExperienceController::class, 'resolveQueueEntryCode'])
+    ->middleware('throttle:30,1')
+    ->name('scanner.entry-code.resolve');
 Route::get('/businesses/{businessId}', [CustomerBusinessController::class, 'show'])
     ->whereNumber('businessId')
     ->name('businesses.show');
@@ -123,6 +127,23 @@ Route::prefix('staff')->name('staff.')->group(function (): void {
                 ->whereNumber(['businessId', 'branchId'])
                 ->middleware('queueflow.branch.member')
                 ->name('queue-entry-qr.verify');
+
+            Route::get('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entry-qr', [QueueEntryQrDisplayController::class, 'show'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->middleware('queueflow.branch.member')
+                ->name('queue-entry-qr-display.show');
+            Route::get('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entry-qr/poster', [QueueEntryQrDisplayController::class, 'poster'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->middleware('queueflow.branch.member')
+                ->name('queue-entry-qr-display.poster');
+            Route::get('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entry-qr/download', [QueueEntryQrDisplayController::class, 'downloadQr'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->middleware('queueflow.branch.member')
+                ->name('queue-entry-qr-display.download');
+            Route::get('/businesses/{businessId}/branches/{branchId}/queues/{queueId}/entry-qr/poster/download', [QueueEntryQrDisplayController::class, 'downloadPoster'])
+                ->whereNumber(['businessId', 'branchId', 'queueId'])
+                ->middleware('queueflow.branch.member')
+                ->name('queue-entry-qr-display.poster.download');
 
             Route::get('/businesses/{businessId}/branches/{branchId}/events', [RealtimeController::class, 'branch'])
                 ->whereNumber(['businessId', 'branchId'])

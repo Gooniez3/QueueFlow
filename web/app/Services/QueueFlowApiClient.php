@@ -10,6 +10,7 @@ use App\Data\PublicDiscoveryData;
 use App\Data\PublicQueueBoardData;
 use App\Data\PublicQueueResolveData;
 use App\Data\QueueData;
+use App\Data\QueueEntryCodeResolveData;
 use App\Data\QueueEntryData;
 use App\Data\QueueEntryQrCredentialData;
 use App\Data\QueueEntryQrVerificationData;
@@ -332,6 +333,16 @@ class QueueFlowApiClient
         );
 
         return PublicQueueResolveData::fromArray($response->json());
+    }
+
+    public function resolveQueueEntryCode(string $entryCode): QueueEntryCodeResolveData
+    {
+        $response = $this->sendGet(
+            $this->client(),
+            '/api/v1/public/services/resolve-entry-code/'.rawurlencode($entryCode),
+        );
+
+        return QueueEntryCodeResolveData::fromArray($response->json());
     }
 
     public function publicQueueBoard(int $queueId): PublicQueueBoardData

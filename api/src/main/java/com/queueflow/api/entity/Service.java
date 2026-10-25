@@ -1,5 +1,6 @@
 package com.queueflow.api.entity;
 
+import com.queueflow.api.support.QueueEntryCode;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
@@ -26,6 +27,15 @@ public class Service {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    @Column(
+            name = "queue_entry_code",
+            nullable = false,
+            unique = true,
+            length = 14,
+            updatable = false
+    )
+    private String queueEntryCode;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "party_size_mode", nullable = false, length = 20)
@@ -59,6 +69,10 @@ public class Service {
     @PrePersist
     protected void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
+        if (queueEntryCode == null || queueEntryCode.isBlank()) {
+            queueEntryCode = QueueEntryCode.generate();
+        }
+
         createdAt = now;
         updatedAt = now;
     }
@@ -106,6 +120,10 @@ public class Service {
 
     public boolean isActive() {
         return active;
+    }
+
+    public String getQueueEntryCode() {
+        return queueEntryCode;
     }
 
     public void setActive(boolean active) {
