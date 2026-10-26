@@ -36,11 +36,15 @@ if (scannerRoot) {
         }
     };
 
+    const stopStream = (cameraStream) => {
+        cameraStream?.getTracks().forEach((track) => track.stop());
+    };
+
     const stopResources = () => {
         cancelFrame();
         controls?.stop();
         controls = null;
-        stream?.getTracks().forEach((track) => track.stop());
+        stopStream(stream);
         stream = null;
         if (video) video.srcObject = null;
     };
@@ -53,7 +57,8 @@ if (scannerRoot) {
         if (message) setStatus(message);
     };
 
-    const isCurrentRun = (currentRun) => currentRun === runId && phase !== 'idle' && phase !== 'submitted';
+    const isCurrentRun = (currentRun) => currentRun === runId
+        && (phase === 'starting' || phase === 'scanning');
 
     const submitCredential = (value) => {
         const normalized = value?.trim();
@@ -117,17 +122,19 @@ if (scannerRoot) {
         if (!isCurrentRun(currentRun)) return;
 
         const reader = new BrowserMultiFormatReader();
-        controls = await reader.decodeFromVideoElement(video, (result) => {
+        const fallbackControls = await reader.decodeFromVideoElement(video, (result) => {
             if (isCurrentRun(currentRun) && result) submitCredential(result.getText());
         });
 
         if (!isCurrentRun(currentRun)) {
-            controls?.stop();
-            controls = null;
+            fallbackControls.stop();
+            return;
         }
+
+        controls = fallbackControls;
     };
 
-    const openCamera = async () => {
+    const openCamera = async (currentRun) => {
         const constraints = [
             { video: { facingMode: { exact: 'environment' } }, audio: false },
             { video: { facingMode: { ideal: 'environment' } }, audio: false },
@@ -136,11 +143,13 @@ if (scannerRoot) {
 
         let lastError;
         for (const constraint of constraints) {
+            if (!isCurrentRun(currentRun)) return null;
+
             try {
-                stream = await navigator.mediaDevices.getUserMedia(constraint);
-                return stream;
+                return await navigator.mediaDevices.getUserMedia(constraint);
             } catch (error) {
                 lastError = error;
+                if (!isCurrentRun(currentRun)) return null;
                 if (!['OverconstrainedError', 'NotFoundError'].includes(error.name)) break;
             }
         }
@@ -161,17 +170,21 @@ if (scannerRoot) {
         phase = 'starting';
         setControls();
 
+        let cameraStream;
+
         try {
-            await openCamera();
+            cameraStream = await openCamera(currentRun);
             if (!isCurrentRun(currentRun)) {
-                stopResources();
+                stopStream(cameraStream);
                 return;
             }
 
-            video.srcObject = stream;
+            stream = cameraStream;
+            video.srcObject = cameraStream;
             await video.play();
             if (!isCurrentRun(currentRun)) {
-                stopResources();
+                stopStream(cameraStream);
+                if (video.srcObject === cameraStream) video.srcObject = null;
                 return;
             }
 
@@ -187,7 +200,10 @@ if (scannerRoot) {
                 await scanWithFallback(currentRun);
             }
         } catch (error) {
-            if (!isCurrentRun(currentRun)) return;
+            if (!isCurrentRun(currentRun)) {
+                stopStream(cameraStream);
+                return;
+            }
 
             stopScanning();
             if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {

@@ -16,6 +16,7 @@ final readonly class ServiceData
         public CarbonImmutable $createdAt,
         public string $partySizeMode = 'DISABLED',
         public int $maxPartySize = 20,
+        public string $queueEntryCode = '',
     ) {}
 
     /**
@@ -39,6 +40,9 @@ final readonly class ServiceData
             maxPartySize: isset($data['maxPartySize'])
                 ? (int) $data['maxPartySize']
                 : 20,
+            queueEntryCode: isset($data['queueEntryCode'])
+                ? (string) $data['queueEntryCode']
+                : '',
         );
     }
 }

@@ -5,8 +5,8 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test": "node --test tests/JavaScript/*.test.js",
-        "test:account": "node --test tests/JavaScript/customer-account.test.js"
+"test": "node --test \"tests/JavaScript/**/*.test.js\"",
+"test:account": "node --test tests/JavaScript/customer-account.test.js"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

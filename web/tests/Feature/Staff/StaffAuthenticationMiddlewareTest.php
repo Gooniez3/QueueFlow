@@ -29,6 +29,21 @@ class StaffAuthenticationMiddlewareTest extends TestCase
         $response->assertSessionHas('error', 'Please sign in to continue.');
     }
 
+    public function test_trusted_local_proxy_generates_https_redirect(): void
+    {
+        $this->mock(QueueFlowAuthService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('hasAuthSession')->once()->andReturnFalse();
+            $mock->shouldNotReceive('currentUser');
+        });
+
+        $response = $this->withServerVariables([
+            'REMOTE_ADDR' => '::1',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+        ])->get('http://winds-plug-may-population.trycloudflare.com/staff');
+
+        $response->assertRedirect('https://winds-plug-may-population.trycloudflare.com/staff/login');
+    }
+
     public function test_staff_home_allows_authenticated_staff_after_spring_verification(): void
     {
         $context = [

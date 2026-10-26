@@ -12,7 +12,8 @@ public record ServiceResponse(
         boolean active,
         OffsetDateTime createdAt,
         PartySizeMode partySizeMode,
-        Integer maxPartySize
+        Integer maxPartySize,
+        String queueEntryCode
 ) {
     public ServiceResponse(
             Long id,
@@ -32,7 +33,8 @@ public record ServiceResponse(
                 active,
                 createdAt,
                 PartySizeMode.DISABLED,
-                20
+                20,
+                null
         );
     }
 }

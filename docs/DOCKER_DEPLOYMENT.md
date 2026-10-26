@@ -84,3 +84,15 @@ The frontend developer is responsible for Laravel configuration,
 deployment, and integration.
 
 Any required changes inside web/ must be communicated to that developer.
+
+## Service-entry QR public origin
+
+Set `QUEUEFLOW_PUBLIC_URL` to the stable, publicly reachable HTTPS origin of
+the Laravel application before generating service-entry QR posters in staging
+or production. The value must be an origin only: do not include credentials,
+a base path, a query string, or a fragment.
+
+Cloudflare Quick Tunnel (`*.trycloudflare.com`) URLs are for local development
+and manual device testing only. They are temporary. When a tunnel URL rotates,
+previously generated posters still point to the old URL and must be regenerated
+after `QUEUEFLOW_PUBLIC_URL` is updated.
