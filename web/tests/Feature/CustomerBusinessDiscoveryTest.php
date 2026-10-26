@@ -10,6 +10,12 @@ use Tests\TestCase;
 
 class CustomerBusinessDiscoveryTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     public function test_public_business_page_displays_real_branches_and_links(): void
     {
         Http::preventStrayRequests();

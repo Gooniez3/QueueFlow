@@ -3,9 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Data\PublicDiscoveryData;
+use App\Exceptions\GuestQueueOwnershipException;
+use App\Exceptions\QueueFlowApiException;
 use App\Presentation\CustomerDemoPresentation;
+use App\Services\GuestFavouriteStore;
+use App\Services\GuestQueueOwnershipStore;
 use App\Services\QueueFlowApiClient;
+use App\Services\QueueFlowCustomerQueueService;
 use App\Support\BusinessCategories;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -14,6 +20,9 @@ class CustomerExperienceController extends Controller
     public function __construct(
         private readonly CustomerDemoPresentation $demoPresentation,
         private readonly QueueFlowApiClient $apiClient,
+        private readonly GuestQueueOwnershipStore $ownershipStore,
+        private readonly GuestFavouriteStore $favouriteStore,
+        private readonly QueueFlowCustomerQueueService $customerQueueService,
     ) {}
 
     public function places(Request $request): View
@@ -94,15 +103,88 @@ class CustomerExperienceController extends Controller
 
     public function account(): View
     {
+        $tickets = $this->ownershipStore->all();
+        $servedCount = $tickets === [] ? 0 : null;
+
+        if ($tickets !== []) {
+            try {
+                $classified = $this->customerQueueService->classifiedOwnedTickets();
+
+                if ($classified['unclassified'] === [] && $classified['unavailable'] === []) {
+                    $servedCount = count(array_filter(
+                        $classified['history'],
+                        static fn ($ticket): bool => $ticket->position->status === 'COMPLETED',
+                    ));
+                }
+            } catch (QueueFlowApiException|GuestQueueOwnershipException) {
+                $servedCount = null;
+            }
+        }
+
         return view('account.show', [
-            'account' => $this->demoPresentation->account(),
+            'account' => $this->demoPresentation->account(
+                count($tickets),
+                $this->favouriteStore->count(),
+                $servedCount,
+            ),
         ]);
+    }
+
+    public function favourites(): View
+    {
+        $places = [];
+
+        foreach ($this->favouriteStore->all() as $businessId) {
+            $business = null;
+            $availability = 'missing';
+
+            try {
+                $resolved = $this->apiClient->business($businessId);
+                $business = $resolved->id === $businessId ? $resolved : null;
+            } catch (QueueFlowApiException $exception) {
+                // Keep unavailable saved IDs removable without inventing place data.
+                $availability = $exception->status === 404 ? 'missing' : 'unavailable';
+            }
+
+            $places[] = [
+                'id' => $businessId,
+                'business' => $business,
+                'availability' => $business !== null ? 'available' : ($availability ?? 'missing'),
+            ];
+        }
+
+        return view('account.favourites', ['favourites' => $places]);
+    }
+
+    public function clearDeviceData(): RedirectResponse
+    {
+        try {
+            $this->ownershipStore->clear();
+            $this->favouriteStore->clear();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors([
+                'deviceData' => 'QueueFlow could not clear the saved data. Please try again.',
+            ]);
+        }
+
+        return redirect()
+            ->route('account.show')
+            ->with('status', 'Saved QueueFlow data was cleared from this browser.');
     }
 
     public function more(): View
     {
         return view('more.show', [
             'more' => $this->demoPresentation->more(),
+        ]);
+    }
+
+    public function information(string $page): View
+    {
+        return view('more.information', [
+            'information' => $this->demoPresentation->informationPage($page),
         ]);
     }
 

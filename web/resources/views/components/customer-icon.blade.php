@@ -33,6 +33,12 @@
             <path d="M9.7 9a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.3 1-1.3 1.7v.5M12 17h.01" />
             @break
 
+        @case('life-buoy')
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="3" />
+            <path d="m5.64 5.64 4.24 4.24M14.12 14.12l4.24 4.24M18.36 5.64l-4.24 4.24M9.88 14.12l-4.24 4.24" />
+            @break
+
         @case('trash')
             <path d="M4 7h16M9 7V4h6v3M6.5 7l.7 13h9.6l.7-13M10 11v5M14 11v5" />
             @break
@@ -48,9 +54,46 @@
             <path d="M7 18h3a2 2 0 0 0 2-2V8a2 2 0 0 1 2-2h3M14 10l-2-2-2 2" />
             @break
 
+        @case('map-pin')
+            <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
+            <circle cx="12" cy="10" r="2.5" />
+            @break
+
+        @case('clock')
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+            @break
+
+        @case('list-check')
+            <path d="M11 6h10M11 12h10M11 18h10M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17" />
+            @break
+
         @case('message-question')
             <path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-6a8 8 0 1 1 18-4Z" />
             <path d="M9.8 9a2.3 2.3 0 1 1 3.3 2.1c-.7.4-1.1.9-1.1 1.6M12 16h.01" />
+            @break
+
+        @case('book-open')
+            <path d="M2 4h6a4 4 0 0 1 4 4v13a4 4 0 0 0-4-4H2V4ZM22 4h-6a4 4 0 0 0-4 4v13a4 4 0 0 1 4-4h6V4Z" />
+            @break
+
+        @case('qr-code')
+            <path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2M21 15v2M15 21h2M21 21h.01M18 18h3" />
+            @break
+
+        @case('clock-alert')
+            <circle cx="11" cy="12" r="8" />
+            <path d="M11 8v4l3 2M20 14v3M20 20h.01" />
+            @break
+
+        @case('user-round')
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21a8 8 0 0 1 16 0" />
+            @break
+
+        @case('ticket')
+            <path d="M3 5h18v5a2 2 0 0 0 0 4v5H3v-5a2 2 0 0 0 0-4V5Z" />
+            <path d="M13 5v2M13 11v2M13 17v2" />
             @break
 
         @case('document-text')

@@ -8,6 +8,12 @@ use Tests\TestCase;
 
 class CustomerExperiencePresentationTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     public function test_places_uses_real_discovery_categories_and_businesses(): void
     {
         Http::preventStrayRequests();

@@ -127,19 +127,35 @@ class QueueFlowCustomerQueueService
      * @return array{
      *     active: list<CustomerOwnedTicketData>,
      *     history: list<CustomerOwnedTicketData>,
-     *     unclassified: list<CustomerOwnedTicketData>
+     *     unclassified: list<CustomerOwnedTicketData>,
+     *     unavailable: list<GuestQueueOwnershipData>
      * }
      */
     public function classifiedOwnedTickets(): array
     {
         $tickets = [];
+        $unavailable = [];
 
         foreach ($this->ownershipStore->all() as $ownership) {
-            $position = $this->position($ownership->queueId, $ownership->entryId);
+            try {
+                $position = $this->position($ownership->queueId, $ownership->entryId);
 
-            if ($position->queueId !== $ownership->queueId
-                || $position->entryId !== $ownership->entryId) {
-                throw GuestQueueOwnershipException::missing();
+                if ($position->queueId !== $ownership->queueId
+                    || $position->entryId !== $ownership->entryId) {
+                    throw GuestQueueOwnershipException::missing();
+                }
+            } catch (GuestQueueOwnershipException) {
+                $unavailable[] = $ownership;
+
+                continue;
+            } catch (QueueFlowApiException $exception) {
+                if (! in_array($exception->status, [403, 404], true)) {
+                    throw $exception;
+                }
+
+                $unavailable[] = $ownership;
+
+                continue;
             }
 
             $tickets[] = new CustomerOwnedTicketData($ownership, $position);
@@ -166,6 +182,7 @@ class QueueFlowCustomerQueueService
                 $tickets,
                 fn (CustomerOwnedTicketData $ticket): bool => ! $ticket->isActive() && ! $ticket->isTerminal(),
             )),
+            'unavailable' => $unavailable,
         ];
     }
 

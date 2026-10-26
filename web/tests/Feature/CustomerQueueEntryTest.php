@@ -12,6 +12,12 @@ use Tests\TestCase;
 
 class CustomerQueueEntryTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     public function test_join_route_is_public_numeric_and_has_no_staff_middleware(): void
     {
         $route = Route::getRoutes()->getByName('queue-entries.store');

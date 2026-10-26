@@ -3,6 +3,8 @@ import {
     queueFlowPublicRealtimeBaseUrl,
 } from './realtime.js';
 import './staff-qr-scanner.js';
+import './customer-account.js';
+import './customer-faq.js';
 
 // Keep the small realtime API available to later Blade checkpoints without
 // exposing any server-side authentication state to the browser.

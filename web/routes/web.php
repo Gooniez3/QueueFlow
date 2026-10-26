@@ -26,11 +26,23 @@ Route::get('/places/{category}', [CustomerExperienceController::class, 'category
     ->where('category', '[a-z-]+')
     ->name('places.show');
 Route::get('/account', [CustomerExperienceController::class, 'account'])->name('account.show');
+Route::get('/account/favourites', [CustomerExperienceController::class, 'favourites'])->name('account.favourites');
+Route::post('/account/clear-device-data', [CustomerExperienceController::class, 'clearDeviceData'])
+    ->name('account.device-data.clear');
 Route::get('/more', [CustomerExperienceController::class, 'more'])->name('more.show');
+Route::get('/more/{page}', [CustomerExperienceController::class, 'information'])
+    ->where('page', 'about|how-it-works|faq|help|terms|privacy')
+    ->name('more.information');
 Route::get('/scanner', [CustomerExperienceController::class, 'scanner'])->name('scanner.show');
 Route::get('/businesses/{businessId}', [CustomerBusinessController::class, 'show'])
     ->whereNumber('businessId')
     ->name('businesses.show');
+Route::post('/businesses/{businessId}/favourites', [CustomerBusinessController::class, 'addFavourite'])
+    ->whereNumber('businessId')
+    ->name('businesses.favourites.store');
+Route::delete('/businesses/{businessId}/favourites', [CustomerBusinessController::class, 'removeFavourite'])
+    ->whereNumber('businessId')
+    ->name('businesses.favourites.remove');
 Route::get('/businesses/{businessId}/branches/{branchId}', [CustomerBranchController::class, 'show'])
     ->whereNumber(['businessId', 'branchId'])
     ->name('branches.show');
