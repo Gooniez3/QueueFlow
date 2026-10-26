@@ -16,6 +16,12 @@ use Tests\TestCase;
 
 class CustomerTicketStatusTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     public function test_my_tickets_renders_empty_state_without_mock_ticket(): void
     {
         $response = $this->get(route('tickets.show'));

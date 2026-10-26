@@ -11,6 +11,12 @@ use Tests\TestCase;
 
 class CustomerHomeTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     public function test_customer_home_uses_real_public_businesses_and_links(): void
     {
         Http::preventStrayRequests();

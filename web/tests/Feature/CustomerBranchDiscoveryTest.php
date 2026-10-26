@@ -8,6 +8,12 @@ use Tests\TestCase;
 
 class CustomerBranchDiscoveryTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     public function test_public_nested_branch_displays_services_and_active_links(): void
     {
         Http::preventStrayRequests();

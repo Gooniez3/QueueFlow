@@ -30,6 +30,13 @@
                         @endif
                     </div>
                 </div>
+                <form class="mt-4" method="post" action="{{ route($isFavourite ? 'businesses.favourites.remove' : 'businesses.favourites.store', $business->id) }}">
+                    @csrf
+                    @if ($isFavourite) @method('delete') @endif
+                    <button type="submit" aria-pressed="{{ $isFavourite ? 'true' : 'false' }}" class="rounded-xl border border-customer-indigo/20 px-4 py-2 text-sm font-semibold text-customer-indigo focus-visible:outline-2 focus-visible:outline-customer-indigo">
+                        {{ $isFavourite ? 'Remove from favourites' : 'Add to favourites' }}
+                    </button>
+                </form>
             </div>
 
             <h2 id="branches-heading" class="mt-7 text-lg font-bold tracking-[-0.025em]">Available locations</h2>

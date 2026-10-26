@@ -16,6 +16,12 @@ use Tests\TestCase;
 
 class CustomerServiceDiscoveryTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     public function test_open_active_service_renders_secure_join_form(): void
     {
         $this->mockDiscoveryResources();

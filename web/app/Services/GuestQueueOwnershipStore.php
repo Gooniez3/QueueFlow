@@ -53,11 +53,16 @@ class GuestQueueOwnershipStore
             $ownership = $this->ownershipFromSession($entry);
 
             if ($ownership !== null) {
-                $ownerships[] = $ownership;
+                $ownerships[$this->ownershipKey($ownership->queueId, $ownership->entryId)] = $ownership;
             }
         }
 
-        return $ownerships;
+        return array_values($ownerships);
+    }
+
+    public function clear(): void
+    {
+        $this->session->forget(self::SESSION_KEY);
     }
 
     public function remove(int $queueId, int $entryId): void

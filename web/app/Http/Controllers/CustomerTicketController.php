@@ -30,6 +30,7 @@ class CustomerTicketController extends Controller
             'activeTickets' => $classifiedTickets['active'],
             'historyTickets' => $classifiedTickets['history'],
             'unclassifiedTickets' => $classifiedTickets['unclassified'],
+            'unavailableTickets' => $classifiedTickets['unavailable'],
             'tab' => $tab,
         ]);
     }

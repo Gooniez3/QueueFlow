@@ -2,8 +2,8 @@
     $isHome = request()->routeIs('home');
     $isPlaces = request()->routeIs('places.*', 'businesses.show', 'branches.show', 'services.show');
     $isTicket = request()->routeIs('tickets.show', 'queue-entries.show');
-    $isAccount = request()->routeIs('account.show');
-    $isMore = request()->routeIs('more.show');
+    $isAccount = request()->routeIs('account.show', 'account.favourites');
+    $isMore = request()->routeIs('more.show', 'more.information');
     $activeDestination = match (true) {
         $isPlaces => 'places',
         $isTicket => 'ticket',

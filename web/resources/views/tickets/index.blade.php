@@ -21,7 +21,7 @@
             @if (session('status'))<p class="mt-4 rounded-2xl bg-customer-green/10 px-4 py-3 text-sm font-semibold text-customer-green" role="status">{{ session('status') }}</p>@endif
 
             <section class="mt-5" aria-label="Your tickets">
-                @if ($tab === 'active' && $activeTickets === [] && $historyTickets === [] && $unclassifiedTickets === [])
+                @if ($tab === 'active' && $activeTickets === [] && $historyTickets === [] && $unclassifiedTickets === [] && $unavailableTickets === [])
                     <div class="px-2 pt-14 text-center">
                         <div class="relative mx-auto h-24 w-40" aria-hidden="true"><span class="absolute top-1 left-5 h-20 w-28 -rotate-6 rounded-2xl bg-customer-indigo/10"></span><span class="absolute top-3 left-8 grid h-20 w-28 rotate-6 place-items-center rounded-2xl bg-customer-yellow text-2xl font-bold tracking-[-0.04em]">A-000</span></div>
                         <p class="mt-6 text-2xl font-bold tracking-[-0.035em]">No tickets yet</p><p class="mx-auto mt-2 max-w-xs text-sm leading-5 text-customer-muted">Scan the QR code at the counter to join a queue and get your ticket.</p>
@@ -38,7 +38,7 @@
                     </div>
                 @endif
 
-                @if ($tab === 'active' && $activeTickets === [] && ($historyTickets !== [] || $unclassifiedTickets !== []))
+                @if ($tab === 'active' && $activeTickets === [] && ($historyTickets !== [] || $unclassifiedTickets !== [] || $unavailableTickets !== []))
                     <div class="px-2 pt-12 text-center">
                         <p class="text-2xl font-bold tracking-[-0.035em]">No active tickets</p>
                         <p class="mx-auto mt-2 max-w-xs text-sm leading-5 text-customer-muted">Scan the QR code at the counter to join a queue and get your ticket.</p>
@@ -55,10 +55,17 @@
                     </div>
                 @endif
 
-                @if ($tab === 'history' && $historyTickets === [])
+                @if ($tab === 'history' && $historyTickets === [] && $unavailableTickets === [])
                     <div class="px-2 pt-12 text-center">
                         <p class="text-2xl font-bold tracking-[-0.035em]">No ticket history yet.</p>
                         <p class="mx-auto mt-2 max-w-xs text-sm leading-5 text-customer-muted">Completed, cancelled, or skipped tickets will appear here.</p>
+                    </div>
+                @endif
+
+                @if ($unavailableTickets !== [])
+                    <div class="customer-empty-state mt-7" role="status">
+                        <p class="text-sm font-bold">Some saved tickets are unavailable.</p>
+                        <p class="mt-1 text-xs text-customer-muted">They may have expired or been removed. Other tickets are shown where available; no missing ticket status is inferred.</p>
                     </div>
                 @endif
 
