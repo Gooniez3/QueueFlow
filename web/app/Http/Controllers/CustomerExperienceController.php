@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Data\PublicDiscoveryData;
+use App\Exceptions\QueueFlowApiException;
+use App\Http\Requests\ResolveQueueEntryCodeRequest;
 use App\Presentation\CustomerDemoPresentation;
 use App\Services\QueueFlowApiClient;
 use App\Support\BusinessCategories;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -108,6 +111,42 @@ class CustomerExperienceController extends Controller
 
     public function scanner(): View
     {
-        return view('scanner.show');
+        $publicUrl = (string) config('services.queueflow.public_web_url');
+
+        return view('scanner.show', [
+            'queueFlowPublicOrigin' => parse_url($publicUrl, PHP_URL_SCHEME).'://'.parse_url($publicUrl, PHP_URL_HOST)
+                .(parse_url($publicUrl, PHP_URL_PORT) ? ':'.parse_url($publicUrl, PHP_URL_PORT) : ''),
+        ]);
+    }
+
+    public function resolveQueueEntryCode(ResolveQueueEntryCodeRequest $request): RedirectResponse
+    {
+        try {
+            $resolvedCode = $this->apiClient->resolveQueueEntryCode($request->entryCode());
+        } catch (QueueFlowApiException $exception) {
+            if ($exception->status === 404) {
+                return back()
+                    ->withErrors(['entryCode' => 'That queue code is invalid. Check the code and try again.'])
+                    ->withInput();
+            }
+
+            if ($exception->status === 409) {
+                return back()
+                    ->withErrors(['entryCode' => 'That service is currently unavailable.'])
+                    ->withInput();
+            }
+
+            report($exception);
+
+            return back()
+                ->withErrors(['entryCode' => 'QueueFlow could not check that code right now. Please try again.'])
+                ->withInput();
+        }
+
+        return redirect()->route('services.show', [
+            'businessId' => $resolvedCode->businessId,
+            'branchId' => $resolvedCode->branchId,
+            'serviceId' => $resolvedCode->serviceId,
+        ]);
     }
 }

@@ -36,6 +36,22 @@
             <path d="M8 8h8v8H8z" />
         @break
 
+        @case('qr')
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <path d="M14 14h3v3h-3zM19 14h2M19 19h2M14 19h3v2" />
+        @break
+
+        @case('print')
+            <path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
+            <path d="M7 14h10v7H7z" />
+        @break
+
+        @case('download')
+            <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+        @break
+
         @case('business')
             <path d="M4 20V5h10v15M14 10h6v10M8 9h2M8 13h2M8 17h2M4 20h16" />
         @break
